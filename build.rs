@@ -103,7 +103,7 @@ like <bold>"next Friday at 2:00"</bold> or <bold>"in 3 days"</bold> into machine
     version,
     color = clap::ColorChoice::Auto,
     after_long_help = AFTER_LONG_HELP,
-    after_help = cstr!("For more information, visit <underline>https://github.com/hvpaiva/tardis</underline>"),
+    after_help = cstr!("For more information, visit <underline>https://github.com/hvpaiva/tardis-cli</underline>"),
     styles=STYLES,
 )]
 pub struct Cli {

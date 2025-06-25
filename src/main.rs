@@ -5,7 +5,7 @@
 //! 3. Merge both into an [`core::App`] context.
 //! 4. Run the core pipeline and print the result.
 
-use tardis::{
+use tardis_cli::{
     cli::Command,
     config::Config,
     core::{self, App},
@@ -42,7 +42,7 @@ mod tests {
     use std::collections::HashMap;
 
     use chrono_tz::Tz;
-    use tardis::core::{self, App, Preset};
+    use tardis_cli::core::{self, App, Preset};
 
     macro_rules! now {
         () => {{

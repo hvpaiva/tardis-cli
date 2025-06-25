@@ -1,7 +1,7 @@
 # TARDIS
 
-![Crates.io](https://img.shields.io/crates/v/tardis)
-![Docs.rs](https://img.shields.io/docsrs/tardis)
+![Crates.io](https://img.shields.io/crates/v/tardis-cli)
+![Docs.rs](https://img.shields.io/docsrs/tardis-cli)
 
 <p align="center">
   <img src="./assets/tardis.png" alt="TARDIS logo" width="200">
@@ -28,7 +28,7 @@
 ## 📦 Installation
 
 ```bash
-cargo install tardis --locked
+cargo install tardis-cli --locked
 ```
 
 > **Why `--locked`?**
