@@ -9,7 +9,15 @@ documentation = "https://docs.rs/tardis"
 readme = "README.md"
 keywords = ["cli", "date", "time", "natural-language", "parser"]
 categories = ["command-line-utilities", "date-and-time"]
-exclude = ["examples/", ".github/", "assets/"]
+exclude = [".github/", "examples/", "scripts/", "assets/tardis.png"]
+include = [
+  "src/**",
+  "build.rs",
+  "assets/config_template.toml",
+  "Cargo.toml",
+  "README.md",
+  "LICENSE*",
+]
 build = "build.rs"
 
 [[bin]]
