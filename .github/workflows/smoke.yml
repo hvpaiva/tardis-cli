@@ -17,9 +17,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: taiki-e/setup-rust@v1
+      - uses: actions-rs/toolchain@v1
         with:
-          rust: stable
+          toolchain: stable
+          profile: minimal
+          components: clippy,rustfmt
+          override: true
 
       - name: cargo install (path)
         run: cargo install --path . --locked --force
