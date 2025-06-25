@@ -1,0 +1,31 @@
+# TARDIS Configuration File
+# This file is created automatically on first run if it does not exist.
+# All fields are optional. If left blank, fallback values will be used.
+
+# The default output format.
+# Uses chrono formatting directives: https://docs.rs/chrono/latest/chrono/format/strftime/index.html
+# Common symbols:
+#   %Y = 4-digit year       (e.g. 2025)
+#   %m = 2-digit month      (01–12)
+#   %d = 2-digit day        (01–31)
+#   %H = hour (24h format)  (00–23)
+#   %M = minute             (00–59)
+#   %S = second             (00–59)
+#   %:z = timezone offset   (e.g. -03:00)
+
+# Example: format = "%Y-%m-%d %H:%M:%S"
+format = "%Y-%m-%dT%H:%M:%S"
+
+# The default timezone (optional).
+# Uses IANA/Olson identifiers: https://docs.rs/chrono-tz
+# Examples: "UTC", "America/Sao_Paulo", "Europe/London"
+# Leave empty to use the system's local timezone.
+timezone = ""
+
+[formats]
+# Define named formats that can be used with the --format flag.
+# You may uncomment and customize these as needed.
+
+# br       = "%d/%m/%Y"
+# short    = "%d/%m"
+# hour     = "%H:%M"

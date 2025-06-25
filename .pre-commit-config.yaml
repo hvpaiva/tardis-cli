@@ -1,0 +1,37 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        stages: [pre-commit]
+      - id: end-of-file-fixer
+        stages: [pre-commit]
+      - id: check-added-large-files
+        stages: [pre-commit]
+        exclude: ^assets/
+        args: ["--maxkb=500"]
+
+  - repo: local
+    hooks:
+      - id: rust-install-tools
+        name: Install cargo dev tools
+        language: system
+        entry: just install_tools
+        pass_filenames: false
+        always_run: true
+        stages: [commit, push]
+
+      - id: rust-lint-all
+        name: Rust lint_all (fmt, clippy, test, audit, deny, vet)
+        language: system
+        entry: just lint_all
+        pass_filenames: false
+        always_run: true
+        stages: [commit, push]
+
+      - id: rust-bench-quick
+        name: Hyperfine quick bench
+        language: system
+        entry: just bench_quick
+        pass_filenames: false
+        stages: [manual]

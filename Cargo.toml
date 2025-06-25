@@ -1,0 +1,53 @@
+[package]
+name = "tardis"
+version = "0.1.0"
+edition = "2024"
+description = "TARDIS - Translates natural language dates into machine-readable formats"
+license = "MIT"
+repository = "https://github.com/hvpaiva/tardis"
+documentation = "https://docs.rs/tardis"
+readme = "README.md"
+keywords = ["cli", "date", "time", "natural-language", "parser"]
+categories = ["command-line-utilities", "date-and-time"]
+exclude = ["examples/", ".github/", "assets/"]
+build = "build.rs"
+
+[[bin]]
+name = "td"
+path = "src/main.rs"
+
+[[bench]]
+name = "parse"
+harness = false
+
+[dependencies]
+clap = { version = "4.5.40", features = ["color", "derive", "env"] }
+config = "0.15.11"
+anyhow = { version = "1.0.98", features = ["backtrace"] }
+chrono = { version = "0.4.41", features = ["serde", "clock"] }
+chrono-tz = { version = "0.10.3", features = ["serde"] }
+dirs = "6.0.0"
+exitcode = "1.1.2"
+human-date-parser = "0.3.1"
+iana-time-zone = "0.1.63"
+serde = { version = "1.0.219", features = ["derive"] }
+thiserror = "2.0.12"
+toml = "0.8.23"
+
+[dev-dependencies]
+assert_cmd = "2.0.17"
+assert_fs = "1.1.3"
+criterion = "0.6.0"
+predicates = "3.1.3"
+pretty_assertions = "1.4.1"
+serial_test = "3.2.0"
+tempfile = "3.20.0"
+
+[build-dependencies]
+clap = { version = "4.5.40", features = ["color", "derive", "env"] }
+clap_complete = "4.5.54"
+clap_mangen = "0.2.27"
+
+[profile.release]
+lto = true
+strip = "symbols"

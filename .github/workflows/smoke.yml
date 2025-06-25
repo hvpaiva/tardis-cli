@@ -1,0 +1,46 @@
+name: Smoke tests
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: taiki-e/setup-rust@v1
+        with:
+          rust: stable
+
+      - name: cargo install (path)
+        run: cargo install --path . --locked --force
+
+      - name: Locate binary
+        id: bin
+        shell: bash
+        run: echo "bin=$(dirname $(cargo bin td || echo ~/.cargo/bin/td))" >> $GITHUB_OUTPUT
+
+      - name: Smoke run 1 – literal date
+        run: |
+          out=$(td "2025-06-25 13:00" -f "%Y-%m-%dT%H:%M")
+          [ "$out" = "2025-06-25T13:00" ]
+
+      - name: Smoke run 2 – relative date
+        run: |
+          out=$(td "in 1 hour" -f "%s" --now "2025-01-01T00:00:00Z")
+          [ "$out" = "1735693200" ]   # 2025-01-01T01:00:00Z epoch seconds
+
+      - name: Smoke run 3 – preset resolution
+        run: |
+          mkdir -p "$(td --help >/dev/null 2>&1; echo ~/.config/tardis)"
+          printf 'format="%Y"\ntimezone="UTC"\n[formats]\nbr="%d/%m/%Y"\n' > ~/.config/tardis/config.toml
+          [ "$(td "2025-12-31" -f br)" = "31/12/2025" ]
