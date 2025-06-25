@@ -43,7 +43,18 @@ jobs:
           [ "$out" = "1735693200" ]   # 2025-01-01T01:00:00Z epoch seconds
 
       - name: Smoke run 3 – preset resolution
+        shell: bash
         run: |
-          mkdir -p "$(td --help >/dev/null 2>&1; echo ~/.config/tardis)"
-          printf 'format="%Y"\ntimezone="UTC"\n[formats]\nbr="%d/%m/%Y"\n' > ~/.config/tardis/config.toml
+          cfg_root="$(pwd)/_tardis_cfg"
+          mkdir -p "$cfg_root/tardis"
+          export XDG_CONFIG_HOME="$cfg_root"
+
+          cat > "$cfg_root/tardis/config.toml" <<'EOF'
+          format = "%Y"
+          timezone = "UTC"
+
+          [formats]
+          br = "%d/%m/%Y"
+          EOF
+
           [ "$(td "2025-12-31" -f br)" = "31/12/2025" ]
