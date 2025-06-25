@@ -2,9 +2,9 @@ name: Smoke tests
 
 on:
   workflow_run:
-    workflows: ["CI"] # dispara quando o workflow “CI” terminar
+    workflows: ["CI"]
     types: [completed]
-  workflow_dispatch: # pode rodar manualmente pelo UI
+  workflow_dispatch:
 
 jobs:
   smoke:
