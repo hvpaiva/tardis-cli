@@ -12,13 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: taiki-e/setup-rust@v1
+      - uses: actions-rs/toolchain@v1
         with:
-          rust: stable
+          toolchain: stable
+          profile: minimal
           components: clippy,rustfmt
+          override: true
 
-      - name: Cache cargo
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -36,4 +37,4 @@ jobs:
           cargo test --all-features
           cargo audit
           cargo deny check
-          cargo vet
+          cargo vet --locked --no-fetch
