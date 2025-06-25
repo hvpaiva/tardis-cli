@@ -1,0 +1,30 @@
+# Rust
+*.rs               text eol=lf
+# Configs / metadados
+Cargo.*            text eol=lf
+*.toml             text eol=lf
+*.yaml             text eol=lf
+*.yml              text eol=lf
+*.json             text eol=lf
+*.lock             text eol=lf
+# CI / automação
+*.sh               text eol=lf
+*.ps1              text eol=lf
+.justfile          text eol=lf
+*.md               text eol=lf
+*.rst              text eol=lf
+.github/**         text eol=lf
+
+*.png              -text binary
+*.jpg              -text binary
+*.jpeg             -text binary
+*.gif              -text binary
+*.svg              -text binary
+*.ico              -text binary
+*.pdf              -text binary
+*.zip              -text binary
+*.gz               -text binary
+*.7z               -text binary
+
+*.svg              diff=svg
+*.lock             -diff          # não precisa ver diff byte-a-byte
