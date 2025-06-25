@@ -2,17 +2,20 @@ name: Smoke tests
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["CI"] # dispara quando o workflow “CI” terminar
     types: [completed]
-  workflow_dispatch:
+  workflow_dispatch: # pode rodar manualmente pelo UI
 
 jobs:
-  e2e:
+  smoke:
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - uses: actions/checkout@v4
@@ -21,34 +24,26 @@ jobs:
         with:
           toolchain: stable
           profile: minimal
-          components: clippy,rustfmt
           override: true
 
-      - name: cargo install (path)
+      - name: Build & install td (path)
         run: cargo install --path . --locked --force
 
-      - name: Locate binary
-        id: bin
-        shell: bash
-        run: echo "bin=$(dirname $(cargo bin td || echo ~/.cargo/bin/td))" >> $GITHUB_OUTPUT
-
-      - name: Smoke run 1 – literal date
+      - name: Smoke 1 – literal date
         run: |
           out=$(td "2025-06-25 13:00" -f "%Y-%m-%dT%H:%M")
-          [ "$out" = "2025-06-25T13:00" ]
+          [[ "$out" == "2025-06-25T13:00" ]]
 
-      - name: Smoke run 2 – relative date
+      - name: Smoke 2 – relative date
         run: |
           out=$(td "in 1 hour" -f "%s" --now "2025-01-01T00:00:00Z")
-          [ "$out" = "1735693200" ]   # 2025-01-01T01:00:00Z epoch seconds
+          [[ "$out" == "1735693200" ]]
 
-      - name: Smoke run 3 – preset resolution
-        shell: bash
+      - name: Smoke 3 – preset resolution
         run: |
-          cfg_root="$(pwd)/_tardis_cfg"
+          cfg_root="$PWD/_tardis_cfg"
           mkdir -p "$cfg_root/tardis"
           export XDG_CONFIG_HOME="$cfg_root"
-
           cat > "$cfg_root/tardis/config.toml" <<'EOF'
           format = "%Y"
           timezone = "UTC"
@@ -56,5 +51,4 @@ jobs:
           [formats]
           br = "%d/%m/%Y"
           EOF
-
-          [ "$(td "2025-12-31" -f br)" = "31/12/2025" ]
+          [[ "$(td "2025-12-31" -f br)" == "31/12/2025" ]]
