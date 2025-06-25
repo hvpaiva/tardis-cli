@@ -3,7 +3,9 @@
 ![Crates.io](https://img.shields.io/crates/v/tardis)
 ![Docs.rs](https://img.shields.io/docsrs/tardis)
 
-<img src="./assets/tardis.png" alt="TARDIS logo" width="200">
+<p align="center">
+  <img src="./assets/tardis.png" alt="TARDIS logo" width="200">
+</p>
 
 > **TARDIS** – *Time And Relative Date Input Simplifier*.
 > Like the Doctor’s ship in *Doctor Who*, it translates human‑friendly time
