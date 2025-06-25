@@ -1,0 +1,61 @@
+
+###############################################################################
+# ─────────── Rust & Cargo ───────────
+/target/
+**/*.rlib
+/.cargo/
+Cargo.lock.bk
+
+/bench_results/
+/flamegraph.svg
+/cargo-flamegraph.trace
+
+/dist/
+*.bash
+*.zsh
+*.fish
+*.elv
+
+/.github/workflows/*.log
+/gh-pages/
+
+# JetBrains (CLion, IntelliJ, RustRover)
+.idea/
+# VS Code
+.vscode/
+# Sublime / Atom / etc.
+*.sublime*
+/*.code-workspace
+# Vim / Neovim
+*.sw?
+*~
+# Emacs
+*#
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+# Linux
+*~
+
+# Coverage tools
+/coverage/
+*.lcov
+# Tools that dump JSON/HTML
+/cobertura.xml
+/report/
+# Bindings (bindgen, cbindgen)
+/bindings*.h
+# docs.rs test build
+/target/doc/
+
+*.zip
+*.tar.gz
+*.7z
+*.bak
+*.tmp
