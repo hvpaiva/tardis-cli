@@ -1,6 +1,6 @@
 use chrono_tz::UTC;
 use criterion::{Criterion, criterion_group, criterion_main};
-use tardis::{core, core::App};
+use tardis_cli::{core, core::App};
 
 fn bench_parse(c: &mut Criterion) {
     let app = App::new("in 3 days".into(), "%Y-%m-%d".into(), UTC, None);

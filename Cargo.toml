@@ -1,11 +1,11 @@
 [package]
-name = "tardis"
+name = "tardis-cli"
 version = "0.1.0"
 edition = "2024"
 description = "TARDIS - Translates natural language dates into machine-readable formats"
 license = "MIT"
-repository = "https://github.com/hvpaiva/tardis"
-documentation = "https://docs.rs/tardis"
+repository = "https://github.com/hvpaiva/tardis-cli"
+documentation = "https://docs.rs/tardis-cli"
 readme = "README.md"
 keywords = ["cli", "date", "time", "natural-language", "parser"]
 categories = ["command-line-utilities", "date-and-time"]

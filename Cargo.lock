@@ -1611,7 +1611,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tardis"
+name = "tardis-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
