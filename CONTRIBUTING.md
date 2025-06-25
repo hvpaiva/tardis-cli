@@ -3,9 +3,9 @@
 ## Quick setup
 
 ```bash
-git clone https://github.com/your-user/tardis.git
+git clone https://github.com/hvpaiva/tardis.git
 cd tardis
-bash scripts/dev-setup.sh        # or just install-tools
+bash scripts/dev-setup.sh        # or `just install-tools`
 just lint-all
 ```
 
