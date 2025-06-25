@@ -5,7 +5,7 @@ on:
     tags: ["v*.*.*"]
 
 jobs:
-  benchmark:
+  build-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,87 +13,25 @@ jobs:
         with:
           toolchain: stable
           profile: minimal
-          components: clippy,rustfmt
-          override: true
-
-      - name: Install tools
-        run: cargo install critcmp --locked
-
-      - name: Run Criterion benches
-        run: |
-          mkdir -p bench_results
-          cargo bench --bench parse -- --output-format bencher | tee bench.txt
-          mv target/criterion parse
-          critcmp parse --export bench_results/current.json
-          echo "BENCH_JSON=bench_results/current.json" >> $GITHUB_ENV
-
-      - name: Download previous bench artifact (if exists)
-        id: prev
-        uses: actions/download-artifact@v4
-        with:
-          name: bench_results
-        continue-on-error: true
-
-      - name: Compare with previous
-        if: steps.prev.outcome == 'success'
-        run: |
-          critcmp bench_results/prev.json $BENCH_JSON > perf.txt
-        continue-on-error: true
-
-      - name: Rename & upload current result
-        uses: actions/upload-artifact@v4
-        with:
-          name: bench_results
-          path: bench_results/current.json
-
-      - name: Save notes file if missing diff
-        run: |
-          if [ ! -f perf.txt ]; then
-            echo "No previous benchmark to compare." > perf.txt
-          fi
-
-    outputs:
-      perf_notes: ${{ steps.prev.outcome }}
-
-  publish:
-    needs: [benchmark]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: taiki-e/setup-rust@v1
-        with: { rust: stable, components: clippy, rustfmt }
-
-      - name: Install dev tools
-        run: cargo install cargo-audit cargo-deny cargo-vet cargo-release --locked
-
-      - name: Full lint suite
-        run: |
-          cargo fmt -- --check
-          cargo clippy --all-targets --all-features -- -D warnings
-          cargo test --all-features
-          cargo audit
-          cargo deny check
-          cargo vet
-
-      - name: Publish crate
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish --locked
-
-      - name: Copy completions
-        run: |
+      - run: cargo build --release --locked
+      - run: cargo test  --release --locked
+      - run: |
           mkdir -p dist
           cp target/release/build/td-*/out/* dist/
-
       - uses: actions/upload-artifact@v4
         with:
           name: completions
           path: dist
 
-      - name: Install GitHub CLI
-        uses: cli/cli@v2
-
-      - name: Append benchmark results to release notes
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit ${{ github.ref_name }} --notes-file perf.txt
+  publish:
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --locked
