@@ -3,7 +3,7 @@
 ![Crates.io](https://img.shields.io/crates/v/tardis)
 ![Docs.rs](https://img.shields.io/docsrs/tardis)
 
-![Tardis logo](./assets/tardis.png)
+<img src="./assets/tardis.png" alt="TARDIS logo" width="200">
 
 > **TARDIS** – *Time And Relative Date Input Simplifier*.
 > Like the Doctor’s ship in *Doctor Who*, it translates human‑friendly time
@@ -39,9 +39,22 @@ cargo install tardis --locked
 
 ```bash
 td "tomorrow 15:00"
+# 2025-06-26T15:00:00+01:00
+
 td "next Friday" --format br
+# 26/06/2025
+
 td "in 2 hours" --timezone Europe/London
+# 2025-06-25T17:30:00+01:00
+
 echo "next Monday at 09:00" | td
+# 2025-06-30T09:00:00+01:00
+
+td now -f "%H:%M"
+# 15:30
+
+td "yesterday" -f "%Y-%m-%d" -t UTC --now "2025-06-26T15:30:00+01:00"
+# 2025-06-25
 ```
 
 ---
@@ -59,6 +72,8 @@ On first run, a config file is generated automatically:
 
 Precedence: **CLI flags → Environment variables → Config file**.
 
+> **Note:** If the Environment variables are empty, even if set, the config file will be used.
+
 ```toml
 # config.toml
 format = "%Y-%m-%dT%H:%M:%S%:z"
@@ -75,7 +90,7 @@ iso      = "%Y-%m-%dT%H:%M:%S"
 ## 🛠 Options
 
 ```text
--f, --format     chrono format string or preset name
+-f, --format     chrono format string or preset name configured in [formats]
 -t, --timezone   output time‑zone (IANA name)
 --now            reference datetime (RFC3339) for deterministic output
 --help           show CLI usage
@@ -99,13 +114,12 @@ tl t "Prepare slides" -d $(td "next Friday at 12:00" -f taskline)
 |--------------------|------------------------------------------------------|
 | `TARDIS_FORMAT`    | fallback format when `--format` is omitted           |
 | `TARDIS_TIMEZONE`  | fallback time‑zone when `--timezone` is omitted      |
-| `XDG_CONFIG_HOME`  | overrides default config directory                   |
 
 ---
 
 ## 📄 License
 
-MIT
+[MIT License](./LICENCE.md)
 
 
 ---

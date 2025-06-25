@@ -1,9 +1,3 @@
-//! src/cli.rs
-//!
-//! TARDIS — Time And Relative Date Input Simplifier
-//! Lightweight CLI that turns phrases like “next Friday at 2:00” into
-//! machine-readable datetimes.
-
 use std::{
     env,
     ffi::OsString,
