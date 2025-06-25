@@ -1,4 +1,17 @@
 
 # cargo-vet audits file
 
-[audits]
+[[audits.color-print]]
+who = "hvpaiva <highlander.paiva@mercadolivre.com>"
+criteria = "safe-to-deploy"
+version = "0.3.7"
+
+[[audits.color-print-proc-macro]]
+who = "hvpaiva <highlander.paiva@mercadolivre.com>"
+criteria = "safe-to-deploy"
+version = "0.3.7"
+
+[[audits.minimal-lexical]]
+who = "hvpaiva <highlander.paiva@mercadolivre.com>"
+criteria = "safe-to-deploy"
+version = "0.2.1"
