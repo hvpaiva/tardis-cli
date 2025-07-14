@@ -30,7 +30,7 @@ harness = false
 
 [dependencies]
 clap = { version = "4.5.40", features = ["color", "derive", "env"] }
-config = "0.15.11"
+config = "0.15.13"
 anyhow = { version = "1.0.98", features = ["backtrace"] }
 chrono = { version = "0.4.41", features = ["serde", "clock"] }
 chrono-tz = { version = "0.10.3", features = ["serde"] }
