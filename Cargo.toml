@@ -29,7 +29,7 @@ name = "parse"
 harness = false
 
 [dependencies]
-clap = { version = "4.5.40", features = ["color", "derive", "env"] }
+clap = { version = "4.5.41", features = ["color", "derive", "env"] }
 config = "0.15.11"
 anyhow = { version = "1.0.98", features = ["backtrace"] }
 chrono = { version = "0.4.41", features = ["serde", "clock"] }
@@ -53,7 +53,7 @@ serial_test = "3.2.0"
 tempfile = "3.20.0"
 
 [build-dependencies]
-clap = { version = "4.5.40", features = ["color", "derive", "env"] }
+clap = { version = "4.5.41", features = ["color", "derive", "env"] }
 clap_complete = "4.5.54"
 clap_mangen = "0.2.27"
 color-print = "0.3.7"
