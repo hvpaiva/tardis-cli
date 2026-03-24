@@ -5,8 +5,6 @@
 //! zero-heap-alloc enum variants. Only `Token::Word(String)` carries owned data
 //! (for unrecognized words used in error messages and typo suggestions).
 
-// Allow dead code: tokenize is consumed by grammar/resolver in Plan 03.
-#![allow(dead_code)]
 
 use crate::parser::token::{ByteSpan, EpochPrecision, SpannedToken, TemporalUnit, Token};
 
