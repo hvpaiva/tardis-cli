@@ -1,39 +1,61 @@
-default: lint_all
+# Run all checks
+check: fmt-check lint test audit
 
+# Format code
 fmt:
-    cargo fmt --all -- --check
+    cargo fmt --all
 
-clippy:
+# Verify formatting
+fmt-check:
+    cargo fmt --all --check
+
+# Lint with clippy
+lint:
     cargo clippy --all-targets --all-features -- -D warnings
 
+# Run tests
 test:
-    cargo test --all-features
+    cargo nextest run
 
+# Audit dependencies
 audit:
-    cargo audit
-
-deny:
     cargo deny check
 
-vet:
-    cargo vet
+# Generate coverage report
+coverage:
+    cargo llvm-cov --html
+    @echo "Report at target/llvm-cov/html/index.html"
 
-lint_all: fmt clippy test audit deny vet
-    @echo "✅ All checks passed"
+# Generate coverage summary
+coverage-summary:
+    cargo llvm-cov --fail-under-lines 80
 
-install_tools:
-    bash scripts/dev-setup.sh
+# Run the CLI
+run *args:
+    cargo run -- {{args}}
 
+# Generate and open docs
+doc:
+    cargo doc --no-deps --open
+
+# Install/update git hooks
+hooks:
+    cog install-hook --all --overwrite
+
+# Setup development environment
+setup:
+    ./scripts/dev-setup.sh
+
+# Run criterion benchmarks
 bench:
     cargo bench
 
-bench_quick:
+# Quick hyperfine benchmark
+bench-quick:
     hyperfine -N --warmup 3 --runs 100 'td "in 3 days" -f "%s"'
 
-bench_compare: bench_quick
-
-
+# Generate flamegraph
 flamegraph:
     CARGO_PROFILE_RELEASE_DEBUG=true CARGO_PROFILE_RELEASE_STRIP=none \
       cargo flamegraph --bench parse
-    @echo "🔥  flamegraph.svg generated"
+    @echo "flamegraph.svg generated"
