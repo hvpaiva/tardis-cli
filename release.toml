@@ -1,7 +1,0 @@
-
-sign-commit = false
-sign-tag = false
-push = true
-publish = false
-allow-branch = ["main"]
-registry = "crates-io"

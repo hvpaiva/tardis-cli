@@ -1,0 +1,37 @@
+from_latest_tag = false
+ignore_merge_commits = false
+disable_changelog = false
+disable_bump_commit = false
+tag_prefix = "v"
+branch_whitelist = ["main"]
+skip_ci = "[skip ci]"
+skip_untracked = false
+scopes = ["core", "cli", "config", "infra", "deps"]
+
+pre_bump_hooks = [
+    "cargo fmt --all --check",
+    "cargo clippy --all-targets --all-features -- -D warnings",
+    "cargo test --all-features",
+    "sed -i 's/^version = \".*\"/version = \"{{version}}\"/' Cargo.toml",
+    "cargo generate-lockfile",
+]
+
+post_bump_hooks = []
+
+[git_hooks.commit-msg]
+path = "hooks/commit-msg.sh"
+
+[git_hooks.pre-commit]
+path = "hooks/pre-commit.sh"
+
+[commit_types]
+
+[changelog]
+path = "CHANGELOG.md"
+template = "remote"
+remote = "github.com"
+owner = "hvpaiva"
+repository = "tardis-cli"
+authors = []
+
+[bump_profiles]
