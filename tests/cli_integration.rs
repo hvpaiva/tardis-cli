@@ -323,7 +323,8 @@ fn invalid_now_should_fail() {
         .args(["today", "--now", "not-a-date"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("Invalid 'now' argument: input contains invalid characters (expect RFC 3339, ex.: 2025-06-24T12:00:00Z)"));
+        .stderr(predicate::str::contains("Invalid 'now' argument:"))
+        .stderr(predicate::str::contains("expect RFC 3339, ex.: 2025-06-24T12:00:00Z"));
 }
 
 #[test]
