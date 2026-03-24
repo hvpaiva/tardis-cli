@@ -8,7 +8,6 @@
 //! Reference anchor: `--now 2025-06-15T12:00:00Z` (a Sunday, UTC noon).
 
 use assert_cmd::Command;
-use assert_fs::prelude::*;
 use assert_fs::TempDir;
 use insta::assert_snapshot;
 
