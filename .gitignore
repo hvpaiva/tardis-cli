@@ -60,3 +60,6 @@ Desktop.ini
 *.7z
 *.bak
 *.tmp
+
+# GSD planning docs (local-only)
+.planning/
