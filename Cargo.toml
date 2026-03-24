@@ -12,13 +12,11 @@ categories = ["command-line-utilities", "date-and-time"]
 exclude = [".github/", "examples/", "scripts/", "assets/tardis.png"]
 include = [
   "src/**",
-  "build.rs",
   "assets/config_template.toml",
   "Cargo.toml",
   "README.md",
   "LICENSE*",
 ]
-build = "build.rs"
 
 [[bin]]
 name = "td"
@@ -30,10 +28,8 @@ harness = false
 
 [dependencies]
 clap = { version = "4.5.40", features = ["color", "derive", "env"] }
-config = "0.15.11"
 chrono = { version = "0.4.41", default-features = false }
 dirs = "6.0.0"
-exitcode = "1.1.2"
 human-date-parser = "0.3.1"
 jiff = { version = "0.2", features = ["serde"] }
 serde = { version = "1.0.219", features = ["derive"] }
@@ -41,6 +37,7 @@ thiserror = "2.0.12"
 toml = "0.8.23"
 color-print = "0.3.7"
 clap_complete = "4.5.54"
+clap_mangen = "0.2.27"
 serde_json = "1.0"
 
 [dev-dependencies]
@@ -52,12 +49,6 @@ predicates = "3.1.3"
 pretty_assertions = "1.4.1"
 serial_test = "3.2.0"
 tempfile = "3.20.0"
-
-[build-dependencies]
-clap = { version = "4.5.40", features = ["color", "derive", "env"] }
-clap_complete = "4.5.54"
-clap_mangen = "0.2.27"
-color-print = "0.3.7"
 
 [profile.release]
 lto = true
