@@ -11,7 +11,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use config::{Environment, File};
 use serde::Deserialize;
 
 use crate::{Error, Result, core::Preset, errors::SystemError, system_error};
@@ -38,16 +37,23 @@ impl Config {
         let path = config_path()?;
         create_config_if_missing(&path)?;
 
-        config::Config::builder()
-            .add_source(File::from(path))
-            .add_source(
-                Environment::with_prefix("TARDIS")
-                    .separator("_")
-                    .ignore_empty(true),
-            )
-            .build()?
-            .try_deserialize()
-            .map_err(Into::into)
+        let contents = fs::read_to_string(&path)?;
+        let mut cfg: Config = toml::from_str(&contents)
+            .map_err(|e| system_error!(Config, "failed to parse config: {}", e))?;
+
+        // Env var overlay (D-08): TARDIS_FORMAT and TARDIS_TIMEZONE
+        if let Ok(val) = env::var("TARDIS_FORMAT") {
+            if !val.is_empty() {
+                cfg.format = val;
+            }
+        }
+        if let Ok(val) = env::var("TARDIS_TIMEZONE") {
+            if !val.is_empty() {
+                cfg.timezone = val;
+            }
+        }
+
+        Ok(cfg)
     }
 
     /// Convert the `[formats]` table into a list of [`Preset`]s.
@@ -95,12 +101,6 @@ fn create_config_if_missing(path: &Path) -> Result<()> {
 impl From<std::io::Error> for Error {
     fn from(e: std::io::Error) -> Self {
         Error::System(SystemError::Io(e))
-    }
-}
-
-impl From<config::ConfigError> for Error {
-    fn from(e: config::ConfigError) -> Self {
-        system_error!(Config, "{}", e)
     }
 }
 
