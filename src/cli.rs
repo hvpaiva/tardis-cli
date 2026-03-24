@@ -140,6 +140,10 @@ pub struct Cli {
     #[arg(short = 'n', long = "no-newline")]
     pub no_newline: bool,
 
+    /// Generate man page to stdout (hidden, for packaging scripts).
+    #[arg(long, hide = true, exclusive = true)]
+    pub generate_man: bool,
+
     #[command(subcommand)]
     pub subcmd: Option<SubCmd>,
 }
