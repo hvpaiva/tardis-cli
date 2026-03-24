@@ -1,30 +1,84 @@
-name: Publish
+name: CD
 
 on:
-  push:
-    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build-test:
+  release:
+    name: Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v6
         with:
-          toolchain: stable
-          profile: minimal
-      - run: cargo build --release --locked
-      - run: cargo test  --release --locked
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-  publish:
-    needs: build-test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          profile: minimal
-      - env:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check
+        run: |
+          cargo fmt --all --check
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo test --all-features
+
+      - name: Install cocogitto
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cocogitto@7
+
+      - name: Configure git
+        run: |
+          git config user.name "tardis-bot"
+          git config user.email "tardis-bot@users.noreply.github.com"
+
+      - name: Bump version
+        id: bump
+        run: |
+          tags_before=$(git tag --list | sort)
+          cog bump --auto
+          tags_after=$(git tag --list | sort)
+          new_tags=$(comm -13 <(echo "$tags_before") <(echo "$tags_after"))
+          if [ -z "$new_tags" ]; then
+            echo "::error::No version bump was produced. Nothing to publish."
+            exit 1
+          fi
+          echo "New tags: $new_tags"
+          global_tag=$(echo "$new_tags" | grep "^v" | head -1)
+          if [ -n "$global_tag" ]; then
+            echo "global_tag=$global_tag" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push commits and tags
+        run: |
+          git push
+          git push --tags
+
+      - name: Generate release notes
+        if: steps.bump.outputs.global_tag != ''
+        env:
+          GLOBAL_TAG: ${{ steps.bump.outputs.global_tag }}
+        run: cog changelog --at "$GLOBAL_TAG" -t remote > RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        if: steps.bump.outputs.global_tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.bump.outputs.global_tag }}
+          body_path: RELEASE_NOTES.md
+
+      - name: Clean up release notes
+        run: rm -f RELEASE_NOTES.md
+
+      - name: Publish to crates.io
+        run: cargo publish
+        env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish --locked
