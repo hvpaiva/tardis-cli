@@ -1,40 +1,103 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-
+  check:
+    name: Check
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v6
         with:
-          toolchain: stable
-          profile: minimal
-          components: clippy,rustfmt
-          override: true
+          fetch-depth: 0
 
-      - uses: actions/cache@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          components: rustfmt, clippy, llvm-tools-preview
 
-      - name: Install dev tools
-        run: cargo install cargo-audit cargo-deny cargo-vet --locked
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Lint & test
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Install nextest and llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov,cargo-nextest
+
+      - name: Test with coverage
         run: |
-          cargo fmt -- --check
-          cargo clippy --all-targets --all-features -- -D warnings
-          cargo test --all-features
-          cargo audit
-          cargo deny check
-          cargo vet --locked
+          cargo llvm-cov nextest --lcov --output-path lcov.info
+          cargo llvm-cov report --fail-under-lines 80
+
+      - name: Upload coverage
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          fail_ci_if_error: false
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
+      - name: Audit
+        run: cargo deny check
+
+      - name: Install cocogitto
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cocogitto@7
+
+      - name: Validate commits
+        run: cog check
+
+      - name: Docs
+        run: cargo doc --no-deps
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+
+  guard-release-files:
+    name: Guard release files
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for manual changelog or version edits
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          SKIP_RELEASE_GUARD: ${{ contains(github.event.pull_request.labels.*.name, 'release-override') && '1' || '' }}
+        run: ./scripts/guard-release-files.sh --pr "$BASE_REF"
+
+  msrv:
+    name: MSRV (1.85)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@1.85
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build
+
+      - name: Test
+        run: cargo test
