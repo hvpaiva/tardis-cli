@@ -1,38 +1,156 @@
 //! TARDIS binary entry-point.
-//!
-//! 1. Parse CLI (`cli::Command`).
-//! 2. Load configuration (`config::Config`).
-//! 3. Merge both into an [`core::App`] context.
-//! 4. Run the core pipeline and print the result.
+
+use std::io::{self, IsTerminal};
 
 use tardis_cli::{
-    cli::Command,
+    Result,
+    cli::{Cli, Command, ConfigAction, ShellType, SubCmd},
     config::Config,
     core::{self, App},
-    errors,
 };
 
-use errors::{Failable, Result};
-
-/// Top-level execution wrapper.
-/// Errors are funneled to `Failable::exit`, which prints a message and sets
-/// the process’ exit-code.
 fn main() {
     if let Err(err) = run() {
         err.exit();
     }
 }
 
-/// High-level flow, kept small for ease of unit/integration testing.
 fn run() -> Result<()> {
-    let cmd = Command::parse()?;
+    // Parse raw CLI first to check for subcommands.
+    let cli = <Cli as clap::Parser>::parse();
+
+    if let Some(subcmd) = cli.subcmd {
+        return handle_subcmd(subcmd);
+    }
+
+    // Default parse flow (backwards compatible).
+    let is_terminal = io::stdin().is_terminal();
+    let cmd = Command::from_raw_cli(cli, io::stdin(), is_terminal)?;
     let cfg = Config::load()?;
 
-    let app = App::from_cli(&cmd, &cfg)?;
-    let out = core::process(&app, &cfg.presets())?;
+    // Batch mode: if input has multiple lines, process each.
+    let lines: Vec<&str> = cmd.input.lines().collect();
+    if lines.len() > 1 {
+        for line in lines {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let single_cmd = Command {
+                input: line.to_owned(),
+                format: cmd.format.clone(),
+                timezone: cmd.timezone.clone(),
+                now: cmd.now,
+                json: cmd.json,
+                no_newline: cmd.no_newline,
+            };
+            process_and_print(&single_cmd, &cfg)?;
+        }
+    } else {
+        process_and_print(&cmd, &cfg)?;
+    }
 
-    println!("{out}");
     Ok(())
+}
+
+fn process_and_print(cmd: &Command, cfg: &Config) -> Result<()> {
+    let app = App::from_cli(cmd, cfg)?;
+    let result = core::process(&app, &cfg.presets())?;
+
+    if cmd.json {
+        let json = serde_json::json!({
+            "input": cmd.input,
+            "output": result.formatted,
+            "epoch": result.epoch,
+            "timezone": app.timezone.name(),
+            "format": app.format,
+        });
+        if cmd.no_newline {
+            print!("{json}");
+        } else {
+            println!("{json}");
+        }
+    } else if cmd.no_newline {
+        print!("{}", result.formatted);
+    } else {
+        println!("{}", result.formatted);
+    }
+
+    Ok(())
+}
+
+fn handle_subcmd(subcmd: SubCmd) -> Result<()> {
+    match subcmd {
+        SubCmd::Config { action } => handle_config(action),
+        SubCmd::Completions { shell } => {
+            handle_completions(shell);
+            Ok(())
+        }
+    }
+}
+
+fn handle_config(action: ConfigAction) -> Result<()> {
+    use tardis_cli::config;
+
+    match action {
+        ConfigAction::Path => {
+            println!("{}", config::config_path()?.display());
+        }
+        ConfigAction::Show => {
+            let cfg = Config::load()?;
+            println!("format   = \"{}\"", cfg.format);
+            println!("timezone = \"{}\"", cfg.timezone);
+            if let Some(fmts) = &cfg.formats {
+                println!("\n[formats]");
+                for (name, fmt) in fmts {
+                    println!("{name:<10} = \"{fmt}\"");
+                }
+            }
+        }
+        ConfigAction::Edit => {
+            let path = config::config_path()?;
+            // Ensure the config file exists before opening.
+            Config::load()?;
+            let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
+            std::process::Command::new(&editor)
+                .arg(&path)
+                .status()
+                .map_err(|e| {
+                    tardis_cli::system_error!(Config, "failed to open editor '{}': {}", editor, e)
+                })?;
+        }
+        ConfigAction::Presets => {
+            let cfg = Config::load()?;
+            let presets = cfg.presets();
+            if presets.is_empty() {
+                println!("No presets defined. Add them to [formats] in your config file.");
+                println!("Config: {}", config::config_path()?.display());
+            } else {
+                println!("{:<12} FORMAT", "NAME");
+                println!("{:<12} ------", "----");
+                for p in &presets {
+                    println!("{:<12} {}", p.name, p.format);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn handle_completions(shell: ShellType) {
+    use clap::CommandFactory;
+    use clap_complete::{Shell, generate};
+
+    let shell = match shell {
+        ShellType::Bash => Shell::Bash,
+        ShellType::Zsh => Shell::Zsh,
+        ShellType::Fish => Shell::Fish,
+        ShellType::Elvish => Shell::Elvish,
+        ShellType::Powershell => Shell::PowerShell,
+    };
+
+    let mut cmd = Cli::command();
+    generate(shell, &mut cmd, "td", &mut io::stdout());
 }
 
 #[cfg(test)]
@@ -68,7 +186,7 @@ mod tests {
     }
 
     fn run(app: &App, presets: &[Preset]) -> String {
-        core::process(app, presets).unwrap()
+        core::process(app, presets).unwrap().formatted
     }
 
     #[test]
