@@ -64,7 +64,7 @@ impl Config {
 }
 
 /// Resolve the absolute path to `config.toml`.
-fn config_path() -> Result<PathBuf> {
+pub fn config_path() -> Result<PathBuf> {
     let base_dir = env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .or_else(dirs::config_dir)

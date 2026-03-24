@@ -7,15 +7,6 @@
 //! items live behind concise documentation so that generated docs.rs output
 //! remains immediately useful without excessive inline comments.
 
-/// Any fatal error that can terminate the application.
-///
-/// Implementations must emit an error message to *stderr* and terminate the
-/// process with a meaningful exit code.
-pub trait Failable: std::error::Error + Send + Sync + 'static {
-    /// Print a diagnostic message and stop the program.
-    fn exit(self) -> !;
-}
-
 /// All possible failures surfaced by the CLI.
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -34,7 +25,11 @@ pub enum UserInputError {
     #[error("Invalid date format: {0}")]
     InvalidDateFormat(String),
     #[error("Unsupported format: {0}")]
-    UnsupportedFormat(#[from] std::fmt::Error),
+    UnsupportedFormat(String),
+    #[error("Invalid date: {0}")]
+    InvalidDate(String),
+    #[error("Ambiguous datetime: {0}")]
+    AmbiguousDateTime(String),
     #[error("Unsupported timezone: {0}")]
     UnsupportedTimezone(String),
     #[error("Invalid 'now' argument: {0}")]
@@ -55,8 +50,9 @@ pub enum SystemError {
 /// Crate‑wide `Result` alias that uses the consolidated [`Error`] type.
 pub type Result<T> = std::result::Result<T, Error>;
 
-impl Failable for Error {
-    fn exit(self) -> ! {
+impl Error {
+    /// Print a diagnostic message to stderr and exit with the appropriate code.
+    pub fn exit(self) -> ! {
         match self {
             Error::UserInput(err) => {
                 eprintln!("{}", err);
@@ -120,7 +116,6 @@ macro_rules! system_error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fmt;
 
     #[test]
     fn user_input_macro_literal() {
@@ -177,11 +172,11 @@ mod tests {
     }
 
     #[test]
-    fn conversion_from_fmt_error() {
-        let err: Error = fmt::Error.into();
+    fn unsupported_format_error() {
+        let err = user_input_error!(UnsupportedFormat, "bad format");
         assert!(matches!(
             err,
-            Error::UserInput(UserInputError::UnsupportedFormat(_))
+            Error::UserInput(UserInputError::UnsupportedFormat(ref s)) if s == "bad format"
         ));
     }
 
@@ -189,5 +184,51 @@ mod tests {
     fn conversion_from_io_error() {
         let err: Error = std::io::Error::from(std::io::ErrorKind::PermissionDenied).into();
         assert!(matches!(err, Error::System(SystemError::Io(_))));
+    }
+
+    #[test]
+    fn system_error_partial_eq_config() {
+        let a = SystemError::Config("x".into());
+        let b = SystemError::Config("x".into());
+        let c = SystemError::Config("y".into());
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn system_error_partial_eq_io() {
+        let a = SystemError::Io(std::io::Error::from(std::io::ErrorKind::NotFound));
+        let b = SystemError::Io(std::io::Error::from(std::io::ErrorKind::NotFound));
+        let c = SystemError::Io(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn system_error_partial_eq_different_variants() {
+        let a = SystemError::Config("x".into());
+        let b = SystemError::Io(std::io::Error::from(std::io::ErrorKind::NotFound));
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn error_display_user_input() {
+        let err = user_input_error!(InvalidDateFormat, "bad date");
+        assert_eq!(format!("{err}"), "Invalid date format: bad date");
+    }
+
+    #[test]
+    fn error_display_system() {
+        let err = system_error!(Config, "broken");
+        assert_eq!(format!("{err}"), "Configuration error: broken");
+    }
+
+    #[test]
+    fn new_error_variants_display() {
+        let err = user_input_error!(InvalidDate, "bad");
+        assert_eq!(format!("{err}"), "Invalid date: bad");
+
+        let err = user_input_error!(AmbiguousDateTime, "ambiguous");
+        assert_eq!(format!("{err}"), "Ambiguous datetime: ambiguous");
     }
 }
