@@ -278,7 +278,7 @@ fn wrong_pipe_should_fail() {
         .assert()
         .failure()
         .stderr(predicate::str::contains(
-            "Invalid date format: failed to parse human date \'A\': Could not match input to any known format\n",
+            "Invalid date format: could not parse as a date expression",
         ));
 }
 
@@ -311,7 +311,7 @@ fn fails_when_wrong_input_interactive() {
         .assert()
         .failure()
         .stderr(predicate::str::contains(
-            "Invalid date format: failed to parse human date \'A\': Could not match input to any known format\n",
+            "Invalid date format: could not parse as a date expression",
         ));
 }
 
@@ -323,7 +323,8 @@ fn invalid_now_should_fail() {
         .args(["today", "--now", "not-a-date"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("Invalid 'now' argument: input contains invalid characters (expect RFC 3339, ex.: 2025-06-24T12:00:00Z)"));
+        .stderr(predicate::str::contains("Invalid 'now' argument:"))
+        .stderr(predicate::str::contains("expect RFC 3339, ex.: 2025-06-24T12:00:00Z"));
 }
 
 #[test]
@@ -612,6 +613,50 @@ fn completions_powershell() {
         .success();
 }
 
+// --- Man page generation ---
+
+#[test]
+fn generate_man_page() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .arg("--generate-man")
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+
+    // Basic roff structure
+    assert!(output.status.success(), "man page generation failed");
+    assert!(stdout.contains(".SH NAME"), "missing NAME section");
+
+    // Reference quality sections (D-04)
+    assert!(stdout.contains(".SH EXAMPLES"), "missing EXAMPLES section");
+    assert!(
+        stdout.contains(".SH ENVIRONMENT"),
+        "missing ENVIRONMENT section"
+    );
+    assert!(stdout.contains(".SH FILES"), "missing FILES section");
+    assert!(
+        stdout.contains("EXIT STATUS") || stdout.contains("EXIT_STATUS"),
+        "missing EXIT STATUS section"
+    );
+
+    // Content verification
+    assert!(
+        stdout.contains("TARDIS_FORMAT"),
+        "ENVIRONMENT should mention TARDIS_FORMAT"
+    );
+    assert!(
+        stdout.contains("TARDIS_TIMEZONE"),
+        "ENVIRONMENT should mention TARDIS_TIMEZONE"
+    );
+    assert!(
+        stdout.contains("config.toml"),
+        "FILES should mention config.toml"
+    );
+}
+
 // --- --version and --help smoke tests ---
 
 #[test]
@@ -648,19 +693,20 @@ fn invalid_epoch_not_a_number() {
         .assert()
         .failure()
         .stderr(predicate::str::contains(
-            "invalid epoch timestamp: notanumber",
+            "could not parse as a date expression",
         ));
 }
 
 #[test]
-fn epoch_out_of_range() {
+fn epoch_smart_precision_large_value() {
     let tmp = TempDir::new().unwrap();
 
+    // 17-digit epoch auto-detected as microseconds by the custom parser (~year 5138)
     td_cmd(&tmp)
         .args(["@99999999999999999", "--format", "%Y", "--timezone", "UTC"])
         .assert()
-        .failure()
-        .stderr(predicate::str::contains("epoch timestamp out of range"));
+        .success()
+        .stdout(predicate::str::contains("5138"));
 }
 
 #[test]
@@ -868,10 +914,12 @@ fn config_edit_with_nonexistent_editor() {
 // --- Error messages quality ---
 
 #[test]
-fn ambiguous_dst_error_message() {
+fn ambiguous_dst_resolves_compatible() {
     let tmp = TempDir::new().unwrap();
 
-    // 2025-11-02 01:30 is ambiguous in America/New_York (DST fall-back)
+    // 2025-11-02 01:30 is ambiguous in America/New_York (DST fall-back).
+    // The custom parser resolves ambiguous times using jiff's compatible()
+    // semantics, picking the earlier (pre-transition) interpretation.
     td_cmd(&tmp)
         .args([
             "2025-11-02 01:30",
@@ -883,9 +931,8 @@ fn ambiguous_dst_error_message() {
             "2025-11-01T12:00:00Z",
         ])
         .assert()
-        .failure()
-        .stderr(predicate::str::contains("Ambiguous datetime"))
-        .stderr(predicate::str::contains("America/New_York"));
+        .success()
+        .stdout(predicate::str::contains("2025-11-02 01:30"));
 }
 
 #[test]
