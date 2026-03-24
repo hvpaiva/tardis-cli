@@ -5,8 +5,9 @@
 
 pub(crate) mod ast;
 pub(crate) mod error;
+pub(crate) mod grammar;
 pub(crate) mod lexer;
-// grammar will be added in Plan 03
+pub(crate) mod resolver;
 pub(crate) mod suggest;
 pub(crate) mod token;
 
@@ -28,8 +29,13 @@ pub fn parse(input: &str, now: &jiff::Zoned) -> std::result::Result<jiff::Zoned,
         return Err(ParseError::input_too_long(input.len(), MAX_INPUT_LEN));
     }
 
-    // Stub: will be implemented in Plan 03
-    // For now, return an error so the module compiles
-    let _ = now;
-    Err(ParseError::unrecognized(input))
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return resolver::resolve(&ast::DateExpr::Now, now);
+    }
+
+    let tokens = lexer::tokenize(trimmed);
+    let mut parser = grammar::Parser::new(&tokens, trimmed);
+    let expr = parser.parse_expression()?;
+    resolver::resolve(&expr, now)
 }
