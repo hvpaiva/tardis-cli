@@ -1,29 +1,52 @@
 # Contributing to TARDIS
 
-## Quick setup
+Thanks for your interest! Here's how to get started.
+
+## Quick Setup
 
 ```bash
-git clone https://github.com/hvpaiva/tardis.git
-cd tardis
-bash scripts/dev-setup.sh        # or `just install-tools`
-just lint-all
+git clone https://github.com/hvpaiva/tardis-cli.git
+cd tardis-cli
+./scripts/dev-setup.sh   # installs all tools + git hooks
+just check               # runs fmt, lint, test, audit
 ```
 
 ## Workflow
 
-1. Fork and create a feature branch.
-2. Commit — the pre-commit hook runs `just lint-all`.
-3. Open a pull request; CI must pass.
-4. Maintainers tag `vX.Y.Z`; CI publishes automatically.
+1. **Fork** the repo and create a feature branch
+2. Make your changes — the pre-commit hook runs `just check` automatically
+3. Commit using [Conventional Commits](https://www.conventionalcommits.org/):
+   - `feat(cli): add --json flag`
+   - `fix(core): handle ambiguous DST times`
+   - `docs: update README examples`
+4. Open a PR against `main` — CI will run all checks
 
-### Handy commands
+## Handy Commands
 
-| Command         | Purpose                    |
-| --------------- | -------------------------- |
-| `just fmt`      | formatting check           |
-| `just clippy`   | static analysis            |
-| `just test`     | unit + integration tests   |
-| `just audit`    | vulnerable dependency scan |
-| `just lint-all` | run *every* check          |
+| Command | What it does |
+|---------|-------------|
+| `just check` | fmt + lint + test + audit (full pipeline) |
+| `just fmt` | auto-format code |
+| `just test` | run tests with nextest |
+| `just coverage` | generate HTML coverage report |
+| `just bench` | run criterion benchmarks |
+| `just run "tomorrow"` | run the CLI locally |
 
-All required CLI tools are installed via `scripts/dev-setup.sh`.
+## Guidelines
+
+- Keep PRs focused and small
+- Add tests for new functionality
+- Run `just check` before pushing
+- Don't edit `CHANGELOG.md` or version in `Cargo.toml` manually — the CD pipeline handles this
+
+## Project Structure
+
+```
+src/
+  main.rs    — binary entry-point
+  lib.rs     — module re-exports
+  cli.rs     — CLI parsing (clap)
+  core.rs    — date parsing + formatting logic
+  config.rs  — TOML config loading
+  errors.rs  — error types + exit handling
+```
