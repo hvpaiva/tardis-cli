@@ -6,7 +6,7 @@ use std::{
 
 use chrono::{DateTime, FixedOffset};
 use clap::{
-    Parser,
+    Parser, Subcommand, ValueEnum,
     builder::styling::{AnsiColor, Styles},
 };
 use color_print::cstr;
@@ -40,14 +40,16 @@ pub const AFTER_LONG_HELP: &str = cstr!(
 <green><bold>Precedence:</bold></green>
   CLI flags → env vars → config file
 
-For more info, visit <underline>https://github.com/hvpaiva/tardis</underline>
+For more info, visit <underline>https://github.com/hvpaiva/tardis-cli</underline>
 "#
 );
 
 pub const INPUT_HELP: &str = cstr!(
     r#"
 <bold>A natural-language expression</bold> like <underline>"next Friday at 9:30"</underline>.
-If omitted, the value is read from <bold>STDIN</bold>.
+If omitted and STDIN is a pipe, reads from it. If omitted in a terminal, defaults to <bold>"now"</bold>.
+
+Supports <bold>@&lt;epoch&gt;</bold> syntax for Unix timestamps (e.g. <bold>@1719244800</bold>).
 
 Supported formats:
 <underline>https://github.com/technologicalMayhem/human-date-parser?tab=readme-ov-file#formats</underline>
@@ -60,6 +62,8 @@ const FORMAT_HELP: &str = cstr!(
 
 Accepts chrono‑style strftime patterns (e.g. <bold>"%Y‑%m‑%d"</bold>) or a named
 preset defined in the config file.
+
+Special values: <bold>"epoch"</bold> or <bold>"unix"</bold> output a Unix timestamp (seconds).
 
 Reference:
 <underline>https://docs.rs/chrono/latest/chrono/format/strftime/index.html</underline>
@@ -85,7 +89,7 @@ falls back to the default time zone defined in the config file.
 
 pub const NOW_HELP: &str = cstr!(
     r#"
-Override “now”. Format <bold>RFC 3339</bold>, e.g. <italic>2025‑06‑24T09:00:00Z</italic>.
+Override "now". Format <bold>RFC 3339</bold>, e.g. <italic>2025‑06‑24T09:00:00Z</italic>.
 "#
 );
 
@@ -110,20 +114,69 @@ like <bold>"next Friday at 2:00"</bold> or <bold>"in 3 days"</bold> into machine
     color = clap::ColorChoice::Auto,
     after_long_help = AFTER_LONG_HELP,
     after_help = cstr!("For more information, visit <underline>https://github.com/hvpaiva/tardis-cli</underline>"),
-    styles=STYLES,
+    styles = STYLES,
 )]
 pub struct Cli {
     #[arg(help = INPUT_HELP)]
-    input: Option<String>,
+    pub input: Option<String>,
+
     /// Output format.
     #[arg(value_name = "FMT", short, long, long_help = FORMAT_HELP)]
-    format: Option<String>,
+    pub format: Option<String>,
+
     /// Time-zone to apply (IANA/Olson ID). If not provided, uses system local time.
     #[arg(value_name = "TZ", short, long, long_help = TIMEZONE_HELP)]
-    timezone: Option<String>,
-    /// Override “now”. Format **RFC 3339**, e.g. 2025-06-24T09:00:00Z.
+    pub timezone: Option<String>,
+
+    /// Override "now". Format **RFC 3339**, e.g. 2025-06-24T09:00:00Z.
     #[arg(value_name = "DATETIME", long, long_help = NOW_HELP)]
-    now: Option<String>,
+    pub now: Option<String>,
+
+    /// Output as JSON instead of plain text.
+    #[arg(short, long)]
+    pub json: bool,
+
+    /// Suppress trailing newline.
+    #[arg(short = 'n', long = "no-newline")]
+    pub no_newline: bool,
+
+    #[command(subcommand)]
+    pub subcmd: Option<SubCmd>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SubCmd {
+    /// Manage configuration file.
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+    /// Generate shell completions.
+    Completions {
+        /// Shell to generate completions for.
+        shell: ShellType,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ConfigAction {
+    /// Print the path to the configuration file.
+    Path,
+    /// Display the effective configuration.
+    Show,
+    /// Open the configuration file in $EDITOR.
+    Edit,
+    /// List all available format presets.
+    Presets,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum ShellType {
+    Bash,
+    Zsh,
+    Fish,
+    Elvish,
+    Powershell,
 }
 
 /// Normalised user command ready for further processing.
@@ -133,52 +186,51 @@ pub struct Command {
     pub format: Option<String>,
     pub timezone: Option<String>,
     pub now: Option<DateTime<FixedOffset>>,
+    pub json: bool,
+    pub no_newline: bool,
 }
 
 impl Command {
     /// Parse from arbitrary arg iterator **and** an arbitrary reader for STDIN.
-    /// Makes unit-testing easier by allowing injection of fake inputs.
-    pub fn parse_from<I, S, R>(args: I, mut stdin: R) -> Result<Self>
+    /// The `stdin_is_terminal` flag controls whether we attempt to read from
+    /// the reader when no positional argument is given.
+    pub fn parse_from<I, S, R>(args: I, stdin: R, stdin_is_terminal: bool) -> Result<Self>
     where
         I: IntoIterator<Item = S>,
         S: Into<OsString> + Clone,
         R: Read,
     {
         let cli = Cli::parse_from(args);
-        Self::from_cli(cli, &mut stdin)
+        Self::from_cli(cli, stdin, stdin_is_terminal)
     }
 
     /// Parse using the real `env::args_os()` and the real `io::stdin()`.
-    /// This is what the binary calls from `main`.
     pub fn parse() -> Result<Self> {
-        Self::parse_from(env::args_os(), io::stdin())
+        let is_terminal = io::stdin().is_terminal();
+        Self::parse_from(env::args_os(), io::stdin(), is_terminal)
     }
 
-    /// Internal helper that converts a `Cli` into `Command`,
-    /// reading STDIN if necessary.
-    fn from_cli<R: Read>(cli: Cli, mut stdin: R) -> Result<Self> {
+    /// Converts a `Cli` into `Command`, reading STDIN if necessary.
+    pub fn from_raw_cli<R: Read>(cli: Cli, stdin: R, stdin_is_terminal: bool) -> Result<Self> {
+        Self::from_cli(cli, stdin, stdin_is_terminal)
+    }
+
+    fn from_cli<R: Read>(cli: Cli, mut stdin: R, stdin_is_terminal: bool) -> Result<Self> {
         let input = match cli.input {
             Some(s) if !s.is_empty() => s,
-            None if !io::stdin().is_terminal() => {
+            None if !stdin_is_terminal => {
                 let mut buf = String::new();
                 stdin.read_to_string(&mut buf).map_err(|e| {
                     user_input_error!(InvalidDateFormat, "failed to read from stdin: {}", e)
                 })?;
                 let trimmed = buf.trim();
                 if trimmed.is_empty() {
-                    return Err(user_input_error!(
-                        InvalidDateFormat,
-                        "no input provided in stdin; pass an argument or pipe data"
-                    ));
+                    "now".to_owned()
+                } else {
+                    trimmed.to_owned()
                 }
-                trimmed.to_owned()
             }
-            _ => {
-                return Err(user_input_error!(
-                    InvalidDateFormat,
-                    "no input provided; pass an argument or pipe data"
-                ));
-            }
+            _ => "now".to_owned(),
         };
 
         let now = cli
@@ -199,6 +251,8 @@ impl Command {
             format: cli.format,
             timezone: cli.timezone,
             now,
+            json: cli.json,
+            no_newline: cli.no_newline,
         })
     }
 }
@@ -210,7 +264,7 @@ mod tests {
     use std::io::Cursor;
 
     fn parse_ok(argv: &[&str]) -> Command {
-        Command::parse_from(argv, Cursor::new("")).expect("parse should succeed")
+        Command::parse_from(argv, Cursor::new(""), true).expect("parse should succeed")
     }
 
     #[test]
@@ -245,17 +299,38 @@ mod tests {
 
     #[test]
     fn arg_takes_precedence_over_stdin() {
-        let cmd = Command::parse_from(["td", "next monday"], Cursor::new("ignored")).unwrap();
+        let cmd =
+            Command::parse_from(["td", "next monday"], Cursor::new("ignored"), false).unwrap();
         assert_eq!(cmd.input, "next monday");
     }
 
     #[test]
-    fn stdin_empty_in_unit_path_gives_missing_input() {
-        let err = Command::parse_from(["td"], Cursor::new("")).unwrap_err();
-        use crate::{Error, errors::UserInputError};
-        assert!(matches!(
-            err,
-            Error::UserInput(UserInputError::InvalidDateFormat(_))
-        ));
+    fn no_args_terminal_defaults_to_now() {
+        let cmd = Command::parse_from(["td"], Cursor::new(""), true).unwrap();
+        assert_eq!(cmd.input, "now");
+    }
+
+    #[test]
+    fn empty_stdin_defaults_to_now() {
+        let cmd = Command::parse_from(["td"], Cursor::new(""), false).unwrap();
+        assert_eq!(cmd.input, "now");
+    }
+
+    #[test]
+    fn stdin_with_content_is_read() {
+        let cmd = Command::parse_from(["td"], Cursor::new("tomorrow\n"), false).unwrap();
+        assert_eq!(cmd.input, "tomorrow");
+    }
+
+    #[test]
+    fn json_flag_parsed() {
+        let cmd = parse_ok(&["td", "now", "--json"]);
+        assert!(cmd.json);
+    }
+
+    #[test]
+    fn no_newline_flag_parsed() {
+        let cmd = parse_ok(&["td", "now", "-n"]);
+        assert!(cmd.no_newline);
     }
 }
