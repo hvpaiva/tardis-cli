@@ -593,12 +593,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "exitcode"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de853764b47027c2e862a995c34978ffa63c1501f2e15f987ba11bd4f9bba193"
-
-[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1592,7 +1586,6 @@ dependencies = [
  "config",
  "criterion",
  "dirs",
- "exitcode",
  "human-date-parser",
  "iana-time-zone",
  "insta",
@@ -1603,7 +1596,6 @@ dependencies = [
  "serial_test",
  "tempfile",
  "thiserror 2.0.12",
- "toml",
 ]
 
 [[package]]
@@ -1715,15 +1707,8 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_write",
  "winnow",
 ]
-
-[[package]]
-name = "toml_write"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
 
 [[package]]
 name = "trim-in-place"

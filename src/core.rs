@@ -198,6 +198,8 @@ impl Preset {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
     use crate::Error;
     use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};

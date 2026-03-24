@@ -259,6 +259,8 @@ impl Command {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
     use pretty_assertions::assert_eq;
     use std::io::Cursor;

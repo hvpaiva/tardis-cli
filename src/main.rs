@@ -1,4 +1,5 @@
 //! TARDIS binary entry-point.
+#![deny(clippy::unwrap_used, clippy::expect_used)]
 
 use std::io::{self, IsTerminal};
 
@@ -155,6 +156,8 @@ fn handle_completions(shell: ShellType) {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use chrono::DateTime;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;

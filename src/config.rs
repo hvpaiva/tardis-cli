@@ -106,7 +106,7 @@ impl From<config::ConfigError> for Error {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
     use assert_fs::{TempDir, prelude::*};
     use serial_test::serial;
