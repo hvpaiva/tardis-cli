@@ -62,7 +62,7 @@ fn process_and_print(cmd: &Command, cfg: &Config) -> Result<()> {
             "input": cmd.input,
             "output": result.formatted,
             "epoch": result.epoch,
-            "timezone": app.timezone.name(),
+            "timezone": app.timezone.iana_name().unwrap_or("Unknown"),
             "format": app.format,
         });
         if cmd.no_newline {
@@ -155,33 +155,36 @@ fn handle_completions(shell: ShellType) {
 
 #[cfg(test)]
 mod tests {
-    use chrono::DateTime;
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
 
-    use chrono_tz::Tz;
+    use jiff::{Zoned, tz::TimeZone};
     use tardis_cli::core::{self, App, Preset};
+
+    fn utc() -> TimeZone {
+        TimeZone::get("UTC").unwrap()
+    }
 
     macro_rules! now {
         () => {{
             Some(
-                chrono::DateTime::parse_from_rfc3339("2025-01-01T12:00:00Z")
+                "2025-01-01T12:00:00Z"
+                    .parse::<jiff::Timestamp>()
                     .unwrap()
-                    .with_timezone(&chrono_tz::UTC),
+                    .to_zoned(utc()),
             )
         }};
         ($dt:expr) => {{
             Some(
-                chrono::DateTime::parse_from_rfc3339($dt)
+                $dt.parse::<jiff::Timestamp>()
                     .unwrap()
-                    .with_timezone(&chrono_tz::UTC),
+                    .to_zoned(utc()),
             )
         }};
     }
 
-    const UTC: Tz = chrono_tz::UTC;
-
-    fn app(date: &str, fmt: &str, tz: Tz, now: Option<DateTime<Tz>>) -> App {
+    fn app(date: &str, fmt: &str, tz: TimeZone, now: Option<Zoned>) -> App {
         App::new(date.to_string(), fmt.to_string(), tz, now)
     }
 
@@ -191,14 +194,14 @@ mod tests {
 
     #[test]
     fn happy_path_basic() {
-        let a = app("2025-01-01 12:00", "%Y", UTC, now!());
+        let a = app("2025-01-01 12:00", "%Y", utc(), now!());
         let out = run(&a, &[]);
         assert_eq!(out, "2025");
     }
 
     #[test]
     fn resolves_preset() {
-        let a = app("2030-12-31 00:00", "br", UTC, now!("2030-12-31T00:00:00Z"));
+        let a = app("2030-12-31 00:00", "br", utc(), now!("2030-12-31T00:00:00Z"));
 
         let mut map = HashMap::new();
         map.insert("br".to_string(), "%d/%m/%Y".to_string());
@@ -213,7 +216,7 @@ mod tests {
 
     #[test]
     fn invalid_date_expression() {
-        let a = app("$$$", "%Y", UTC, now!());
+        let a = app("$$$", "%Y", utc(), now!());
         let res = core::process(&a, &[]);
         assert!(res.is_err());
     }

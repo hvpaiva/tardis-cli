@@ -4,7 +4,7 @@ use std::{
     io::{self, IsTerminal, Read},
 };
 
-use chrono::{DateTime, FixedOffset};
+use jiff::Timestamp;
 use clap::{
     Parser, Subcommand, ValueEnum,
     builder::styling::{AnsiColor, Styles},
@@ -185,7 +185,7 @@ pub struct Command {
     pub input: String,
     pub format: Option<String>,
     pub timezone: Option<String>,
-    pub now: Option<DateTime<FixedOffset>>,
+    pub now: Option<Timestamp>,
     pub json: bool,
     pub no_newline: bool,
 }
@@ -236,7 +236,7 @@ impl Command {
         let now = cli
             .now
             .as_deref()
-            .map(DateTime::parse_from_rfc3339)
+            .map(|s| s.parse::<Timestamp>())
             .transpose()
             .map_err(|e| {
                 user_input_error!(
@@ -285,7 +285,7 @@ mod tests {
         assert_eq!(cmd.timezone.as_deref(), Some("UTC"));
         assert_eq!(
             cmd.now,
-            Some(DateTime::parse_from_rfc3339("2025-06-24T12:00:00Z").unwrap())
+            Some("2025-06-24T12:00:00Z".parse::<Timestamp>().unwrap())
         );
     }
 
