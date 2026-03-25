@@ -334,8 +334,13 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
             )
         })?
     } else {
-        parser::parse(&args.input, &now, &locale_kw)
-            .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?
+        // Try RFC 3339/ISO 8601 first (handles "2025-03-24T12:00:00Z" and similar)
+        if let Ok(ts) = args.input.parse::<jiff::Timestamp>() {
+            ts.to_zoned(tz.clone())
+        } else {
+            parser::parse(&args.input, &now, &locale_kw)
+                .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?
+        }
     };
 
     // Format output using --to

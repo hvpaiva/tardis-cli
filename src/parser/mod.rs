@@ -42,6 +42,11 @@ pub fn parse(
         return resolver::resolve(&ast::DateExpr::Now, now);
     }
 
+    // Try RFC 3339/ISO 8601 first (handles "2025-03-24T12:00:00Z" etc.)
+    if let Ok(ts) = trimmed.parse::<jiff::Timestamp>() {
+        return Ok(ts.to_zoned(now.time_zone().clone()));
+    }
+
     let tokens = lexer::tokenize(trimmed, locale_keywords);
     let kw_list = locale_keywords.all_keywords();
     let mut parser = grammar::Parser::new(&tokens, trimmed, &kw_list);
