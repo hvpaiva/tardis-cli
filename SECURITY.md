@@ -27,6 +27,7 @@ This project uses the following automated security tools:
 - **Secret scanning** to prevent accidental credential leaks
 - **CodeQL analysis** for static code vulnerability detection (Rust)
 - **cargo-deny** in CI to audit dependencies on every push
+- **cargo-vet** for supply-chain integrity audits with publisher trust verification
 
 ## Supported Versions
 
