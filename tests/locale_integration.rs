@@ -685,3 +685,48 @@ fn fallback_en_arithmetic_with_pt_locale() {
         .success()
         .stdout(predicate::str::contains("2025-01-02T03:00:00"));
 }
+
+// ============================================================
+// EN fallback suggestion propagation (02-05 gap closure)
+// ============================================================
+
+#[test]
+fn fallback_en_typo_suggestion_with_pt_locale() {
+    // "tomorow" is an EN typo -- PT locale fails, EN fallback also fails but
+    // produces a suggestion which should surface to the user.
+    td_pt_fallback_cmd()
+        .args(["--now", "2025-01-01T12:00:00Z", "-t", "UTC", "tomorow"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("Did you mean 'tomorrow'?"));
+}
+
+#[test]
+fn fallback_autodetect_pt_en_typo_suggestion() {
+    // Same as above but with auto-detected pt_BR locale (no --locale flag).
+    td_autodetect_pt_cmd()
+        .args(["--now", "2025-01-01T12:00:00Z", "-t", "UTC", "tomorow"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("Did you mean 'tomorrow'?"));
+}
+
+#[test]
+fn error_message_echoes_input_string() {
+    // Error messages should echo the original input for UX clarity.
+    td_pt_fallback_cmd()
+        .args(["--now", "2025-01-01T12:00:00Z", "-t", "UTC", "blahblah xyz"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("could not parse 'blahblah xyz'"));
+}
+
+#[test]
+fn fallback_en_nextt_suggestion_with_pt_locale() {
+    // "nextt" is an EN typo near "next" -- should surface a suggestion.
+    td_pt_fallback_cmd()
+        .args(["--now", "2025-01-01T12:00:00Z", "-t", "UTC", "nextt monday"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("Did you mean"));
+}
