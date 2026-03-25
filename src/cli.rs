@@ -140,6 +140,10 @@ pub struct Cli {
     #[arg(short = 'n', long = "no-newline")]
     pub no_newline: bool,
 
+    /// Locale for input parsing (e.g. en, pt). Auto-detected if omitted.
+    #[arg(short = 'L', long, help = "Locale for input parsing (e.g. en, pt). Auto-detected if omitted.")]
+    pub locale: Option<String>,
+
     /// In batch mode, skip lines that fail to parse instead of aborting.
     /// Errors are printed to stderr; stdout gets an empty line to preserve alignment.
     /// Exit code is 1 if any line failed.
@@ -287,6 +291,7 @@ pub struct Command {
     pub input: String,
     pub format: Option<String>,
     pub timezone: Option<String>,
+    pub locale: Option<String>,
     pub now: Option<Timestamp>,
     pub json: bool,
     pub no_newline: bool,
@@ -301,6 +306,7 @@ impl Command {
             input,
             format: self.format.clone(),
             timezone: self.timezone.clone(),
+            locale: self.locale.clone(),
             now: self.now,
             json: self.json,
             no_newline: self.no_newline,
@@ -369,6 +375,7 @@ impl Command {
             input,
             format: cli.format,
             timezone: cli.timezone,
+            locale: cli.locale,
             now,
             json: cli.json,
             no_newline: cli.no_newline,

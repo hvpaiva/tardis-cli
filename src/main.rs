@@ -8,6 +8,7 @@ use tardis_cli::{
     cli::{Cli, Command, ConfigAction, ConvertArgs, DiffArgs, InfoArgs, ShellType, SubCmd, TzArgs},
     config::Config,
     core::{self, App},
+    locale::{self, LocaleKeywords},
     parser,
     user_input_error,
 };
@@ -173,7 +174,10 @@ fn try_range_output(cmd: &Command, cfg: &Config) -> Result<bool> {
         .clone()
         .unwrap_or_else(|| jiff::Zoned::now().with_time_zone(app.timezone.clone()));
 
-    match parser::parse_range(&cmd.input, &now) {
+    let locale_ref = locale::get_locale(&app.locale_code);
+    let locale_kw = LocaleKeywords::from_locale(locale_ref);
+
+    match parser::parse_range(&cmd.input, &now, &locale_kw) {
         Ok((start, end)) => {
             let fmt = &app.format;
             let start_str = start.strftime(fmt).to_string();
@@ -203,9 +207,13 @@ fn handle_diff(args: DiffArgs) -> Result<()> {
     let tz = resolve_timezone(&args.timezone)?;
     let now = resolve_now_zoned(&args.now, &tz)?;
 
-    let z1 = parser::parse(&args.date1, &now)
+    // Subcommands use EN locale by default (no --locale flag on subcommands yet)
+    let locale_ref = locale::get_locale("en");
+    let locale_kw = LocaleKeywords::from_locale(locale_ref);
+
+    let z1 = parser::parse(&args.date1, &now, &locale_kw)
         .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
-    let z2 = parser::parse(&args.date2, &now)
+    let z2 = parser::parse(&args.date2, &now, &locale_kw)
         .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
 
     // Calendar-aware span (human-readable and ISO 8601)
@@ -238,13 +246,17 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
     let tz = resolve_timezone(&args.timezone)?;
     let now = resolve_now_zoned(&args.now, &tz)?;
 
+    // Subcommands use EN locale by default
+    let locale_ref = locale::get_locale("en");
+    let locale_kw = LocaleKeywords::from_locale(locale_ref);
+
     // Parse input: if --from is specified, use strptime; otherwise auto-detect via parser
     let zoned = if let Some(ref from_fmt) = args.from {
         let pattern = resolve_builtin_format(from_fmt);
         jiff::Zoned::strptime(&pattern, &args.input)
             .map_err(|e| user_input_error!(InvalidDateFormat, "failed to parse with format '{}': {}", from_fmt, e))?
     } else {
-        parser::parse(&args.input, &now)
+        parser::parse(&args.input, &now, &locale_kw)
             .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?
     };
 
@@ -276,8 +288,12 @@ fn handle_tz(args: TzArgs) -> Result<()> {
     let from_tz = resolve_timezone(&args.from)?;
     let now = resolve_now_zoned(&args.now, &from_tz)?;
 
+    // Subcommands use EN locale by default
+    let locale_ref = locale::get_locale("en");
+    let locale_kw = LocaleKeywords::from_locale(locale_ref);
+
     // Parse input in source timezone
-    let zoned = parser::parse(&args.input, &now)
+    let zoned = parser::parse(&args.input, &now, &locale_kw)
         .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
 
     // Convert to target timezone
@@ -309,7 +325,11 @@ fn handle_info(args: InfoArgs) -> Result<()> {
     let tz = resolve_timezone(&args.timezone)?;
     let now = resolve_now_zoned(&args.now, &tz)?;
 
-    let zoned = parser::parse(&args.input, &now)
+    // Subcommands use EN locale by default
+    let locale_ref = locale::get_locale("en");
+    let locale_kw = LocaleKeywords::from_locale(locale_ref);
+
+    let zoned = parser::parse(&args.input, &now, &locale_kw)
         .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
 
     let iwd = zoned.date().iso_week_date();

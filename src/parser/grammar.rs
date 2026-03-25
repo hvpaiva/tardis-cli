@@ -20,15 +20,18 @@ pub(crate) struct Parser<'a> {
     tokens: &'a [SpannedToken],
     pos: usize,
     input: &'a str,
+    /// Locale-aware keyword list for typo suggestions.
+    keywords: &'a [String],
 }
 
 impl<'a> Parser<'a> {
     /// Create a new parser over the given token slice.
-    pub(crate) fn new(tokens: &'a [SpannedToken], input: &'a str) -> Self {
+    pub(crate) fn new(tokens: &'a [SpannedToken], input: &'a str, keywords: &'a [String]) -> Self {
         Self {
             tokens,
             pos: 0,
             input,
+            keywords,
         }
     }
 
@@ -687,9 +690,9 @@ impl<'a> Parser<'a> {
     /// Produce an error with typo suggestion for unrecognized words (D-08).
     fn unexpected_input_error(&self) -> ParseError {
         if let Some(Token::Word(w)) = self.peek() {
-            if let Some(suggestion) = suggest::suggest_keyword(w, 2) {
+            if let Some(suggestion) = suggest::suggest_keyword(w, 2, self.keywords) {
                 return ParseError::unrecognized(self.input)
-                    .with_suggestion(suggestion.to_string());
+                    .with_suggestion(suggestion);
             }
         }
         ParseError::unrecognized(self.input)
@@ -720,6 +723,7 @@ pub(crate) fn detect_epoch_precision(value: i64) -> EpochPrecision {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
+    use crate::locale::{LocaleKeywords, en::EN_LOCALE};
     use jiff::civil::Weekday;
 
     /// Helper: create a SpannedToken with a dummy span.
@@ -730,9 +734,14 @@ mod tests {
         }
     }
 
+    fn en_keywords() -> Vec<String> {
+        LocaleKeywords::from_locale(&EN_LOCALE).all_keywords()
+    }
+
     /// Helper: parse a token list and return the AST.
     fn parse_tokens(tokens: &[SpannedToken]) -> Result<DateExpr, ParseError> {
-        let mut parser = Parser::new(tokens, "");
+        let kw_list = en_keywords();
+        let mut parser = Parser::new(tokens, "", &kw_list);
         parser.parse_expression()
     }
 

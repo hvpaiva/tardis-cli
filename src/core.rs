@@ -5,7 +5,7 @@
 
 use jiff::{Zoned, tz::TimeZone};
 
-use crate::{Result, cli::Command, config::Config, parser, user_input_error};
+use crate::{Result, cli::Command, config::Config, locale, parser, user_input_error};
 
 /// Immutable application context passed to [`process`].
 #[derive(Debug)]
@@ -16,6 +16,8 @@ pub struct App {
     pub format: String,
     /// Target time-zone for output.
     pub timezone: TimeZone,
+    /// Locale code for input parsing (e.g. "en", "pt").
+    pub locale_code: String,
     /// Optional "now" (useful for deterministic tests).
     pub now: Option<Zoned>,
 }
@@ -48,8 +50,12 @@ pub fn process(app: &App, presets: &[Preset]) -> Result<ProcessOutput> {
 
     let fmt = resolve_format(&app.format, presets)?;
 
+    // Resolve locale and build keyword table for parser
+    let locale_ref = locale::get_locale(&app.locale_code);
+    let locale_kw = locale::LocaleKeywords::from_locale(locale_ref);
+
     // New parser handles everything: epoch, relative, absolute, time-only
-    let zoned = parser::parse(&app.date, &now).map_err(|e| {
+    let zoned = parser::parse(&app.date, &now, &locale_kw).map_err(|e| {
         user_input_error!(InvalidDateFormat, "{}", e.format_message())
     })?;
 
@@ -175,6 +181,7 @@ impl App {
             date,
             format,
             timezone,
+            locale_code: "en".to_string(),
             now,
         }
     }
@@ -208,9 +215,22 @@ impl App {
             })?
         };
 
+        // Resolve locale via D-06 precedence: CLI > config > env > EN
+        let locale_ref = locale::resolve_locale(
+            cmd.locale.as_deref(),
+            cfg.locale.as_deref(),
+        );
+        let locale_code = locale_ref.code().to_string();
+
         let now = cmd.now.map(|ts| ts.to_zoned(timezone.clone()));
 
-        Ok(Self::new(cmd.input.clone(), format, timezone, now))
+        Ok(Self {
+            date: cmd.input.clone(),
+            format,
+            timezone,
+            locale_code,
+            now,
+        })
     }
 }
 
@@ -307,6 +327,7 @@ mod tests {
             input: input.to_string(),
             format: format.map(|s| s.to_string()),
             timezone: timezone.map(|s| s.to_string()),
+            locale: None,
             now: now.map(|s| s.parse::<Timestamp>().unwrap()),
             json: false,
             no_newline: false,
@@ -318,6 +339,7 @@ mod tests {
         Config {
             format: format.to_string(),
             timezone: timezone.to_string(),
+            locale: None,
             formats: None,
         }
     }
@@ -373,6 +395,7 @@ mod tests {
         let cfg = Config {
             format: "%F".into(),
             timezone: "UTC".into(),
+            locale: None,
             formats: Some(fmts),
         };
         let app = App::from_cli(&cli, &cfg).unwrap();

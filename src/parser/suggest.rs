@@ -35,95 +35,30 @@ pub(crate) fn edit_distance(a: &str, b: &str) -> usize {
     matrix[a_len][b_len]
 }
 
-/// All known keywords the parser recognizes. Used for typo suggestions.
-const KEYWORDS: &[&str] = &[
-    "now",
-    "today",
-    "tomorrow",
-    "yesterday",
-    "overmorrow",
-    "next",
-    "last",
-    "this",
-    "in",
-    "ago",
-    "at",
-    "from",
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-    "mon",
-    "tue",
-    "wed",
-    "thu",
-    "fri",
-    "sat",
-    "sun",
-    "january",
-    "february",
-    "march",
-    "april",
-    "may",
-    "june",
-    "july",
-    "august",
-    "september",
-    "october",
-    "november",
-    "december",
-    "jan",
-    "feb",
-    "mar",
-    "apr",
-    "jun",
-    "jul",
-    "aug",
-    "sep",
-    "oct",
-    "nov",
-    "dec",
-    "year",
-    "years",
-    "month",
-    "months",
-    "week",
-    "weeks",
-    "day",
-    "days",
-    "hour",
-    "hours",
-    "minute",
-    "minutes",
-    "second",
-    "seconds",
-    "min",
-    "mins",
-    "sec",
-    "secs",
-    "a",
-    "an",
-    "and",
-];
-
 /// Find the closest keyword match for an unrecognized word.
 ///
 /// Returns `None` if no keyword is within `max_distance` edits.
 /// Default max_distance of 2 catches most single-character typos.
-pub(crate) fn suggest_keyword(word: &str, max_distance: usize) -> Option<&'static str> {
+///
+/// Accepts a locale-aware keyword list instead of using a hardcoded list.
+pub(crate) fn suggest_keyword(word: &str, max_distance: usize, keywords: &[String]) -> Option<String> {
     let word_lower = word.to_ascii_lowercase();
-    let mut best: Option<(&str, usize)> = None;
+    let mut best: Option<(String, usize)> = None;
 
-    for &kw in KEYWORDS {
+    for kw in keywords {
         let dist = edit_distance(&word_lower, kw);
-        if dist <= max_distance
-            && dist > 0
-            && (best.is_none() || dist < best.map_or(usize::MAX, |b| b.1))
-        {
-            best = Some((kw, dist));
+        if dist <= max_distance && dist > 0 {
+            let is_better = match &best {
+                None => true,
+                Some((prev_kw, prev_dist)) => {
+                    // Lower distance wins; on tie, prefer alphabetically first
+                    // for deterministic output across HashMap iteration orders
+                    dist < *prev_dist || (dist == *prev_dist && kw < prev_kw)
+                }
+            };
+            if is_better {
+                best = Some((kw.clone(), dist));
+            }
         }
     }
 
@@ -134,6 +69,11 @@ pub(crate) fn suggest_keyword(word: &str, max_distance: usize) -> Option<&'stati
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
+    use crate::locale::{LocaleKeywords, en::EN_LOCALE};
+
+    fn en_keywords() -> Vec<String> {
+        LocaleKeywords::from_locale(&EN_LOCALE).all_keywords()
+    }
 
     #[test]
     fn edit_distance_identical() {
@@ -158,32 +98,37 @@ mod tests {
 
     #[test]
     fn suggest_thursdya_finds_thursday() {
-        let suggestion = suggest_keyword("thursdya", 2);
-        assert_eq!(suggestion, Some("thursday"));
+        let kws = en_keywords();
+        let suggestion = suggest_keyword("thursdya", 2, &kws);
+        assert_eq!(suggestion, Some("thursday".to_string()));
     }
 
     #[test]
     fn suggest_tomorow_finds_tomorrow() {
-        let suggestion = suggest_keyword("tomorow", 2);
-        assert_eq!(suggestion, Some("tomorrow"));
+        let kws = en_keywords();
+        let suggestion = suggest_keyword("tomorow", 2, &kws);
+        assert_eq!(suggestion, Some("tomorrow".to_string()));
     }
 
     #[test]
     fn suggest_no_match_for_gibberish() {
-        let suggestion = suggest_keyword("xyzzy", 2);
+        let kws = en_keywords();
+        let suggestion = suggest_keyword("xyzzy", 2, &kws);
         assert!(suggestion.is_none());
     }
 
     #[test]
     fn suggest_case_insensitive() {
-        let suggestion = suggest_keyword("THURSDYA", 2);
-        assert_eq!(suggestion, Some("thursday"));
+        let kws = en_keywords();
+        let suggestion = suggest_keyword("THURSDYA", 2, &kws);
+        assert_eq!(suggestion, Some("thursday".to_string()));
     }
 
     #[test]
     fn suggest_exact_match_excluded() {
         // Exact matches (distance 0) should not be returned as "suggestions"
-        let suggestion = suggest_keyword("wednesday", 2);
+        let kws = en_keywords();
+        let suggestion = suggest_keyword("wednesday", 2, &kws);
         assert!(suggestion.is_none());
     }
 }

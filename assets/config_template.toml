@@ -22,6 +22,11 @@ format = "%Y-%m-%dT%H:%M:%S"
 # Leave empty to use the system's local timezone.
 timezone = ""
 
+# Locale for natural-language parsing.
+# Supported: "en" (English), "pt" (Portuguese/Brazilian).
+# Auto-detected from LANG/LC_TIME if not set.
+# locale = ""
+
 [formats]
 # Define named formats that can be used with the --format flag.
 # You may uncomment and customize these as needed.

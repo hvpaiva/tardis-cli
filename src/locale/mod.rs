@@ -116,7 +116,7 @@ pub fn detect_locale_from_env() -> &'static str {
             // Extract language prefix: "pt_BR.UTF-8" -> "pt"
             let lower = val.to_lowercase();
             let lang = lower
-                .split(|c: char| c == '_' || c == '-' || c == '.')
+                .split(['_', '-', '.'])
                 .next()
                 .unwrap_or("");
             if lang == "pt" {

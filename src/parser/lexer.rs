@@ -1,22 +1,29 @@
 //! Lexer (tokenizer) for the TARDIS natural-language date parser.
 //!
 //! Scans input character-by-character, producing a `Vec<SpannedToken>` with
-//! byte-accurate span tracking. Keywords are matched case-insensitively to
-//! zero-heap-alloc enum variants. Only `Token::Word(String)` carries owned data
+//! byte-accurate span tracking. Keywords are matched via locale-driven
+//! `LocaleKeywords` lookup. UTF-8 multi-byte characters are handled for
+//! accented words (e.g., "amanha" in Portuguese).
+//!
+//! Only `Token::Word(String)` carries owned data
 //! (for unrecognized words used in error messages and typo suggestions).
 
 
-use crate::parser::token::{ByteSpan, EpochPrecision, SpannedToken, TemporalUnit, Token};
+use crate::locale::{self, LocaleKeywords};
+use crate::parser::token::{ByteSpan, EpochPrecision, SpannedToken, Token};
 
 /// Tokenize the input string into a sequence of spanned tokens.
 ///
 /// - Whitespace is consumed but not emitted.
 /// - Commas are consumed but not emitted (optional separators in compound durations).
-/// - Keywords are matched case-insensitively.
+/// - Keywords are matched via the locale-driven `locale_keywords` table.
 /// - Unrecognized alpha words are captured as `Token::Word` with original casing.
 /// - Epoch suffixes (`ms`, `us`, `ns`, `s`) are detected immediately after numbers
 ///   when not separated by whitespace and not followed by more alpha chars.
-pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
+/// - UTF-8 multi-byte alphabetic characters are handled in word scanning.
+/// - After initial tokenization, a multi-word merge pass combines locale-specific
+///   multi-word patterns into single tokens.
+pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<SpannedToken> {
     let bytes = input.as_bytes();
     let len = bytes.len();
     let mut pos: usize = 0;
@@ -170,17 +177,43 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
             continue;
         }
 
-        // Alpha characters: consume word, match keyword
-        if b.is_ascii_alphabetic() {
+        // Alpha characters (ASCII or UTF-8 multi-byte): consume word, match keyword
+        if b.is_ascii_alphabetic() || (b & 0x80 != 0) {
             let start = pos;
-            while pos < len && bytes[pos].is_ascii_alphabetic() {
-                pos += 1;
+
+            // Scan word: ASCII alpha or multi-byte UTF-8 alphabetic chars
+            while pos < len {
+                let b = bytes[pos];
+                if b.is_ascii_alphabetic() {
+                    pos += 1;
+                } else if b & 0x80 != 0 {
+                    // Multi-byte UTF-8: decode char, check if alphabetic
+                    if let Some(ch) = input[pos..].chars().next() {
+                        if ch.is_alphabetic() {
+                            pos += ch.len_utf8();
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
             }
 
             // Special handling for Q+digit patterns (Q1, Q2, Q3, Q4)
             let original = &input[start..pos];
-            let lower = original.to_ascii_lowercase();
-            if lower == "q" && pos < len && bytes[pos].is_ascii_digit() {
+            // Normalize for keyword lookup: lowercase + strip diacritics
+            let normalized: String = original
+                .chars()
+                .map(|c| {
+                    let lower = c.to_lowercase().next().unwrap_or(c);
+                    locale::strip_diacritics(lower)
+                })
+                .collect();
+
+            if normalized == "q" && pos < len && bytes[pos].is_ascii_digit() {
                 let digit_start = pos;
                 while pos < len && bytes[pos].is_ascii_digit() {
                     pos += 1;
@@ -200,7 +233,7 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
                 pos = digit_start;
             }
 
-            let kind = match_keyword(&lower, original);
+            let kind = locale_keywords.lookup(&normalized, original);
             tokens.push(SpannedToken {
                 kind,
                 span: ByteSpan {
@@ -223,7 +256,96 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
         });
     }
 
+    // Multi-word token merge pass (for locale-specific patterns)
+    merge_multi_word_patterns(&mut tokens, locale_keywords);
+
     tokens
+}
+
+/// Post-processing pass: scan for known multi-word sequences from the locale
+/// and replace them with single tokens. Handles PT patterns like
+/// "daqui a" -> Token::In, "depois de amanha" -> Token::Overmorrow, etc.
+fn merge_multi_word_patterns(tokens: &mut Vec<SpannedToken>, locale_keywords: &LocaleKeywords) {
+    let patterns = locale_keywords.multi_word_patterns();
+    if patterns.is_empty() {
+        return;
+    }
+
+    let mut i = 0;
+    while i < tokens.len() {
+        let mut matched = false;
+        for &(words, ref target_token) in patterns {
+            if i + words.len() > tokens.len() {
+                continue;
+            }
+            // Check if the next N tokens match the multi-word pattern
+            let all_match = words.iter().enumerate().all(|(j, &expected)| {
+                match &tokens[i + j].kind {
+                    Token::Word(w) => {
+                        let normalized: String = w
+                            .chars()
+                            .map(|c| {
+                                let lower = c.to_lowercase().next().unwrap_or(c);
+                                locale::strip_diacritics(lower)
+                            })
+                            .collect();
+                        normalized == expected
+                    }
+                    other => {
+                        // Also check if this token was already recognized as a keyword
+                        // that matches the expected word
+                        let token_str = token_to_normalized_str(other);
+                        token_str.as_deref() == Some(expected)
+                    }
+                }
+            });
+
+            if all_match {
+                // Merge: replace first token, remove the rest
+                let start_span = tokens[i].span.start;
+                let end_span = tokens[i + words.len() - 1].span.end;
+                tokens[i] = SpannedToken {
+                    kind: target_token.clone(),
+                    span: ByteSpan {
+                        start: start_span,
+                        end: end_span,
+                    },
+                };
+                for _ in 1..words.len() {
+                    tokens.remove(i + 1);
+                }
+                matched = true;
+                break;
+            }
+        }
+        if !matched {
+            i += 1;
+        }
+    }
+}
+
+/// Convert a token back to its normalized keyword string for multi-word pattern matching.
+fn token_to_normalized_str(token: &Token) -> Option<String> {
+    match token {
+        Token::A => Some("a".to_string()),
+        Token::An => Some("an".to_string()),
+        Token::At => Some("at".to_string()),
+        Token::And => Some("and".to_string()),
+        Token::In => Some("in".to_string()),
+        Token::Ago => Some("ago".to_string()),
+        Token::From => Some("from".to_string()),
+        Token::After => Some("after".to_string()),
+        Token::Before => Some("before".to_string()),
+        Token::Now => Some("now".to_string()),
+        Token::Today => Some("today".to_string()),
+        Token::Tomorrow => Some("tomorrow".to_string()),
+        Token::Yesterday => Some("yesterday".to_string()),
+        Token::Overmorrow => Some("overmorrow".to_string()),
+        Token::Next => Some("next".to_string()),
+        Token::Last => Some("last".to_string()),
+        Token::This => Some("this".to_string()),
+        _ => None,
+    }
 }
 
 /// Try to consume an epoch suffix immediately after a number token.
@@ -293,85 +415,22 @@ fn match_quarter(lower: &str) -> Option<Token> {
     }
 }
 
-/// Match a lowercase word against the keyword table.
-///
-/// Returns the corresponding `Token` variant, or `Token::Word` with original
-/// casing for unrecognized words.
-fn match_keyword(lower: &str, original: &str) -> Token {
-    match lower {
-        // Relative keywords
-        "now" => Token::Now,
-        "today" => Token::Today,
-        "tomorrow" => Token::Tomorrow,
-        "yesterday" => Token::Yesterday,
-        "overmorrow" => Token::Overmorrow,
-
-        // Direction modifiers
-        "next" => Token::Next,
-        "last" => Token::Last,
-        "this" => Token::This,
-        "in" => Token::In,
-        "ago" => Token::Ago,
-        "from" => Token::From,
-
-        // Verbal arithmetic keywords
-        "after" => Token::After,
-        "before" => Token::Before,
-
-        // Articles
-        "a" => Token::A,
-        "an" => Token::An,
-
-        // Connectors
-        "at" => Token::At,
-        "and" => Token::And,
-
-        // Weekdays (full and abbreviated)
-        "monday" | "mon" => Token::Weekday(jiff::civil::Weekday::Monday),
-        "tuesday" | "tue" => Token::Weekday(jiff::civil::Weekday::Tuesday),
-        "wednesday" | "wed" => Token::Weekday(jiff::civil::Weekday::Wednesday),
-        "thursday" | "thu" => Token::Weekday(jiff::civil::Weekday::Thursday),
-        "friday" | "fri" => Token::Weekday(jiff::civil::Weekday::Friday),
-        "saturday" | "sat" => Token::Weekday(jiff::civil::Weekday::Saturday),
-        "sunday" | "sun" => Token::Weekday(jiff::civil::Weekday::Sunday),
-
-        // Months (full and abbreviated)
-        "january" | "jan" => Token::Month(1),
-        "february" | "feb" => Token::Month(2),
-        "march" | "mar" => Token::Month(3),
-        "april" | "apr" => Token::Month(4),
-        "may" => Token::Month(5),
-        "june" | "jun" => Token::Month(6),
-        "july" | "jul" => Token::Month(7),
-        "august" | "aug" => Token::Month(8),
-        "september" | "sep" => Token::Month(9),
-        "october" | "oct" => Token::Month(10),
-        "november" | "nov" => Token::Month(11),
-        "december" | "dec" => Token::Month(12),
-
-        // Temporal units (singular and plural)
-        "year" | "years" => Token::Unit(TemporalUnit::Year),
-        "month" | "months" => Token::Unit(TemporalUnit::Month),
-        "week" | "weeks" => Token::Unit(TemporalUnit::Week),
-        "day" | "days" => Token::Unit(TemporalUnit::Day),
-        "hour" | "hours" => Token::Unit(TemporalUnit::Hour),
-        "minute" | "minutes" | "min" | "mins" => Token::Unit(TemporalUnit::Minute),
-        "second" | "seconds" | "sec" | "secs" => Token::Unit(TemporalUnit::Second),
-
-        // Unrecognized: keep original casing for error messages
-        _ => Token::Word(original.to_string()),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
+    use crate::locale::en::EN_LOCALE;
     use jiff::civil::Weekday;
+
+    /// Helper to build EN locale keywords for tests.
+    fn en_kw() -> LocaleKeywords {
+        LocaleKeywords::from_locale(&EN_LOCALE)
+    }
 
     /// Helper to extract just the token kinds from a tokenize result.
     fn kinds(input: &str) -> Vec<Token> {
-        tokenize(input).into_iter().map(|st| st.kind).collect()
+        let kw = en_kw();
+        tokenize(input, &kw).into_iter().map(|st| st.kind).collect()
     }
 
     #[test]
@@ -506,7 +565,8 @@ mod tests {
 
     #[test]
     fn spans_are_correct() {
-        let tokens = tokenize("next friday");
+        let kw = en_kw();
+        let tokens = tokenize("next friday", &kw);
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 4 });
         assert_eq!(tokens[1].span, ByteSpan { start: 5, end: 11 });
@@ -748,7 +808,8 @@ mod tests {
 
     #[test]
     fn span_tracking_multiword() {
-        let tokens = tokenize("3 hours ago");
+        let kw = en_kw();
+        let tokens = tokenize("3 hours ago", &kw);
         assert_eq!(tokens.len(), 3);
         assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 1 });
         assert_eq!(tokens[1].span, ByteSpan { start: 2, end: 7 });
@@ -757,7 +818,8 @@ mod tests {
 
     #[test]
     fn span_tracking_iso_date() {
-        let tokens = tokenize("2025-01-15");
+        let kw = en_kw();
+        let tokens = tokenize("2025-01-15", &kw);
         assert_eq!(tokens.len(), 5);
         assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 4 }); // 2025
         assert_eq!(tokens[1].span, ByteSpan { start: 4, end: 5 }); // -
@@ -768,7 +830,8 @@ mod tests {
 
     #[test]
     fn negative_number_span() {
-        let tokens = tokenize("-42");
+        let kw = en_kw();
+        let tokens = tokenize("-42", &kw);
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0].kind, Token::Number(-42));
         assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 3 });
@@ -776,7 +839,8 @@ mod tests {
 
     #[test]
     fn epoch_suffix_span() {
-        let tokens = tokenize("100ms");
+        let kw = en_kw();
+        let tokens = tokenize("100ms", &kw);
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].kind, Token::Number(100));
         assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 3 });
@@ -883,4 +947,43 @@ mod tests {
     fn before_keyword() {
         assert_eq!(kinds("before"), vec![Token::Before]);
     }
+
+    // ── UTF-8 multi-byte character tests ────────────────────────
+
+    #[test]
+    fn utf8_accented_word_scans_as_single_token() {
+        // "amanha" with tilde should scan as one word token
+        let kw = en_kw();
+        let tokens = tokenize("amanh\u{00e3}", &kw);
+        assert_eq!(tokens.len(), 1);
+        // EN locale doesn't know "amanha", so it becomes a Word
+        match &tokens[0].kind {
+            Token::Word(w) => assert_eq!(w, "amanh\u{00e3}"),
+            _ => panic!("expected Word token for unrecognized accented word"),
+        }
+    }
+
+    #[test]
+    fn utf8_span_tracking_correct() {
+        // "amanha" = 6 bytes: a(1) m(1) a(1) n(1) h(1) a-tilde(2 bytes: 0xC3 0xA3)
+        let kw = en_kw();
+        let tokens = tokenize("amanh\u{00e3}", &kw);
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 7 }); // 7 bytes total
+    }
+
+    #[test]
+    fn utf8_mixed_with_ascii_tokens() {
+        // "amanh\u{00e3} 3 days" -- accented word followed by ASCII tokens
+        assert_eq!(
+            kinds("amanh\u{00e3} 3 days"),
+            vec![
+                Token::Word("amanh\u{00e3}".to_string()),
+                Token::Number(3),
+                Token::Unit(TemporalUnit::Day),
+            ]
+        );
+    }
+
+    use crate::parser::token::TemporalUnit;
 }

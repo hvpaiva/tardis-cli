@@ -11,7 +11,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use config::{Environment, File};
 use serde::Deserialize;
 
 use crate::{Error, Result, core::Preset, errors::SystemError, system_error};
@@ -27,6 +26,9 @@ pub struct Config {
     pub format: String,
     /// Time-zone identifier recognised by `chrono-tz` (e.g. `"America/Sao_Paulo"`).
     pub timezone: String,
+    /// Locale for natural-language parsing (e.g. `"en"`, `"pt"`). Optional.
+    #[serde(default)]
+    pub locale: Option<String>,
     /// User-defined named formats.
     pub formats: Option<HashMap<String, String>>,
 }
@@ -38,16 +40,28 @@ impl Config {
         let path = config_path()?;
         create_config_if_missing(&path)?;
 
-        config::Config::builder()
-            .add_source(File::from(path))
-            .add_source(
-                Environment::with_prefix("TARDIS")
-                    .separator("_")
-                    .ignore_empty(true),
-            )
-            .build()?
-            .try_deserialize()
-            .map_err(Into::into)
+        let contents = fs::read_to_string(&path)?;
+        let mut cfg: Config = toml::from_str(&contents)
+            .map_err(|e| system_error!(Config, "failed to parse config: {}", e))?;
+
+        // Env var overlay (D-08): TARDIS_FORMAT, TARDIS_TIMEZONE, TARDIS_LOCALE
+        if let Ok(val) = env::var("TARDIS_FORMAT") {
+            if !val.is_empty() {
+                cfg.format = val;
+            }
+        }
+        if let Ok(val) = env::var("TARDIS_TIMEZONE") {
+            if !val.is_empty() {
+                cfg.timezone = val;
+            }
+        }
+        if let Ok(val) = env::var("TARDIS_LOCALE") {
+            if !val.is_empty() {
+                cfg.locale = Some(val);
+            }
+        }
+
+        Ok(cfg)
     }
 
     /// Convert the `[formats]` table into a list of [`Preset`]s.
@@ -98,15 +112,9 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl From<config::ConfigError> for Error {
-    fn from(e: config::ConfigError) -> Self {
-        system_error!(Config, "{}", e)
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
     use assert_fs::{TempDir, prelude::*};
     use serial_test::serial;
@@ -236,6 +244,7 @@ short = "%H:%M"
         let cfg = Config {
             format: "%Y".into(),
             timezone: "UTC".into(),
+            locale: None,
             formats: Some(
                 [
                     ("iso".to_string(), "%Y-%m-%d".to_string()),
@@ -256,6 +265,7 @@ short = "%H:%M"
         let cfg = Config {
             format: "%Y".into(),
             timezone: "UTC".into(),
+            locale: None,
             formats: None,
         };
         assert!(cfg.presets().is_empty());

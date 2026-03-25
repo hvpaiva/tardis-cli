@@ -438,7 +438,7 @@ fn golden_error_question_marks() {
 
 #[test]
 fn golden_error_not_a_date() {
-    assert_snapshot!(td_golden("not a date"), @"ERROR: Invalid date format: could not parse as a date expression. Did you mean 'now'?");
+    assert_snapshot!(td_golden("not a date"), @"ERROR: Invalid date format: could not parse as a date expression. Did you mean 'nov'?");
 }
 
 #[test]
