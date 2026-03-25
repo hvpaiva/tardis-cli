@@ -2,6 +2,7 @@
 name = "tardis-cli"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
 description = "TARDIS - Translates natural language dates into machine-readable formats"
 license = "MIT"
 repository = "https://github.com/hvpaiva/tardis-cli"
@@ -16,7 +17,7 @@ include = [
   "assets/config_template.toml",
   "Cargo.toml",
   "README.md",
-  "LICENSE*",
+  "LICENCE*",
 ]
 build = "build.rs"
 
