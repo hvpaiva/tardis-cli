@@ -61,5 +61,8 @@ Desktop.ini
 *.bak
 *.tmp
 
-# GSD planning docs (local-only)
 .planning/
+CLAUDE.md
+
+# Criterion benchmark baselines (machine-specific)
+/target/criterion/
