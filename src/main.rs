@@ -28,6 +28,25 @@ fn run() -> Result<()> {
     let cmd = Command::from_raw_cli(cli, io::stdin(), is_terminal)?;
     let cfg = Config::load()?;
 
+    if cmd.verbose {
+        use tardis_cli::config;
+        eprintln!(
+            "[config] path: {}",
+            config::config_path()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|_| "unknown".into())
+        );
+        eprintln!("[config] format: {}", cfg.format);
+        eprintln!(
+            "[config] timezone: {}",
+            if cfg.timezone.is_empty() {
+                "(system)"
+            } else {
+                &cfg.timezone
+            }
+        );
+    }
+
     // Batch mode: if input has multiple lines, process each.
     let lines: Vec<&str> = cmd.input.lines().collect();
     if lines.len() > 1 {
@@ -56,7 +75,21 @@ fn run() -> Result<()> {
 
 fn process_and_print(cmd: &Command, cfg: &Config) -> Result<()> {
     let app = App::from_cli(cmd, cfg)?;
+
+    if cmd.verbose {
+        eprintln!("[resolve] timezone: {}", app.timezone.name());
+        eprintln!("[resolve] format: {}", app.format);
+        eprintln!("[parse] input: {:?}", app.date);
+    }
+
+    let start = std::time::Instant::now();
     let result = core::process(&app, &cfg.presets())?;
+    let elapsed = start.elapsed();
+
+    if cmd.verbose {
+        eprintln!("[resolve] epoch: {}", result.epoch);
+        eprintln!("[timing] parse+resolve: {:.2?}", elapsed);
+    }
 
     if cmd.json {
         let json = serde_json::json!({
