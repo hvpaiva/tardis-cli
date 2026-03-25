@@ -482,3 +482,32 @@ fn golden_past_2_hours_ago() {
 fn golden_past_a_day_ago() {
     assert_snapshot!(td_golden("a day ago"), @"2025-06-14T12:00:00");
 }
+
+// ============================================================
+// Arithmetic expressions (5 tests)
+// ============================================================
+
+#[test]
+fn golden_arithmetic_tomorrow_plus_3_hours() {
+    assert_snapshot!(td_golden("tomorrow + 3 hours"), @"2025-06-16T03:00:00");
+}
+
+#[test]
+fn golden_arithmetic_chained() {
+    assert_snapshot!(td_golden("now + 1 day + 3 hours - 30 minutes"), @"2025-06-16T14:30:00");
+}
+
+#[test]
+fn golden_arithmetic_next_friday_minus_1_week() {
+    assert_snapshot!(td_golden("next friday - 1 week"), @"2025-06-13T00:00:00");
+}
+
+#[test]
+fn golden_verbal_3_hours_after_tomorrow() {
+    assert_snapshot!(td_golden("3 hours after tomorrow"), @"2025-06-16T03:00:00");
+}
+
+#[test]
+fn golden_verbal_2_days_before_next_friday() {
+    assert_snapshot!(td_golden("2 days before next friday"), @"2025-06-18T00:00:00");
+}

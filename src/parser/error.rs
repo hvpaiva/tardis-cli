@@ -28,6 +28,8 @@ enum ParseErrorKind {
     EpochOutOfRange,
     ResolutionFailed(String),
     InputTooLong { len: usize, max: usize },
+    /// Reserved for future unsupported-feature errors.
+    #[allow(dead_code)]
     Unsupported(String),
 }
 
@@ -91,7 +93,8 @@ impl ParseError {
         }
     }
 
-    /// Construct an unsupported-feature error (Phase 3 stubs).
+    /// Construct an unsupported-feature error (reserved for future use).
+    #[allow(dead_code)]
     pub(crate) fn unsupported(what: &str) -> Self {
         Self {
             kind: ParseErrorKind::Unsupported(what.to_string()),
