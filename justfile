@@ -59,3 +59,15 @@ flamegraph:
     CARGO_PROFILE_RELEASE_DEBUG=true CARGO_PROFILE_RELEASE_STRIP=none \
       cargo flamegraph --bench parse
     @echo "flamegraph.svg generated"
+
+# Run cargo vet check
+vet:
+    cargo vet
+
+# Generate SBOM
+sbom:
+    cargo sbom > sbom.json
+
+# Check semver compatibility
+semver-check:
+    cargo semver-checks check-release
