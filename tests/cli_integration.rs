@@ -1008,3 +1008,555 @@ fn format_percent_only() {
         .success()
         .stdout("20250115\n");
 }
+
+// ============================================================
+// td diff integration tests (SUBCMD-01, D-01)
+// ============================================================
+
+#[test]
+fn test_diff_basic_output() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "diff",
+            "2025-01-01",
+            "2025-03-24",
+            "--now",
+            "2025-06-15T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("seconds"))
+        .stdout(predicate::str::contains("P")); // ISO 8601 duration starts with P
+}
+
+#[test]
+fn test_diff_json_output() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "diff",
+            "2025-01-01",
+            "2025-03-24",
+            "--json",
+            "--now",
+            "2025-06-15T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"human\""))
+        .stdout(predicate::str::contains("\"seconds\""))
+        .stdout(predicate::str::contains("\"iso8601\""));
+}
+
+#[test]
+fn test_diff_no_newline() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "diff",
+            "2025-01-01",
+            "2025-01-02",
+            "-n",
+            "--now",
+            "2025-06-15T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(!stdout.ends_with('\n'));
+}
+
+#[test]
+fn test_diff_same_date_zero() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "diff",
+            "2025-01-01",
+            "2025-01-01",
+            "--now",
+            "2025-06-15T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("0 seconds"));
+}
+
+// ============================================================
+// td convert integration tests (SUBCMD-02, D-02)
+// ============================================================
+
+#[test]
+fn test_convert_to_epoch() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "convert",
+            "2025-01-01",
+            "--to",
+            "epoch",
+            "--now",
+            "2025-06-15T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("1735689600"));
+}
+
+#[test]
+fn test_convert_to_iso() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["convert", "@1735689600", "--to", "iso8601", "-t", "UTC"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-01"));
+}
+
+#[test]
+fn test_convert_json() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "convert",
+            "2025-01-01",
+            "--to",
+            "epoch",
+            "--json",
+            "--now",
+            "2025-06-15T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"output\""))
+        .stdout(predicate::str::contains("\"to_format\""));
+}
+
+// ============================================================
+// td tz integration tests (SUBCMD-03, D-03)
+// ============================================================
+
+#[test]
+fn test_tz_utc_to_sao_paulo() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "tz",
+            "2025-01-01 12:00",
+            "--from",
+            "UTC",
+            "--to",
+            "America/Sao_Paulo",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("09:00")); // UTC-3
+}
+
+#[test]
+fn test_tz_json() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "tz",
+            "2025-01-01 12:00",
+            "--from",
+            "UTC",
+            "--to",
+            "America/Sao_Paulo",
+            "--json",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"converted\""))
+        .stdout(predicate::str::contains("\"from_timezone\""));
+}
+
+#[test]
+fn test_tz_invalid_timezone() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["tz", "now", "--to", "Invalid/Timezone"])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_tz_no_newline() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "tz",
+            "2025-01-01 12:00",
+            "--from",
+            "UTC",
+            "--to",
+            "America/Sao_Paulo",
+            "-n",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(!stdout.ends_with('\n'));
+}
+
+// ============================================================
+// td info integration tests (SUBCMD-04, D-04)
+// ============================================================
+
+#[test]
+fn test_info_basic() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .env("NO_COLOR", "1")
+        .args([
+            "info",
+            "2025-03-24",
+            "--now",
+            "2025-06-15T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Date"))
+        .stdout(predicate::str::contains("Week"))
+        .stdout(predicate::str::contains("Quarter"))
+        .stdout(predicate::str::contains("Day of Year"))
+        .stdout(predicate::str::contains("Leap Year"))
+        .stdout(predicate::str::contains("Unix Epoch"))
+        .stdout(predicate::str::contains("Julian Day"));
+}
+
+#[test]
+fn test_info_json() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "info",
+            "2025-03-24",
+            "--json",
+            "--now",
+            "2025-06-15T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"quarter\""))
+        .stdout(predicate::str::contains("\"leap_year\""))
+        .stdout(predicate::str::contains("\"julian_day\""))
+        .stdout(predicate::str::contains("\"unix_epoch\""));
+}
+
+#[test]
+fn test_info_leap_year() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "info",
+            "2024-06-15",
+            "--json",
+            "--now",
+            "2025-06-15T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"leap_year\":true"));
+}
+
+#[test]
+fn test_info_default_now() {
+    // No input should default to "now"
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .env("NO_COLOR", "1")
+        .args(["info"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Date"));
+}
+
+#[test]
+fn test_info_no_newline() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .env("NO_COLOR", "1")
+        .args([
+            "info",
+            "2025-03-24",
+            "-n",
+            "--now",
+            "2025-06-15T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(!stdout.ends_with('\n'));
+    assert!(stdout.contains("Date"));
+}
+
+// ============================================================
+// --skip-errors integration tests (UX-01, D-10)
+// ============================================================
+
+#[test]
+fn test_skip_errors_continues() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "--skip-errors",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .write_stdin("tomorrow\n$$$invalid\nyesterday\n")
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    // Should have 3 lines in stdout (2 valid + 1 empty for error)
+    let stdout_lines: Vec<&str> = stdout.lines().collect();
+    assert_eq!(
+        stdout_lines.len(),
+        3,
+        "Expected 3 lines, got: {:?}",
+        stdout_lines
+    );
+    assert!(stdout_lines[1].is_empty(), "Error line should be empty");
+    assert!(!stderr.is_empty(), "Error should be on stderr");
+    assert_ne!(output.status.code(), Some(0), "Exit code should be 1");
+}
+
+#[test]
+fn test_skip_errors_all_valid() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "--skip-errors",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .write_stdin("tomorrow\nyesterday\n")
+        .assert()
+        .success(); // Exit code 0 when all valid
+}
+
+// ============================================================
+// Range expression output tests (D-09, PARS-05)
+// ============================================================
+
+#[test]
+fn test_range_last_week_two_lines() {
+    // "last week" should output two lines: start (Monday) and end (Sunday)
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "last week",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-18T00:00:00Z",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "should succeed");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert_eq!(
+        lines.len(),
+        2,
+        "Range should output exactly 2 lines, got: {:?}",
+        lines
+    );
+    assert_eq!(
+        lines[0], "2025-06-09",
+        "Start should be Monday of last week"
+    );
+    assert_eq!(
+        lines[1], "2025-06-15",
+        "End should be Sunday of last week"
+    );
+}
+
+#[test]
+fn test_range_this_month_two_lines() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "this month",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-18T00:00:00Z",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert_eq!(lines.len(), 2);
+    assert_eq!(lines[0], "2025-06-01");
+    assert_eq!(lines[1], "2025-06-30");
+}
+
+#[test]
+fn test_range_json_output() {
+    // Range with --json should return {start, end} object
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "last week",
+            "--json",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-18T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"start\""))
+        .stdout(predicate::str::contains("\"end\""));
+}
+
+#[test]
+fn test_range_q3_2025() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "Q3 2025",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-18T00:00:00Z",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert_eq!(lines.len(), 2);
+    assert_eq!(lines[0], "2025-07-01");
+    assert_eq!(lines[1], "2025-09-30");
+}
+
+// ============================================================
+// Arithmetic expression integration tests (PARS-04)
+// ============================================================
+
+#[test]
+fn test_arithmetic_tomorrow_plus_3_hours() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "tomorrow + 3 hours",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-16T03:00:00"));
+}
+
+#[test]
+fn test_verbal_arithmetic_3_hours_after_tomorrow() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "3 hours after tomorrow",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-16T03:00:00"));
+}
+
+#[test]
+fn test_chained_arithmetic() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "now + 1 day + 3 hours - 30 minutes",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T12:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-16T14:30:00"));
+}
