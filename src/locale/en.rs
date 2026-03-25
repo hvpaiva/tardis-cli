@@ -42,7 +42,7 @@ pub static EN_LOCALE: EnglishLocale = EnglishLocale;
 /// IMPORTANT: This table must be kept in sync with Token variants.
 /// Adding a keyword here and not in the Token enum (or vice versa) will
 /// cause a compile error.
-static EN_KEYWORDS: [(&str, Token); 72] = [
+static EN_KEYWORDS: [(&str, Token); 84] = [
     // Relative keywords
     ("now", Token::Now),
     ("today", Token::Today),
@@ -125,6 +125,19 @@ static EN_KEYWORDS: [(&str, Token); 72] = [
     ("seconds", Token::Unit(TemporalUnit::Second)),
     ("sec", Token::Unit(TemporalUnit::Second)),
     ("secs", Token::Unit(TemporalUnit::Second)),
+    // Abbreviated duration units
+    ("h", Token::Unit(TemporalUnit::Hour)),
+    ("hr", Token::Unit(TemporalUnit::Hour)),
+    ("hrs", Token::Unit(TemporalUnit::Hour)),
+    ("d", Token::Unit(TemporalUnit::Day)),
+    ("w", Token::Unit(TemporalUnit::Week)),
+    ("wk", Token::Unit(TemporalUnit::Week)),
+    ("wks", Token::Unit(TemporalUnit::Week)),
+    ("y", Token::Unit(TemporalUnit::Year)),
+    ("yr", Token::Unit(TemporalUnit::Year)),
+    ("yrs", Token::Unit(TemporalUnit::Year)),
+    ("mo", Token::Unit(TemporalUnit::Month)),
+    ("mos", Token::Unit(TemporalUnit::Month)),
 ];
 
 #[cfg(test)]
@@ -314,13 +327,35 @@ mod tests {
 
     #[test]
     fn en_locale_keyword_count() {
-        // Verify we have all 72 keywords from the old match_keyword
-        assert_eq!(EN_KEYWORDS.len(), 72);
+        // 72 original keywords + 12 abbreviated duration units
+        assert_eq!(EN_KEYWORDS.len(), 84);
     }
 
     #[test]
     fn en_locale_name_and_code() {
         assert_eq!(EN_LOCALE.name(), "English");
         assert_eq!(EN_LOCALE.code(), "en");
+    }
+
+    #[test]
+    fn en_locale_abbreviated_units() {
+        let kw = LocaleKeywords::from_locale(&EN_LOCALE);
+        // Hour abbreviations
+        assert_eq!(kw.lookup("h", "h"), Token::Unit(TemporalUnit::Hour));
+        assert_eq!(kw.lookup("hr", "hr"), Token::Unit(TemporalUnit::Hour));
+        assert_eq!(kw.lookup("hrs", "hrs"), Token::Unit(TemporalUnit::Hour));
+        // Day abbreviation
+        assert_eq!(kw.lookup("d", "d"), Token::Unit(TemporalUnit::Day));
+        // Week abbreviations
+        assert_eq!(kw.lookup("w", "w"), Token::Unit(TemporalUnit::Week));
+        assert_eq!(kw.lookup("wk", "wk"), Token::Unit(TemporalUnit::Week));
+        assert_eq!(kw.lookup("wks", "wks"), Token::Unit(TemporalUnit::Week));
+        // Year abbreviations
+        assert_eq!(kw.lookup("y", "y"), Token::Unit(TemporalUnit::Year));
+        assert_eq!(kw.lookup("yr", "yr"), Token::Unit(TemporalUnit::Year));
+        assert_eq!(kw.lookup("yrs", "yrs"), Token::Unit(TemporalUnit::Year));
+        // Month abbreviations
+        assert_eq!(kw.lookup("mo", "mo"), Token::Unit(TemporalUnit::Month));
+        assert_eq!(kw.lookup("mos", "mos"), Token::Unit(TemporalUnit::Month));
     }
 }
