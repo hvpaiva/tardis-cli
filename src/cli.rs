@@ -4,7 +4,7 @@ use std::{
     io::{self, IsTerminal, Read},
 };
 
-use chrono::{DateTime, FixedOffset};
+use jiff::Timestamp;
 use clap::{
     Parser, Subcommand, ValueEnum,
     builder::styling::{AnsiColor, Styles},
@@ -140,6 +140,16 @@ pub struct Cli {
     #[arg(short = 'n', long = "no-newline")]
     pub no_newline: bool,
 
+    /// In batch mode, skip lines that fail to parse instead of aborting.
+    /// Errors are printed to stderr; stdout gets an empty line to preserve alignment.
+    /// Exit code is 1 if any line failed.
+    #[arg(long)]
+    pub skip_errors: bool,
+
+    /// Generate man page to stdout (hidden, for packaging scripts).
+    #[arg(long, hide = true, exclusive = true)]
+    pub generate_man: bool,
+
     #[command(subcommand)]
     pub subcmd: Option<SubCmd>,
 }
@@ -156,6 +166,98 @@ pub enum SubCmd {
         /// Shell to generate completions for.
         shell: ShellType,
     },
+    /// Compute the difference between two dates.
+    Diff(DiffArgs),
+    /// Convert a date between formats.
+    Convert(ConvertArgs),
+    /// Convert a datetime to a different timezone.
+    Tz(TzArgs),
+    /// Display calendar metadata for a date.
+    Info(InfoArgs),
+}
+
+#[derive(Debug, clap::Args)]
+pub struct DiffArgs {
+    /// First date expression
+    pub date1: String,
+    /// Second date expression
+    pub date2: String,
+    /// Output as JSON
+    #[arg(short, long)]
+    pub json: bool,
+    /// Suppress trailing newline
+    #[arg(short = 'n', long = "no-newline")]
+    pub no_newline: bool,
+    /// Override "now" reference (RFC 3339)
+    #[arg(long)]
+    pub now: Option<String>,
+    /// Time-zone for resolution
+    #[arg(short, long)]
+    pub timezone: Option<String>,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct ConvertArgs {
+    /// Input date expression or formatted date string
+    pub input: String,
+    /// Input format (strptime pattern or preset name). Auto-detected if omitted.
+    #[arg(long)]
+    pub from: Option<String>,
+    /// Output format (strftime pattern, preset name, or builtin: iso8601, rfc3339, rfc2822, epoch, unix)
+    #[arg(long)]
+    pub to: String,
+    /// Output as JSON
+    #[arg(short, long)]
+    pub json: bool,
+    /// Suppress trailing newline
+    #[arg(short = 'n', long = "no-newline")]
+    pub no_newline: bool,
+    /// Override "now" reference (RFC 3339)
+    #[arg(long)]
+    pub now: Option<String>,
+    /// Time-zone for resolution
+    #[arg(short, long)]
+    pub timezone: Option<String>,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct TzArgs {
+    /// Input datetime expression
+    pub input: String,
+    /// Source timezone (auto-detected from system or input if omitted)
+    #[arg(long)]
+    pub from: Option<String>,
+    /// Target timezone (required, IANA name like "America/Sao_Paulo")
+    #[arg(long)]
+    pub to: String,
+    /// Output as JSON
+    #[arg(short, long)]
+    pub json: bool,
+    /// Suppress trailing newline
+    #[arg(short = 'n', long = "no-newline")]
+    pub no_newline: bool,
+    /// Override "now" reference (RFC 3339)
+    #[arg(long)]
+    pub now: Option<String>,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct InfoArgs {
+    /// Date expression to inspect (defaults to "now")
+    #[arg(default_value = "now")]
+    pub input: String,
+    /// Output as JSON
+    #[arg(short, long)]
+    pub json: bool,
+    /// Suppress trailing newline
+    #[arg(short = 'n', long = "no-newline")]
+    pub no_newline: bool,
+    /// Override "now" reference (RFC 3339)
+    #[arg(long)]
+    pub now: Option<String>,
+    /// Time-zone for resolution
+    #[arg(short, long)]
+    pub timezone: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -185,9 +287,26 @@ pub struct Command {
     pub input: String,
     pub format: Option<String>,
     pub timezone: Option<String>,
-    pub now: Option<DateTime<FixedOffset>>,
+    pub now: Option<Timestamp>,
     pub json: bool,
     pub no_newline: bool,
+    pub skip_errors: bool,
+}
+
+impl Command {
+    /// Create a new Command with a different input, preserving all other fields.
+    /// Used in batch mode to avoid manual field cloning.
+    pub fn with_input(&self, input: String) -> Self {
+        Command {
+            input,
+            format: self.format.clone(),
+            timezone: self.timezone.clone(),
+            now: self.now,
+            json: self.json,
+            no_newline: self.no_newline,
+            skip_errors: self.skip_errors,
+        }
+    }
 }
 
 impl Command {
@@ -236,7 +355,7 @@ impl Command {
         let now = cli
             .now
             .as_deref()
-            .map(DateTime::parse_from_rfc3339)
+            .map(|s| s.parse::<Timestamp>())
             .transpose()
             .map_err(|e| {
                 user_input_error!(
@@ -253,12 +372,15 @@ impl Command {
             now,
             json: cli.json,
             no_newline: cli.no_newline,
+            skip_errors: cli.skip_errors,
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
     use pretty_assertions::assert_eq;
     use std::io::Cursor;
@@ -285,7 +407,7 @@ mod tests {
         assert_eq!(cmd.timezone.as_deref(), Some("UTC"));
         assert_eq!(
             cmd.now,
-            Some(DateTime::parse_from_rfc3339("2025-06-24T12:00:00Z").unwrap())
+            Some("2025-06-24T12:00:00Z".parse::<Timestamp>().unwrap())
         );
     }
 
@@ -332,5 +454,22 @@ mod tests {
     fn no_newline_flag_parsed() {
         let cmd = parse_ok(&["td", "now", "-n"]);
         assert!(cmd.no_newline);
+    }
+
+    #[test]
+    fn skip_errors_flag_parsed() {
+        let cmd = parse_ok(&["td", "now", "--skip-errors"]);
+        assert!(cmd.skip_errors);
+    }
+
+    #[test]
+    fn with_input_preserves_fields() {
+        let cmd = parse_ok(&["td", "original", "-f", "%Y", "-t", "UTC", "--json", "-n"]);
+        let new_cmd = cmd.with_input("replaced".to_string());
+        assert_eq!(new_cmd.input, "replaced");
+        assert_eq!(new_cmd.format.as_deref(), Some("%Y"));
+        assert_eq!(new_cmd.timezone.as_deref(), Some("UTC"));
+        assert!(new_cmd.json);
+        assert!(new_cmd.no_newline);
     }
 }

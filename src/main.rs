@@ -50,6 +50,7 @@ fn run() -> Result<()> {
                 now: cmd.now,
                 json: cmd.json,
                 no_newline: cmd.no_newline,
+                skip_errors: cmd.skip_errors,
             };
             process_and_print(&single_cmd, &cfg)?;
         }
@@ -93,6 +94,10 @@ fn handle_subcmd(subcmd: SubCmd) -> Result<()> {
             handle_completions(shell);
             Ok(())
         }
+        SubCmd::Diff(_args) => Err(tardis_cli::user_input_error!(InvalidDateFormat, "diff subcommand not yet implemented")),
+        SubCmd::Convert(_args) => Err(tardis_cli::user_input_error!(InvalidDateFormat, "convert subcommand not yet implemented")),
+        SubCmd::Tz(_args) => Err(tardis_cli::user_input_error!(InvalidDateFormat, "tz subcommand not yet implemented")),
+        SubCmd::Info(_args) => Err(tardis_cli::user_input_error!(InvalidDateFormat, "info subcommand not yet implemented")),
     }
 }
 

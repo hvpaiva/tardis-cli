@@ -310,6 +310,7 @@ mod tests {
             now: now.map(|s| s.parse::<Timestamp>().unwrap()),
             json: false,
             no_newline: false,
+            skip_errors: false,
         }
     }
 
