@@ -13,36 +13,43 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  check:
-    name: Check
+  fmt:
+    name: Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy, llvm-tools-preview
+          components: rustfmt
+      - run: cargo fmt --all --check
 
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
       - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets --all-features -- -D warnings
 
-      - name: Format
-        run: cargo fmt --all --check
-
-      - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Install nextest and llvm-cov
-        uses: taiki-e/install-action@v2
+  test:
+    name: Test + Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
         with:
           tool: cargo-llvm-cov,cargo-nextest
-
       - name: Test with coverage
         run: |
           cargo llvm-cov nextest --lcov --output-path lcov.info
           cargo llvm-cov report --fail-under-lines 80
-
       - name: Upload coverage
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: codecov/codecov-action@v5
@@ -50,26 +57,63 @@ jobs:
           files: lcov.info
           fail_ci_if_error: false
 
-      - name: Install cargo-deny
-        uses: taiki-e/install-action@v2
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: taiki-e/install-action@v2
         with:
           tool: cargo-deny
+      - run: cargo deny check
 
-      - name: Audit
-        run: cargo deny check
-
-      - name: Install cocogitto
-        uses: taiki-e/install-action@v2
+  cog-check:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: taiki-e/install-action@v2
         with:
           tool: cocogitto@7
+      - run: cog check
 
-      - name: Validate commits
-        run: cog check
-
-      - name: Docs
-        run: cargo doc --no-deps
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo doc --no-deps
         env:
           RUSTDOCFLAGS: "-D warnings"
+
+  semver-checks:
+    name: Semver
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-semver-checks
+      - run: cargo semver-checks check-release
+
+  bench:
+    name: Benchmark
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: boa-dev/criterion-compare-action@v3
+        with:
+          branchName: ${{ github.base_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   guard-release-files:
     name: Guard release files
