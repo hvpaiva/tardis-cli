@@ -5,7 +5,7 @@ use std::io::{self, IsTerminal};
 
 use tardis_cli::{
     Result,
-    cli::{Cli, Command, ConfigAction, ConvertArgs, DiffArgs, ShellType, SubCmd},
+    cli::{Cli, Command, ConfigAction, ConvertArgs, DiffArgs, InfoArgs, ShellType, SubCmd, TzArgs},
     config::Config,
     core::{self, App},
     parser,
@@ -110,8 +110,8 @@ fn handle_subcmd(subcmd: SubCmd) -> Result<()> {
         }
         SubCmd::Diff(args) => handle_diff(args),
         SubCmd::Convert(args) => handle_convert(args),
-        SubCmd::Tz(_args) => Err(user_input_error!(InvalidDateFormat, "tz subcommand not yet implemented")),
-        SubCmd::Info(_args) => Err(user_input_error!(InvalidDateFormat, "info subcommand not yet implemented")),
+        SubCmd::Tz(args) => handle_tz(args),
+        SubCmd::Info(args) => handle_info(args),
     }
 }
 
@@ -267,6 +267,124 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
     } else {
         output_value(&output, args.no_newline);
     }
+    Ok(())
+}
+
+/// Handle `td tz <datetime> --to <timezone>` -- timezone conversion (D-03, SUBCMD-03).
+fn handle_tz(args: TzArgs) -> Result<()> {
+    // Source timezone: --from > system default
+    let from_tz = resolve_timezone(&args.from)?;
+    let now = resolve_now_zoned(&args.now, &from_tz)?;
+
+    // Parse input in source timezone
+    let zoned = parser::parse(&args.input, &now)
+        .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
+
+    // Convert to target timezone
+    let target_tz = jiff::tz::TimeZone::get(&args.to)
+        .map_err(|e| user_input_error!(UnsupportedTimezone, "{}", e))?;
+    let converted = zoned
+        .with_time_zone(target_tz);
+
+    if args.json {
+        let json = serde_json::json!({
+            "input": args.input,
+            "from_timezone": zoned.time_zone().iana_name().unwrap_or("Unknown"),
+            "to_timezone": args.to,
+            "original": zoned.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string(),
+            "converted": converted.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string(),
+        });
+        output_value(&format!("{json}"), args.no_newline);
+    } else {
+        output_value(
+            &converted.strftime("%Y-%m-%dT%H:%M:%S %Z").to_string(),
+            args.no_newline,
+        );
+    }
+    Ok(())
+}
+
+/// Handle `td info <date>` -- calendar metadata card (D-04, SUBCMD-04).
+fn handle_info(args: InfoArgs) -> Result<()> {
+    let tz = resolve_timezone(&args.timezone)?;
+    let now = resolve_now_zoned(&args.now, &tz)?;
+
+    let zoned = parser::parse(&args.input, &now)
+        .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
+
+    let iwd = zoned.date().iso_week_date();
+    let quarter = (zoned.month() - 1) / 3 + 1;
+    let day_of_year = zoned.date().day_of_year();
+    let days_in_year = if zoned.date().in_leap_year() { 366 } else { 365 };
+    let epoch_secs = zoned.timestamp().as_second();
+    let jdn = epoch_secs as f64 / 86400.0 + 2_440_587.5;
+
+    if args.json {
+        let json = serde_json::json!({
+            "date": zoned.strftime("%Y-%m-%d").to_string(),
+            "time": zoned.strftime("%H:%M:%S").to_string(),
+            "timezone": zoned.time_zone().iana_name().unwrap_or("Unknown"),
+            "weekday": format!("{:?}", zoned.weekday()),
+            "iso_week": format!("W{:02}", iwd.week()),
+            "iso_week_year": iwd.year(),
+            "quarter": quarter,
+            "day_of_year": day_of_year,
+            "days_in_year": days_in_year,
+            "leap_year": zoned.date().in_leap_year(),
+            "unix_epoch": epoch_secs,
+            "julian_day": format!("{:.2}", jdn),
+        });
+        output_value(&format!("{json}"), args.no_newline);
+        return Ok(());
+    }
+
+    // Colored output per D-04 (neofetch/fastfetch style)
+    let use_color = io::stdout().is_terminal() && std::env::var("NO_COLOR").is_err();
+
+    let (bold, cyan, yellow, green, reset) = if use_color {
+        ("\x1b[1m", "\x1b[36m", "\x1b[33m", "\x1b[32m", "\x1b[0m")
+    } else {
+        ("", "", "", "", "")
+    };
+
+    let date_str = zoned.strftime("%A, %B %e, %Y").to_string();
+    let time_str = zoned.strftime("%H:%M:%S %Z").to_string();
+    let leap_str = if zoned.date().in_leap_year() {
+        format!("{yellow}Yes{reset}")
+    } else {
+        "No".to_string()
+    };
+
+    let mut lines = Vec::new();
+    lines.push(format!(
+        "{bold}{cyan}  Date{reset}         {date_str}"
+    ));
+    lines.push(format!(
+        "{bold}{cyan}  Time{reset}         {time_str}"
+    ));
+    lines.push(format!(
+        "{bold}{cyan}  Week{reset}         W{:02}, {}",
+        iwd.week(),
+        iwd.year()
+    ));
+    lines.push(format!(
+        "{bold}{cyan}  Quarter{reset}      {green}Q{quarter}{reset}"
+    ));
+    lines.push(format!(
+        "{bold}{cyan}  Day of Year{reset}  {day_of_year}/{days_in_year}"
+    ));
+    lines.push(format!(
+        "{bold}{cyan}  Leap Year{reset}    {leap_str}"
+    ));
+    lines.push(format!(
+        "{bold}{cyan}  Unix Epoch{reset}   {epoch_secs}"
+    ));
+    lines.push(format!(
+        "{bold}{cyan}  Julian Day{reset}   {jdn:.2}"
+    ));
+
+    let output = lines.join("\n");
+    output_value(&output, args.no_newline);
     Ok(())
 }
 
