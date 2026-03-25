@@ -38,7 +38,7 @@ install_cargo_tool "cargo-llvm-cov" cargo-llvm-cov
 install_cargo_tool "cargo-audit" cargo-audit
 install_cargo_tool "cargo-vet" cargo-vet
 install_cargo_tool hyperfine
-install_cargo_tool "cargo-flamegraph" cargo-flamegraph
+install_cargo_tool "cargo-flamegraph" flamegraph
 install_cargo_tool "cargo-semver-checks" cargo-semver-checks
 install_cargo_tool "cargo-sbom" cargo-sbom
 
