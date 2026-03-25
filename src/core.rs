@@ -57,9 +57,23 @@ pub fn process(app: &App, presets: &[Preset]) -> Result<ProcessOutput> {
     let locale_ref = locale::get_locale(&app.locale_code);
     let locale_kw = locale::LocaleKeywords::from_locale(locale_ref);
 
-    // New parser handles everything: epoch, relative, absolute, time-only
-    let zoned = parser::parse(&app.date, &now, &locale_kw)
-        .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
+    // Parse with detected locale; fall back to EN if non-EN locale fails
+    let zoned = match parser::parse(&app.date, &now, &locale_kw) {
+        Ok(z) => z,
+        Err(e) if app.locale_code != "en" => {
+            let en_ref = locale::get_locale("en");
+            let en_kw = locale::LocaleKeywords::from_locale(en_ref);
+            parser::parse(&app.date, &now, &en_kw)
+                .map_err(|_| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?
+        }
+        Err(e) => {
+            return Err(user_input_error!(
+                InvalidDateFormat,
+                "{}",
+                e.format_message()
+            ));
+        }
+    };
 
     let formatted = format_output(&zoned, &fmt)?;
     Ok(ProcessOutput {

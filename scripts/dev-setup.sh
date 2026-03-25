@@ -42,6 +42,14 @@ install_cargo_tool "cargo-flamegraph" cargo-flamegraph
 install_cargo_tool "cargo-semver-checks" cargo-semver-checks
 install_cargo_tool "cargo-sbom" cargo-sbom
 
+# --- System tools (optional, for nicer benchmark charts) ---
+if command -v gnuplot &>/dev/null; then
+    ok "gnuplot found"
+else
+    warn "gnuplot not found (optional: enables nicer benchmark charts)"
+    warn "Install with: sudo apt install gnuplot  (Debian/Ubuntu)"
+fi
+
 # --- Git hooks ---
 info "Setting up git hooks..."
 cog install-hook --all --overwrite

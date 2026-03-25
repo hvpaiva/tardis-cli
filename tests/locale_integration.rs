@@ -485,3 +485,203 @@ fn pt_epoch_works_with_pt_locale() {
     let result = parse_pt("@1735689600");
     assert_eq!(date_str(&result), "2025-01-01");
 }
+
+// ============================================================
+// EN fallback tests (core::process retries with EN when non-EN fails)
+// ============================================================
+
+/// Helper: run td with PT locale (via --locale) and an EN keyword.
+/// The parser should fail with PT but core::process retries with EN.
+fn td_pt_fallback_cmd() -> Command {
+    let tmp = TempDir::new().unwrap();
+    let mut cmd = Command::cargo_bin("td").unwrap();
+    cmd.env("XDG_CONFIG_HOME", tmp.path());
+    cmd.env("LANG", "en_US.UTF-8");
+    cmd.env_remove("LC_TIME");
+    cmd.args(["--locale", "pt"]);
+    cmd
+}
+
+/// Helper: run td with PT auto-detected from LANG env var (no --locale flag).
+fn td_autodetect_pt_cmd() -> Command {
+    let tmp = TempDir::new().unwrap();
+    let mut cmd = Command::cargo_bin("td").unwrap();
+    cmd.env("XDG_CONFIG_HOME", tmp.path());
+    cmd.env("LANG", "pt_BR.UTF-8");
+    cmd.env_remove("LC_TIME");
+    cmd
+}
+
+#[test]
+fn fallback_en_tomorrow_with_pt_locale() {
+    td_pt_fallback_cmd()
+        .args([
+            "--now",
+            "2025-01-01T12:00:00Z",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+        ])
+        .arg("tomorrow")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-02"));
+}
+
+#[test]
+fn fallback_en_yesterday_with_pt_locale() {
+    td_pt_fallback_cmd()
+        .args([
+            "--now",
+            "2025-01-01T12:00:00Z",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+        ])
+        .arg("yesterday")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2024-12-31"));
+}
+
+#[test]
+fn fallback_en_next_friday_with_pt_locale() {
+    td_pt_fallback_cmd()
+        .args([
+            "--now",
+            "2025-01-01T12:00:00Z",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+        ])
+        .arg("next friday")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-03"));
+}
+
+#[test]
+fn fallback_en_in_3_days_with_pt_locale() {
+    td_pt_fallback_cmd()
+        .args([
+            "--now",
+            "2025-01-01T12:00:00Z",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+        ])
+        .arg("in 3 days")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-04"));
+}
+
+#[test]
+fn fallback_en_now_with_pt_locale() {
+    td_pt_fallback_cmd()
+        .args([
+            "--now",
+            "2025-01-01T12:00:00Z",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+        ])
+        .arg("now")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-01"));
+}
+
+#[test]
+fn fallback_pt_keywords_still_work_with_pt_locale() {
+    // PT keywords must still work (fallback doesn't break primary locale)
+    td_pt_fallback_cmd()
+        .args([
+            "--now",
+            "2025-01-01T12:00:00Z",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+        ])
+        .arg("amanha")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-02"));
+}
+
+#[test]
+fn fallback_autodetect_pt_en_tomorrow() {
+    // System LANG=pt_BR.UTF-8, no --locale flag, EN keyword should work via fallback
+    td_autodetect_pt_cmd()
+        .args([
+            "--now",
+            "2025-01-01T12:00:00Z",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+        ])
+        .arg("tomorrow")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-02"));
+}
+
+#[test]
+fn fallback_autodetect_pt_still_parses_pt() {
+    // System LANG=pt_BR.UTF-8, PT keywords still work as primary
+    td_autodetect_pt_cmd()
+        .args([
+            "--now",
+            "2025-01-01T12:00:00Z",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+        ])
+        .arg("ontem")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2024-12-31"));
+}
+
+#[test]
+fn fallback_gibberish_still_fails() {
+    // Nonsense input should still fail even with fallback
+    td_pt_fallback_cmd()
+        .args([
+            "--now",
+            "2025-01-01T12:00:00Z",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+        ])
+        .arg("xyzzy gibberish")
+        .assert()
+        .failure();
+}
+
+#[test]
+fn fallback_en_arithmetic_with_pt_locale() {
+    // EN arithmetic expression with PT locale should work via fallback
+    td_pt_fallback_cmd()
+        .args([
+            "--now",
+            "2025-01-01T12:00:00Z",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+        ])
+        .arg("tomorrow + 3 hours")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-02T03:00:00"));
+}

@@ -12,6 +12,29 @@ use tardis_cli::{
     parser, user_input_error,
 };
 
+/// Check if stderr supports color output.
+fn stderr_use_color() -> bool {
+    io::stderr().is_terminal() && std::env::var("NO_COLOR").is_err()
+}
+
+/// Print a colored verbose diagnostic line to stderr.
+macro_rules! verbose {
+    ($tag:expr, $($arg:tt)*) => {{
+        if stderr_use_color() {
+            let color = match $tag {
+                "config" => "\x1b[36m",  // cyan
+                "parse" => "\x1b[34m",   // blue
+                "resolve" => "\x1b[32m", // green
+                "timing" => "\x1b[33m",  // yellow
+                _ => "\x1b[0m",
+            };
+            eprintln!("{}[{}]\x1b[0m {}", color, $tag, format_args!($($arg)*));
+        } else {
+            eprintln!("[{}] {}", $tag, format_args!($($arg)*));
+        }
+    }};
+}
+
 fn main() {
     if let Err(err) = run() {
         err.exit();
@@ -38,14 +61,16 @@ fn run() -> Result<()> {
     let cfg = Config::load()?;
 
     if cmd.verbose {
-        eprintln!(
-            "[config] path={}",
+        verbose!(
+            "config",
+            "path={}",
             tardis_cli::config::config_path()
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|_| "unknown".into())
         );
-        eprintln!(
-            "[config] format={} timezone={} locale={}",
+        verbose!(
+            "config",
+            "format={} timezone={} locale={}",
             cfg.format,
             cfg.timezone,
             cfg.locale.as_deref().unwrap_or("auto")
@@ -95,24 +120,27 @@ fn process_and_print(cmd: &Command, cfg: &Config) -> Result<()> {
     let app = App::from_cli(cmd, cfg)?;
 
     if cmd.verbose {
-        eprintln!("[parse] input={:?}", cmd.input);
-        eprintln!(
-            "[parse] effective_format={} timezone={}",
+        verbose!("parse", "input={:?}", cmd.input);
+        verbose!(
+            "parse",
+            "effective_format={} timezone={}",
             app.format,
             app.timezone.iana_name().unwrap_or("system")
         );
-        eprintln!("[parse] locale={}", app.locale_code);
+        verbose!("parse", "locale={}", app.locale_code);
     }
 
     let result = core::process(&app, &cfg.presets())?;
 
     if cmd.verbose {
         let elapsed = start.elapsed();
-        eprintln!(
-            "[resolve] output={:?} epoch={}",
-            result.formatted, result.epoch
+        verbose!(
+            "resolve",
+            "output={:?} epoch={}",
+            result.formatted,
+            result.epoch
         );
-        eprintln!("[timing] {:.3}ms", elapsed.as_secs_f64() * 1000.0);
+        verbose!("timing", "{:.3}ms", elapsed.as_secs_f64() * 1000.0);
     }
 
     if cmd.json {
@@ -210,7 +238,18 @@ fn try_range_output(cmd: &Command, cfg: &Config) -> Result<bool> {
     let locale_ref = locale::get_locale(&app.locale_code);
     let locale_kw = LocaleKeywords::from_locale(locale_ref);
 
-    match parser::parse_range(&cmd.input, &now, &locale_kw) {
+    // Try range with detected locale; fall back to EN if non-EN fails
+    let range_result = match parser::parse_range(&cmd.input, &now, &locale_kw) {
+        ok @ Ok(_) => ok,
+        Err(_) if app.locale_code != "en" => {
+            let en_ref = locale::get_locale("en");
+            let en_kw = LocaleKeywords::from_locale(en_ref);
+            parser::parse_range(&cmd.input, &now, &en_kw)
+        }
+        err => err,
+    };
+
+    match range_result {
         Ok((start, end)) => {
             let fmt = &app.format;
             let start_str = start.strftime(fmt).to_string();
