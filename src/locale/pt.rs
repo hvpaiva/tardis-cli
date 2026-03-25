@@ -44,7 +44,7 @@ pub static PT_LOCALE: PortugueseLocale = PortugueseLocale;
 ///
 /// IMPORTANT: "ago" maps to Token::Month(8) in PT (agosto abbreviation),
 /// not Token::Ago. PT uses "ha"/"atras" for the ago direction.
-static PT_KEYWORDS: [(&str, Token); 82] = [
+static PT_KEYWORDS: [(&str, Token); 89] = [
     // Relative keywords
     ("agora", Token::Now),
     ("hoje", Token::Today),
@@ -139,6 +139,14 @@ static PT_KEYWORDS: [(&str, Token); 82] = [
     ("minutos", Token::Unit(TemporalUnit::Minute)),
     ("segundo", Token::Unit(TemporalUnit::Second)),
     ("segundos", Token::Unit(TemporalUnit::Second)),
+    // Abbreviated duration units (PT)
+    ("h", Token::Unit(TemporalUnit::Hour)),
+    ("hr", Token::Unit(TemporalUnit::Hour)),
+    ("hrs", Token::Unit(TemporalUnit::Hour)),
+    ("d", Token::Unit(TemporalUnit::Day)),
+    ("sem", Token::Unit(TemporalUnit::Week)),   // abbreviation for "semana"
+    ("sems", Token::Unit(TemporalUnit::Week)),  // plural abbreviation
+    ("a", Token::Unit(TemporalUnit::Year)),     // abbreviation for "ano"
 ];
 
 /// Multi-word patterns for Portuguese. Longer patterns first so they are
@@ -397,11 +405,28 @@ mod tests {
 
     #[test]
     fn pt_keyword_count() {
-        assert_eq!(PT_KEYWORDS.len(), 82);
+        // 82 original keywords + 7 abbreviated duration units
+        assert_eq!(PT_KEYWORDS.len(), 89);
     }
 
     #[test]
     fn pt_multi_word_pattern_count() {
         assert_eq!(PT_MULTI_WORD_PATTERNS.len(), 5);
+    }
+
+    #[test]
+    fn pt_abbreviated_units() {
+        let kw = pt_kw();
+        // Hour abbreviations (universal)
+        assert_eq!(kw.lookup("h", "h"), Token::Unit(TemporalUnit::Hour));
+        assert_eq!(kw.lookup("hr", "hr"), Token::Unit(TemporalUnit::Hour));
+        assert_eq!(kw.lookup("hrs", "hrs"), Token::Unit(TemporalUnit::Hour));
+        // Day abbreviation (universal)
+        assert_eq!(kw.lookup("d", "d"), Token::Unit(TemporalUnit::Day));
+        // Week abbreviations (PT-specific: "sem" for semana)
+        assert_eq!(kw.lookup("sem", "sem"), Token::Unit(TemporalUnit::Week));
+        assert_eq!(kw.lookup("sems", "sems"), Token::Unit(TemporalUnit::Week));
+        // Year abbreviation (PT-specific: "a" for ano)
+        assert_eq!(kw.lookup("a", "a"), Token::Unit(TemporalUnit::Year));
     }
 }
