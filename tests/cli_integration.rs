@@ -1396,11 +1396,11 @@ fn test_skip_errors_all_valid() {
 // ============================================================
 
 #[test]
-fn test_range_last_week_two_lines() {
-    // "last week" should output two lines: start (Monday) and end (Sunday)
+fn test_last_week_returns_single_date() {
+    // "last week" should output a single date (today - 7 days), not a range
     let tmp = TempDir::new().unwrap();
 
-    let output = td_cmd(&tmp)
+    td_cmd(&tmp)
         .args([
             "last week",
             "-f",
@@ -1408,24 +1408,51 @@ fn test_range_last_week_two_lines() {
             "-t",
             "UTC",
             "--now",
-            "2025-06-18T00:00:00Z",
+            "2025-01-15T00:00:00Z",
         ])
-        .output()
-        .unwrap();
-    assert!(output.status.success(), "should succeed");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let lines: Vec<&str> = stdout.trim().lines().collect();
-    assert_eq!(
-        lines.len(),
-        2,
-        "Range should output exactly 2 lines, got: {:?}",
-        lines
-    );
-    assert_eq!(
-        lines[0], "2025-06-09",
-        "Start should be Monday of last week"
-    );
-    assert_eq!(lines[1], "2025-06-15", "End should be Sunday of last week");
+        .assert()
+        .success()
+        .stdout("2025-01-08\n"); // 15 - 7 = 8
+}
+
+#[test]
+fn test_last_month_returns_single_date() {
+    // "last month" should output a single date (today - 1 month)
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "last month",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-03-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout("2025-02-15\n"); // March 15 - 1 month = Feb 15
+}
+
+#[test]
+fn test_last_year_returns_single_date() {
+    // "last year" should output a single date (today - 1 year)
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "last year",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout("2024-06-15\n"); // 2025 - 1 year = 2024
 }
 
 #[test]
@@ -1453,13 +1480,59 @@ fn test_range_this_month_two_lines() {
 }
 
 #[test]
+fn test_this_week_still_returns_range() {
+    // "this week" should still output two lines (start and end)
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "this week",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-01-15T00:00:00Z", // Wednesday
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert_eq!(lines.len(), 2, "Range should output exactly 2 lines, got: {lines:?}");
+}
+
+#[test]
+fn test_next_week_still_returns_range() {
+    // "next week" should still output two lines (start and end)
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "next week",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-01-15T00:00:00Z",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert_eq!(lines.len(), 2, "Range should output exactly 2 lines, got: {lines:?}");
+}
+
+#[test]
 fn test_range_json_output() {
-    // Range with --json should return {start, end} object
+    // Range with --json should return {start, end} object (using "this week" which is still a range)
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
         .args([
-            "last week",
+            "this week",
             "--json",
             "-f",
             "%Y-%m-%d",
