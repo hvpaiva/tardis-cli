@@ -41,6 +41,7 @@ pub(crate) enum RelativeDate {
     Tomorrow,
     Yesterday,
     Overmorrow,
+    Ereyesterday,
 }
 
 /// Direction for day references and duration offsets.

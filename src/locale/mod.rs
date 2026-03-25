@@ -8,6 +8,7 @@
 //! `--locale` flag > config `locale` > `LANG`/`LC_TIME` env > English fallback.
 
 pub mod en;
+pub mod pt;
 
 use std::collections::HashMap;
 
@@ -145,8 +146,7 @@ pub fn resolve_locale(
 /// Look up a locale by its code. Returns English for unrecognized codes.
 pub fn get_locale(code: &str) -> &'static dyn Locale {
     match code.to_lowercase().as_str() {
-        // PT locale not yet implemented; will be added in Plan 04-02
-        "pt" | "pt-br" | "pt_br" => &en::EN_LOCALE, // TODO: return &pt::PT_LOCALE
+        "pt" | "pt-br" | "pt_br" => &pt::PT_LOCALE,
         _ => &en::EN_LOCALE,
     }
 }
@@ -312,8 +312,7 @@ mod tests {
         let _lc = EnvGuard::set("LC_TIME", "pt_BR.UTF-8");
         let _lang = EnvGuard::remove("LANG");
         let locale = resolve_locale(None, None);
-        // PT not yet implemented, falls back to EN
-        assert_eq!(locale.code(), "en");
+        assert_eq!(locale.code(), "pt");
     }
 
     #[test]
@@ -426,5 +425,23 @@ mod tests {
     fn get_locale_returns_en_for_en() {
         let locale = get_locale("en");
         assert_eq!(locale.code(), "en");
+    }
+
+    #[test]
+    fn get_locale_returns_pt_for_pt() {
+        let locale = get_locale("pt");
+        assert_eq!(locale.code(), "pt");
+    }
+
+    #[test]
+    fn get_locale_returns_pt_for_pt_br() {
+        let locale = get_locale("pt-br");
+        assert_eq!(locale.code(), "pt");
+    }
+
+    #[test]
+    fn get_locale_returns_pt_for_pt_br_underscore() {
+        let locale = get_locale("pt_br");
+        assert_eq!(locale.code(), "pt");
     }
 }

@@ -257,7 +257,7 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
     }
 
     // Multi-word token merge pass (for locale-specific patterns)
-    merge_multi_word_patterns(&mut tokens, locale_keywords);
+    merge_multi_word_patterns(&mut tokens, locale_keywords, input);
 
     tokens
 }
@@ -265,7 +265,17 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
 /// Post-processing pass: scan for known multi-word sequences from the locale
 /// and replace them with single tokens. Handles PT patterns like
 /// "daqui a" -> Token::In, "depois de amanha" -> Token::Overmorrow, etc.
-fn merge_multi_word_patterns(tokens: &mut Vec<SpannedToken>, locale_keywords: &LocaleKeywords) {
+///
+/// Matching uses the original input text (via byte spans) rather than
+/// token kinds, because the same word can be recognized as different
+/// keyword tokens across locales (e.g., "amanha" -> Token::Tomorrow in PT,
+/// but the multi-word pattern "depois de amanha" needs to match on the
+/// raw text "amanha", not the token kind "Tomorrow").
+fn merge_multi_word_patterns(
+    tokens: &mut Vec<SpannedToken>,
+    locale_keywords: &LocaleKeywords,
+    input: &str,
+) {
     let patterns = locale_keywords.multi_word_patterns();
     if patterns.is_empty() {
         return;
@@ -279,25 +289,18 @@ fn merge_multi_word_patterns(tokens: &mut Vec<SpannedToken>, locale_keywords: &L
                 continue;
             }
             // Check if the next N tokens match the multi-word pattern
+            // by comparing normalized text from the original input
             let all_match = words.iter().enumerate().all(|(j, &expected)| {
-                match &tokens[i + j].kind {
-                    Token::Word(w) => {
-                        let normalized: String = w
-                            .chars()
-                            .map(|c| {
-                                let lower = c.to_lowercase().next().unwrap_or(c);
-                                locale::strip_diacritics(lower)
-                            })
-                            .collect();
-                        normalized == expected
-                    }
-                    other => {
-                        // Also check if this token was already recognized as a keyword
-                        // that matches the expected word
-                        let token_str = token_to_normalized_str(other);
-                        token_str.as_deref() == Some(expected)
-                    }
-                }
+                let span = &tokens[i + j].span;
+                let original = &input[span.start..span.end];
+                let normalized: String = original
+                    .chars()
+                    .map(|c| {
+                        let lower = c.to_lowercase().next().unwrap_or(c);
+                        locale::strip_diacritics(lower)
+                    })
+                    .collect();
+                normalized == expected
             });
 
             if all_match {
@@ -321,30 +324,6 @@ fn merge_multi_word_patterns(tokens: &mut Vec<SpannedToken>, locale_keywords: &L
         if !matched {
             i += 1;
         }
-    }
-}
-
-/// Convert a token back to its normalized keyword string for multi-word pattern matching.
-fn token_to_normalized_str(token: &Token) -> Option<String> {
-    match token {
-        Token::A => Some("a".to_string()),
-        Token::An => Some("an".to_string()),
-        Token::At => Some("at".to_string()),
-        Token::And => Some("and".to_string()),
-        Token::In => Some("in".to_string()),
-        Token::Ago => Some("ago".to_string()),
-        Token::From => Some("from".to_string()),
-        Token::After => Some("after".to_string()),
-        Token::Before => Some("before".to_string()),
-        Token::Now => Some("now".to_string()),
-        Token::Today => Some("today".to_string()),
-        Token::Tomorrow => Some("tomorrow".to_string()),
-        Token::Yesterday => Some("yesterday".to_string()),
-        Token::Overmorrow => Some("overmorrow".to_string()),
-        Token::Next => Some("next".to_string()),
-        Token::Last => Some("last".to_string()),
-        Token::This => Some("this".to_string()),
-        _ => None,
     }
 }
 
@@ -986,4 +965,126 @@ mod tests {
     }
 
     use crate::parser::token::TemporalUnit;
+
+    // ── PT locale lexer tests ──────────────────────────────────
+
+    use crate::locale::pt::PT_LOCALE;
+
+    fn pt_kw() -> LocaleKeywords {
+        LocaleKeywords::from_locale(&PT_LOCALE)
+    }
+
+    fn pt_kinds(input: &str) -> Vec<Token> {
+        let kw = pt_kw();
+        tokenize(input, &kw).into_iter().map(|st| st.kind).collect()
+    }
+
+    #[test]
+    fn pt_tokenize_amanha_no_accent() {
+        assert_eq!(pt_kinds("amanha"), vec![Token::Tomorrow]);
+    }
+
+    #[test]
+    fn pt_tokenize_amanha_with_accent() {
+        // "amanha" (with tilde) should also map to Tomorrow via accent stripping
+        assert_eq!(pt_kinds("amanh\u{00e3}"), vec![Token::Tomorrow]);
+    }
+
+    #[test]
+    fn pt_tokenize_daqui_a_3_dias_multi_word_merge() {
+        assert_eq!(
+            pt_kinds("daqui a 3 dias"),
+            vec![Token::In, Token::Number(3), Token::Unit(TemporalUnit::Day)]
+        );
+    }
+
+    #[test]
+    fn pt_tokenize_ha_2_horas() {
+        assert_eq!(
+            pt_kinds("ha 2 horas"),
+            vec![Token::Ago, Token::Number(2), Token::Unit(TemporalUnit::Hour)]
+        );
+    }
+
+    #[test]
+    fn pt_tokenize_depois_de_amanha_multi_word_merge() {
+        assert_eq!(pt_kinds("depois de amanha"), vec![Token::Overmorrow]);
+    }
+
+    #[test]
+    fn pt_tokenize_proxima_sexta() {
+        assert_eq!(
+            pt_kinds("proxima sexta"),
+            vec![Token::Next, Token::Weekday(jiff::civil::Weekday::Friday)]
+        );
+    }
+
+    #[test]
+    fn pt_tokenize_anteontem() {
+        assert_eq!(pt_kinds("anteontem"), vec![Token::Ereyesterday]);
+    }
+
+    #[test]
+    fn pt_tokenize_antes_de_ontem_multi_word_merge() {
+        assert_eq!(pt_kinds("antes de ontem"), vec![Token::Ereyesterday]);
+    }
+
+    #[test]
+    fn pt_tokenize_accented_proxima() {
+        // "proxima" with accent on o should normalize to "proxima"
+        assert_eq!(
+            pt_kinds("pr\u{00f3}xima sexta"),
+            vec![Token::Next, Token::Weekday(jiff::civil::Weekday::Friday)]
+        );
+    }
+
+    #[test]
+    fn pt_tokenize_accented_sabado() {
+        assert_eq!(
+            pt_kinds("s\u{00e1}bado"),
+            vec![Token::Weekday(jiff::civil::Weekday::Saturday)]
+        );
+    }
+
+    #[test]
+    fn pt_tokenize_accented_marco() {
+        // "marco" (with cedilla/accent) -> March
+        assert_eq!(
+            pt_kinds("mar\u{00e7}o"),
+            vec![Token::Month(3)]
+        );
+    }
+
+    #[test]
+    fn pt_span_tracking_amanha_with_accent() {
+        let kw = pt_kw();
+        // "amanha" = a(1) m(1) a(1) n(1) h(1) a-tilde(2 bytes) = 7 bytes
+        let tokens = tokenize("amanh\u{00e3}", &kw);
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].kind, Token::Tomorrow);
+        assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 7 });
+    }
+
+    #[test]
+    fn pt_tokenize_em_5_minutos() {
+        assert_eq!(
+            pt_kinds("em 5 minutos"),
+            vec![Token::In, Token::Number(5), Token::Unit(TemporalUnit::Minute)]
+        );
+    }
+
+    #[test]
+    fn pt_tokenize_3_dias_atras() {
+        assert_eq!(
+            pt_kinds("3 dias atras"),
+            vec![Token::Number(3), Token::Unit(TemporalUnit::Day), Token::Ago]
+        );
+    }
+
+    #[test]
+    fn pt_depois_de_amanha_before_depois_de() {
+        // Verify longest match: "depois de amanha" should merge to Overmorrow,
+        // not "depois de" -> After + leftover "amanha"
+        assert_eq!(pt_kinds("depois de amanha"), vec![Token::Overmorrow]);
+    }
 }

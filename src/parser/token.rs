@@ -48,6 +48,7 @@ pub(crate) enum Token {
     Tomorrow,
     Yesterday,
     Overmorrow,
+    Ereyesterday,
 
     // Direction modifiers
     Next,

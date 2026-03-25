@@ -6,6 +6,8 @@ use predicates::prelude::*;
 fn td_cmd(temp_cfg: &TempDir) -> Command {
     let mut cmd = Command::cargo_bin("td").unwrap();
     cmd.env("XDG_CONFIG_HOME", temp_cfg.path());
+    cmd.env("LANG", "en_US.UTF-8");
+    cmd.env_remove("LC_TIME");
     cmd
 }
 

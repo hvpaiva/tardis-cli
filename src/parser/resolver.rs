@@ -57,6 +57,9 @@ fn resolve_relative(
         RelativeDate::Overmorrow => today
             .checked_add(Span::new().days(2))
             .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?,
+        RelativeDate::Ereyesterday => today
+            .checked_sub(Span::new().days(2))
+            .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?,
     };
 
     let civil_dt = apply_time_or_midnight(target_date, time);

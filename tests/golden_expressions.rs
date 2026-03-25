@@ -22,6 +22,8 @@ fn td_golden(expression: &str) -> String {
     let output = Command::cargo_bin("td")
         .unwrap()
         .env("XDG_CONFIG_HOME", tmp.path())
+        .env("LANG", "en_US.UTF-8")
+        .env_remove("LC_TIME")
         .args(["--now", NOW, "--format", FMT, "--timezone", TZ])
         .arg(expression)
         .output()

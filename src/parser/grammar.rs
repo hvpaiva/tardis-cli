@@ -240,6 +240,16 @@ impl<'a> Parser<'a> {
             self.restore(saved);
         }
 
+        // Pattern C: "Ago N unit(s) ..." (PT prefix-ago: "ha 2 horas" = "2 hours ago")
+        // Token::Ago starts this pattern only when followed by duration components
+        self.restore(saved);
+        if self.match_token(&Token::Ago) {
+            if let Some(comps) = self.try_duration_components() {
+                return Ok(Some(DateExpr::Offset(Direction::Past, comps)));
+            }
+            self.restore(saved);
+        }
+
         // Pattern B: "N unit(s) [and N unit(s) ...] after/before/ago [from expr]"
         self.restore(saved);
         if let Some(comps) = self.try_duration_components() {
@@ -374,6 +384,10 @@ impl<'a> Parser<'a> {
             Some(Token::Overmorrow) => {
                 self.advance();
                 Some(RelativeDate::Overmorrow)
+            }
+            Some(Token::Ereyesterday) => {
+                self.advance();
+                Some(RelativeDate::Ereyesterday)
             }
             _ => None,
         }
