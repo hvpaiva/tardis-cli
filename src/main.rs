@@ -5,9 +5,11 @@ use std::io::{self, IsTerminal};
 
 use tardis_cli::{
     Result,
-    cli::{Cli, Command, ConfigAction, ShellType, SubCmd},
+    cli::{Cli, Command, ConfigAction, ConvertArgs, DiffArgs, ShellType, SubCmd},
     config::Config,
     core::{self, App},
+    parser,
+    user_input_error,
 };
 
 fn main() {
@@ -38,24 +40,36 @@ fn run() -> Result<()> {
     // Batch mode: if input has multiple lines, process each.
     let lines: Vec<&str> = cmd.input.lines().collect();
     if lines.len() > 1 {
+        let mut had_error = false;
         for line in lines {
             let line = line.trim();
             if line.is_empty() {
                 continue;
             }
-            let single_cmd = Command {
-                input: line.to_owned(),
-                format: cmd.format.clone(),
-                timezone: cmd.timezone.clone(),
-                now: cmd.now,
-                json: cmd.json,
-                no_newline: cmd.no_newline,
-                skip_errors: cmd.skip_errors,
+            let single_cmd = cmd.with_input(line.to_owned());
+            let result = if try_range_output(&single_cmd, &cfg).unwrap_or(false) {
+                Ok(())
+            } else {
+                process_and_print(&single_cmd, &cfg)
             };
-            process_and_print(&single_cmd, &cfg)?;
+            if let Err(e) = result {
+                if cmd.skip_errors {
+                    eprintln!("{e}");
+                    println!();
+                    had_error = true;
+                } else {
+                    return Err(e);
+                }
+            }
+        }
+        if had_error {
+            std::process::exit(1);
         }
     } else {
-        process_and_print(&cmd, &cfg)?;
+        // Try range expression first (per D-09, PARS-05)
+        if !try_range_output(&cmd, &cfg)? {
+            process_and_print(&cmd, &cfg)?;
+        }
     }
 
     Ok(())
@@ -94,11 +108,166 @@ fn handle_subcmd(subcmd: SubCmd) -> Result<()> {
             handle_completions(shell);
             Ok(())
         }
-        SubCmd::Diff(_args) => Err(tardis_cli::user_input_error!(InvalidDateFormat, "diff subcommand not yet implemented")),
-        SubCmd::Convert(_args) => Err(tardis_cli::user_input_error!(InvalidDateFormat, "convert subcommand not yet implemented")),
-        SubCmd::Tz(_args) => Err(tardis_cli::user_input_error!(InvalidDateFormat, "tz subcommand not yet implemented")),
-        SubCmd::Info(_args) => Err(tardis_cli::user_input_error!(InvalidDateFormat, "info subcommand not yet implemented")),
+        SubCmd::Diff(args) => handle_diff(args),
+        SubCmd::Convert(args) => handle_convert(args),
+        SubCmd::Tz(_args) => Err(user_input_error!(InvalidDateFormat, "tz subcommand not yet implemented")),
+        SubCmd::Info(_args) => Err(user_input_error!(InvalidDateFormat, "info subcommand not yet implemented")),
     }
+}
+
+/// Resolve the `--now` argument to an optional `jiff::Timestamp`.
+fn resolve_now(now_arg: &Option<String>) -> Result<Option<jiff::Timestamp>> {
+    now_arg
+        .as_deref()
+        .map(|s| s.parse::<jiff::Timestamp>())
+        .transpose()
+        .map_err(|e| user_input_error!(InvalidNow, "{} (expect RFC 3339)", e))
+}
+
+/// Resolve a timezone argument or fall back to the system timezone.
+fn resolve_timezone(tz_arg: &Option<String>) -> Result<jiff::tz::TimeZone> {
+    match tz_arg {
+        Some(name) => jiff::tz::TimeZone::get(name)
+            .map_err(|e| user_input_error!(UnsupportedTimezone, "{}", e)),
+        None => Ok(jiff::tz::TimeZone::system()),
+    }
+}
+
+/// Resolve a `Zoned` "now" reference from the `--now` arg and timezone.
+fn resolve_now_zoned(
+    now_arg: &Option<String>,
+    tz: &jiff::tz::TimeZone,
+) -> Result<jiff::Zoned> {
+    match resolve_now(now_arg)? {
+        Some(ts) => Ok(ts.to_zoned(tz.clone())),
+        None => Ok(jiff::Zoned::now().with_time_zone(tz.clone())),
+    }
+}
+
+/// Resolve a builtin format name to a strftime pattern.
+fn resolve_builtin_format(name: &str) -> String {
+    match name.to_lowercase().as_str() {
+        "iso8601" | "iso" => "%Y-%m-%dT%H:%M:%S%:z".to_string(),
+        "rfc3339" => "%Y-%m-%dT%H:%M:%S%:z".to_string(),
+        "rfc2822" => "%a, %d %b %Y %H:%M:%S %z".to_string(),
+        "epoch" | "unix" => "epoch".to_string(),
+        other => other.to_string(),
+    }
+}
+
+/// Print a value respecting the `--no-newline` flag.
+fn output_value(value: &str, no_newline: bool) {
+    if no_newline {
+        print!("{value}");
+    } else {
+        println!("{value}");
+    }
+}
+
+/// Try to handle the input as a range expression (per D-09).
+/// Returns `Ok(true)` if it was a range and was output, `Ok(false)` if not a range.
+fn try_range_output(cmd: &Command, cfg: &Config) -> Result<bool> {
+    let app = App::from_cli(cmd, cfg)?;
+    let now = app
+        .now
+        .clone()
+        .unwrap_or_else(|| jiff::Zoned::now().with_time_zone(app.timezone.clone()));
+
+    match parser::parse_range(&cmd.input, &now) {
+        Ok((start, end)) => {
+            let fmt = &app.format;
+            let start_str = start.strftime(fmt).to_string();
+            let end_str = end.strftime(fmt).to_string();
+
+            if cmd.json {
+                let json = serde_json::json!({
+                    "input": cmd.input,
+                    "start": start_str,
+                    "end": end_str,
+                    "start_epoch": start.timestamp().as_second(),
+                    "end_epoch": end.timestamp().as_second(),
+                });
+                output_value(&format!("{json}"), cmd.no_newline);
+            } else {
+                // Two lines: start then end (per D-09)
+                output_value(&format!("{start_str}\n{end_str}"), cmd.no_newline);
+            }
+            Ok(true)
+        }
+        Err(_) => Ok(false), // Not a range expression, fall through
+    }
+}
+
+/// Handle `td diff <date1> <date2>` -- compute calendar-aware duration (D-01, SUBCMD-01).
+fn handle_diff(args: DiffArgs) -> Result<()> {
+    let tz = resolve_timezone(&args.timezone)?;
+    let now = resolve_now_zoned(&args.now, &tz)?;
+
+    let z1 = parser::parse(&args.date1, &now)
+        .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
+    let z2 = parser::parse(&args.date2, &now)
+        .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
+
+    // Calendar-aware span (human-readable and ISO 8601)
+    let span = z1
+        .until(jiff::ZonedDifference::new(&z2).largest(jiff::Unit::Year))
+        .map_err(|e| user_input_error!(InvalidDateFormat, "diff failed: {}", e))?;
+
+    // Total seconds (absolute duration)
+    let total_secs = z2.timestamp().as_second() - z1.timestamp().as_second();
+
+    if args.json {
+        let json = serde_json::json!({
+            "human": format!("{:#}", span),
+            "seconds": total_secs,
+            "iso8601": format!("{}", span),
+        });
+        output_value(&format!("{json}"), args.no_newline);
+    } else {
+        // Multi-format output per D-01
+        let human = format!("{:#}", span);
+        let iso = format!("{}", span);
+        let output = format!("{human}\n{total_secs} seconds\n{iso}");
+        output_value(&output, args.no_newline);
+    }
+    Ok(())
+}
+
+/// Handle `td convert <input> --to <format>` -- format conversion (D-02, SUBCMD-02).
+fn handle_convert(args: ConvertArgs) -> Result<()> {
+    let tz = resolve_timezone(&args.timezone)?;
+    let now = resolve_now_zoned(&args.now, &tz)?;
+
+    // Parse input: if --from is specified, use strptime; otherwise auto-detect via parser
+    let zoned = if let Some(ref from_fmt) = args.from {
+        let pattern = resolve_builtin_format(from_fmt);
+        jiff::Zoned::strptime(&pattern, &args.input)
+            .map_err(|e| user_input_error!(InvalidDateFormat, "failed to parse with format '{}': {}", from_fmt, e))?
+    } else {
+        parser::parse(&args.input, &now)
+            .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?
+    };
+
+    // Format output using --to
+    let to_fmt = resolve_builtin_format(&args.to);
+    let output = if to_fmt == "epoch" || to_fmt == "unix" {
+        zoned.timestamp().as_second().to_string()
+    } else {
+        zoned.strftime(&to_fmt).to_string()
+    };
+
+    if args.json {
+        let json = serde_json::json!({
+            "input": args.input,
+            "output": output,
+            "from_format": args.from.as_deref().unwrap_or("auto"),
+            "to_format": args.to,
+        });
+        output_value(&format!("{json}"), args.no_newline);
+    } else {
+        output_value(&output, args.no_newline);
+    }
+    Ok(())
 }
 
 fn handle_config(action: ConfigAction) -> Result<()> {
