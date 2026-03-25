@@ -7,6 +7,11 @@
 //! items live behind concise documentation so that generated docs.rs output
 //! remains immediately useful without excessive inline comments.
 
+/// POSIX sysexits-compatible exit codes.
+const EX_USAGE: i32 = 64; // Command line usage error
+const EX_IOERR: i32 = 74; // Input/output error
+const EX_CONFIG: i32 = 78; // Configuration error
+
 /// All possible failures surfaced by the CLI.
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -56,14 +61,14 @@ impl Error {
         match self {
             Error::UserInput(err) => {
                 eprintln!("{}", err);
-                std::process::exit(exitcode::USAGE);
+                std::process::exit(EX_USAGE);
             }
             Error::System(err) => {
                 eprintln!("System error: {}", err);
 
                 match err {
-                    SystemError::Config(_) => std::process::exit(exitcode::CONFIG),
-                    SystemError::Io(_) => std::process::exit(exitcode::IOERR),
+                    SystemError::Config(_) => std::process::exit(EX_CONFIG),
+                    SystemError::Io(_) => std::process::exit(EX_IOERR),
                 }
             }
         }
@@ -115,6 +120,8 @@ macro_rules! system_error {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]
