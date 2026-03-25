@@ -43,6 +43,7 @@ fn run() -> Result<()> {
                 now: cmd.now,
                 json: cmd.json,
                 no_newline: cmd.no_newline,
+                verbose: cmd.verbose,
             };
             process_and_print(&single_cmd, &cfg)?;
         }

@@ -1,11 +1,11 @@
-//! Centralised error and exit‑handling utilities for the **TARDIS** CLI.
+//! Centralised error and exit-handling utilities for the **TARDIS** CLI.
 //!
 //! This module provides a single [`Error`] enum that groups together all
 //! *user* and *system* failures plus two convenience macros for constructing
-//! those errors ergonomically.  It also offers the [`Failure`] trait, allowing
-//! any error value to map itself to an appropriate process exit.  All public
-//! items live behind concise documentation so that generated docs.rs output
-//! remains immediately useful without excessive inline comments.
+//! those errors ergonomically.  The [`Error::exit()`] method maps any error
+//! to an appropriate process exit code.  All public items live behind concise
+//! documentation so that generated docs.rs output remains immediately useful
+//! without excessive inline comments.
 
 /// All possible failures surfaced by the CLI.
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]

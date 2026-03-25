@@ -333,6 +333,7 @@ mod tests {
             }),
             json: false,
             no_newline: false,
+            verbose: false,
         }
     }
 

@@ -140,6 +140,10 @@ pub struct Cli {
     #[arg(short = 'n', long = "no-newline")]
     pub no_newline: bool,
 
+    /// Print diagnostic information to stderr (config path, timezone, locale, parsed AST, timing).
+    #[arg(short = 'v', long)]
+    pub verbose: bool,
+
     #[command(subcommand)]
     pub subcmd: Option<SubCmd>,
 }
@@ -188,6 +192,7 @@ pub struct Command {
     pub now: Option<DateTime<FixedOffset>>,
     pub json: bool,
     pub no_newline: bool,
+    pub verbose: bool,
 }
 
 impl Command {
@@ -253,6 +258,7 @@ impl Command {
             now,
             json: cli.json,
             no_newline: cli.no_newline,
+            verbose: cli.verbose,
         })
     }
 }
@@ -332,5 +338,17 @@ mod tests {
     fn no_newline_flag_parsed() {
         let cmd = parse_ok(&["td", "now", "-n"]);
         assert!(cmd.no_newline);
+    }
+
+    #[test]
+    fn verbose_flag_parsed() {
+        let cmd = parse_ok(&["td", "now", "--verbose"]);
+        assert!(cmd.verbose);
+    }
+
+    #[test]
+    fn verbose_short_flag_parsed() {
+        let cmd = parse_ok(&["td", "now", "-v"]);
+        assert!(cmd.verbose);
     }
 }
