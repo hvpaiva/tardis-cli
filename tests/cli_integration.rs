@@ -280,7 +280,7 @@ fn wrong_pipe_should_fail() {
         .assert()
         .failure()
         .stderr(predicate::str::contains(
-            "Invalid date format: could not parse as a date expression",
+            "Invalid date format: could not parse 'A' as a date expression",
         ));
 }
 
@@ -313,7 +313,7 @@ fn fails_when_wrong_input_interactive() {
         .assert()
         .failure()
         .stderr(predicate::str::contains(
-            "Invalid date format: could not parse as a date expression",
+            "Invalid date format: could not parse 'A' as a date expression",
         ));
 }
 
@@ -694,7 +694,7 @@ fn invalid_epoch_not_a_number() {
         .assert()
         .failure()
         .stderr(predicate::str::contains(
-            "could not parse as a date expression",
+            "could not parse '@notanumber' as a date expression",
         ));
 }
 

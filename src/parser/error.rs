@@ -12,8 +12,7 @@ use crate::parser::token::ByteSpan;
 pub struct ParseError {
     kind: ParseErrorKind,
     span: Option<ByteSpan>,
-    /// Original input string for error context (reserved for enhanced diagnostics).
-    #[allow(dead_code)]
+    /// Original input string for error context.
     input: String,
     suggestion: Option<String>,
 }
@@ -110,6 +109,11 @@ impl ParseError {
         self
     }
 
+    /// Access the typo-correction suggestion, if any.
+    pub fn suggestion(&self) -> &Option<String> {
+        &self.suggestion
+    }
+
     /// Format the error message for display to the user.
     pub fn format_message(&self) -> String {
         let mut msg = match &self.kind {
@@ -123,7 +127,13 @@ impl ParseError {
                     format!("expected {}, found '{}'", expected, found)
                 }
             }
-            ParseErrorKind::UnrecognizedInput => "could not parse as a date expression".to_string(),
+            ParseErrorKind::UnrecognizedInput => {
+                if self.input.is_empty() {
+                    "could not parse as a date expression".to_string()
+                } else {
+                    format!("could not parse '{}' as a date expression", self.input)
+                }
+            }
             ParseErrorKind::EpochOutOfRange => "epoch timestamp out of range".to_string(),
             ParseErrorKind::ResolutionFailed(detail) => detail.clone(),
             ParseErrorKind::InputTooLong { len, max } => {
@@ -156,7 +166,36 @@ mod tests {
     #[test]
     fn unrecognized_error_message() {
         let err = ParseError::unrecognized("xyz");
+        assert_eq!(
+            err.format_message(),
+            "could not parse 'xyz' as a date expression"
+        );
+    }
+
+    #[test]
+    fn unrecognized_empty_input_no_echo() {
+        let err = ParseError::unrecognized("");
         assert_eq!(err.format_message(), "could not parse as a date expression");
+    }
+
+    #[test]
+    fn unrecognized_with_suggestion_echoes_input_and_suggests() {
+        let err = ParseError::unrecognized("tomorow").with_suggestion("tomorrow".to_string());
+        let msg = err.format_message();
+        assert!(msg.contains("could not parse 'tomorow'"));
+        assert!(msg.contains("Did you mean 'tomorrow'?"));
+    }
+
+    #[test]
+    fn suggestion_accessor_returns_value() {
+        let err = ParseError::unrecognized("tomorow").with_suggestion("tomorrow".to_string());
+        assert_eq!(err.suggestion(), &Some("tomorrow".to_string()));
+    }
+
+    #[test]
+    fn suggestion_accessor_returns_none() {
+        let err = ParseError::unrecognized("xyz");
+        assert_eq!(err.suggestion(), &None);
     }
 
     #[test]

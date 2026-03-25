@@ -63,8 +63,15 @@ pub fn process(app: &App, presets: &[Preset]) -> Result<ProcessOutput> {
         Err(e) if app.locale_code != "en" => {
             let en_ref = locale::get_locale("en");
             let en_kw = locale::LocaleKeywords::from_locale(en_ref);
-            parser::parse(&app.date, &now, &en_kw)
-                .map_err(|_| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?
+            parser::parse(&app.date, &now, &en_kw).map_err(|en_err| {
+                // Prefer EN error if it has a suggestion the locale error lacks
+                let msg = if en_err.suggestion().is_some() && e.suggestion().is_none() {
+                    en_err.format_message()
+                } else {
+                    e.format_message()
+                };
+                user_input_error!(InvalidDateFormat, "{}", msg)
+            })?
         }
         Err(e) => {
             return Err(user_input_error!(

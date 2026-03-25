@@ -71,13 +71,13 @@ fn golden_relative_overmorrow() {
 #[test]
 fn golden_relative_day_after_tomorrow() {
     // "day after tomorrow" is NOT supported by the custom parser
-    assert_snapshot!(td_golden("day after tomorrow"), @"ERROR: Invalid date format: could not parse as a date expression");
+    assert_snapshot!(td_golden("day after tomorrow"), @"ERROR: Invalid date format: could not parse 'day after tomorrow' as a date expression");
 }
 
 #[test]
 fn golden_relative_day_before_yesterday() {
     // "day before yesterday" is NOT supported by the custom parser
-    assert_snapshot!(td_golden("day before yesterday"), @"ERROR: Invalid date format: could not parse as a date expression");
+    assert_snapshot!(td_golden("day before yesterday"), @"ERROR: Invalid date format: could not parse 'day before yesterday' as a date expression");
 }
 
 #[test]
@@ -435,17 +435,17 @@ fn golden_epoch_billion() {
 
 #[test]
 fn golden_error_question_marks() {
-    assert_snapshot!(td_golden("???"), @"ERROR: Invalid date format: could not parse as a date expression. Did you mean 'a'?");
+    assert_snapshot!(td_golden("???"), @"ERROR: Invalid date format: could not parse '???' as a date expression. Did you mean 'a'?");
 }
 
 #[test]
 fn golden_error_not_a_date() {
-    assert_snapshot!(td_golden("not a date"), @"ERROR: Invalid date format: could not parse as a date expression. Did you mean 'nov'?");
+    assert_snapshot!(td_golden("not a date"), @"ERROR: Invalid date format: could not parse 'not a date' as a date expression. Did you mean 'nov'?");
 }
 
 #[test]
 fn golden_error_invalid_epoch() {
-    assert_snapshot!(td_golden("@abc"), @"ERROR: Invalid date format: could not parse as a date expression");
+    assert_snapshot!(td_golden("@abc"), @"ERROR: Invalid date format: could not parse '@abc' as a date expression");
 }
 
 #[test]
@@ -458,17 +458,17 @@ fn golden_epoch_smart_precision() {
 fn golden_error_gibberish_long() {
     let long_input = "a".repeat(120);
     let result = td_golden(&long_input);
-    assert!(result.starts_with("ERROR: Invalid date format: could not parse as a date expression"));
+    assert!(result.starts_with("ERROR: Invalid date format: could not parse '"));
 }
 
 #[test]
 fn golden_error_special_chars() {
-    assert_snapshot!(td_golden("!@#$%^&*()"), @"ERROR: Invalid date format: could not parse as a date expression. Did you mean 'a'?");
+    assert_snapshot!(td_golden("!@#$%^&*()"), @"ERROR: Invalid date format: could not parse '!@#$%^&*()' as a date expression. Did you mean 'a'?");
 }
 
 #[test]
 fn golden_error_sql_injection_attempt() {
-    assert_snapshot!(td_golden("'; DROP TABLE dates; --"), @"ERROR: Invalid date format: could not parse as a date expression. Did you mean 'a'?");
+    assert_snapshot!(td_golden("'; DROP TABLE dates; --"), @"ERROR: Invalid date format: could not parse ''; DROP TABLE dates; --' as a date expression. Did you mean 'a'?");
 }
 
 // ============================================================
