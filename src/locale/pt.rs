@@ -67,10 +67,10 @@ static PT_KEYWORDS: [(&str, Token); 82] = [
     ("estas", Token::This),
     ("estes", Token::This),
     // Duration direction
-    ("ha", Token::Ago),     // prefix-ago: "ha 2 horas" = "2 hours ago"
-    ("atras", Token::Ago),  // postfix: "3 dias atras" = "3 days ago"
+    ("ha", Token::Ago),    // prefix-ago: "ha 2 horas" = "2 hours ago"
+    ("atras", Token::Ago), // postfix: "3 dias atras" = "3 days ago"
     // Duration preposition
-    ("em", Token::In),      // "em 5 minutos" = "in 5 minutes"
+    ("em", Token::In), // "em 5 minutos" = "in 5 minutes"
     // Verbal arithmetic
     ("depois", Token::After),
     ("antes", Token::Before),
@@ -78,7 +78,7 @@ static PT_KEYWORDS: [(&str, Token); 82] = [
     ("menos", Token::Dash),
     // Connectors
     ("e", Token::And),
-    ("as", Token::At),      // "as 15:00" = "at 15:00"
+    ("as", Token::At), // "as 15:00" = "at 15:00"
     // Articles (gendered, meaning "1")
     ("um", Token::A),
     ("uma", Token::A),
@@ -145,12 +145,12 @@ static PT_KEYWORDS: [(&str, Token); 82] = [
 /// matched before shorter prefixes ("depois de amanha" before "depois de").
 static PT_MULTI_WORD_PATTERNS: [(&[&str], Token); 5] = [
     // 3-word patterns first (longest match)
-    (&["depois", "de", "amanha"], Token::Overmorrow),     // "depois de amanha" = overmorrow
-    (&["antes", "de", "ontem"], Token::Ereyesterday),     // "antes de ontem" = ereyesterday
+    (&["depois", "de", "amanha"], Token::Overmorrow), // "depois de amanha" = overmorrow
+    (&["antes", "de", "ontem"], Token::Ereyesterday), // "antes de ontem" = ereyesterday
     // 2-word patterns
-    (&["daqui", "a"], Token::In),                          // "daqui a 3 dias" = "in 3 days"
-    (&["depois", "de"], Token::After),                     // "depois de" = "after"
-    (&["antes", "de"], Token::Before),                     // "antes de" = "before"
+    (&["daqui", "a"], Token::In),      // "daqui a 3 dias" = "in 3 days"
+    (&["depois", "de"], Token::After), // "depois de" = "after"
+    (&["antes", "de"], Token::Before), // "antes de" = "before"
 ];
 
 #[cfg(test)]
@@ -225,25 +225,67 @@ mod tests {
     #[test]
     fn pt_weekday_full_names() {
         let kw = pt_kw();
-        assert_eq!(kw.lookup("segunda", "segunda"), Token::Weekday(jiff::civil::Weekday::Monday));
-        assert_eq!(kw.lookup("terca", "terca"), Token::Weekday(jiff::civil::Weekday::Tuesday));
-        assert_eq!(kw.lookup("quarta", "quarta"), Token::Weekday(jiff::civil::Weekday::Wednesday));
-        assert_eq!(kw.lookup("quinta", "quinta"), Token::Weekday(jiff::civil::Weekday::Thursday));
-        assert_eq!(kw.lookup("sexta", "sexta"), Token::Weekday(jiff::civil::Weekday::Friday));
-        assert_eq!(kw.lookup("sabado", "sabado"), Token::Weekday(jiff::civil::Weekday::Saturday));
-        assert_eq!(kw.lookup("domingo", "domingo"), Token::Weekday(jiff::civil::Weekday::Sunday));
+        assert_eq!(
+            kw.lookup("segunda", "segunda"),
+            Token::Weekday(jiff::civil::Weekday::Monday)
+        );
+        assert_eq!(
+            kw.lookup("terca", "terca"),
+            Token::Weekday(jiff::civil::Weekday::Tuesday)
+        );
+        assert_eq!(
+            kw.lookup("quarta", "quarta"),
+            Token::Weekday(jiff::civil::Weekday::Wednesday)
+        );
+        assert_eq!(
+            kw.lookup("quinta", "quinta"),
+            Token::Weekday(jiff::civil::Weekday::Thursday)
+        );
+        assert_eq!(
+            kw.lookup("sexta", "sexta"),
+            Token::Weekday(jiff::civil::Weekday::Friday)
+        );
+        assert_eq!(
+            kw.lookup("sabado", "sabado"),
+            Token::Weekday(jiff::civil::Weekday::Saturday)
+        );
+        assert_eq!(
+            kw.lookup("domingo", "domingo"),
+            Token::Weekday(jiff::civil::Weekday::Sunday)
+        );
     }
 
     #[test]
     fn pt_weekday_abbreviations() {
         let kw = pt_kw();
-        assert_eq!(kw.lookup("seg", "seg"), Token::Weekday(jiff::civil::Weekday::Monday));
-        assert_eq!(kw.lookup("ter", "ter"), Token::Weekday(jiff::civil::Weekday::Tuesday));
-        assert_eq!(kw.lookup("qua", "qua"), Token::Weekday(jiff::civil::Weekday::Wednesday));
-        assert_eq!(kw.lookup("qui", "qui"), Token::Weekday(jiff::civil::Weekday::Thursday));
-        assert_eq!(kw.lookup("sex", "sex"), Token::Weekday(jiff::civil::Weekday::Friday));
-        assert_eq!(kw.lookup("sab", "sab"), Token::Weekday(jiff::civil::Weekday::Saturday));
-        assert_eq!(kw.lookup("dom", "dom"), Token::Weekday(jiff::civil::Weekday::Sunday));
+        assert_eq!(
+            kw.lookup("seg", "seg"),
+            Token::Weekday(jiff::civil::Weekday::Monday)
+        );
+        assert_eq!(
+            kw.lookup("ter", "ter"),
+            Token::Weekday(jiff::civil::Weekday::Tuesday)
+        );
+        assert_eq!(
+            kw.lookup("qua", "qua"),
+            Token::Weekday(jiff::civil::Weekday::Wednesday)
+        );
+        assert_eq!(
+            kw.lookup("qui", "qui"),
+            Token::Weekday(jiff::civil::Weekday::Thursday)
+        );
+        assert_eq!(
+            kw.lookup("sex", "sex"),
+            Token::Weekday(jiff::civil::Weekday::Friday)
+        );
+        assert_eq!(
+            kw.lookup("sab", "sab"),
+            Token::Weekday(jiff::civil::Weekday::Saturday)
+        );
+        assert_eq!(
+            kw.lookup("dom", "dom"),
+            Token::Weekday(jiff::civil::Weekday::Sunday)
+        );
     }
 
     // --- Month mappings ---
@@ -297,17 +339,38 @@ mod tests {
         assert_eq!(kw.lookup("ano", "ano"), Token::Unit(TemporalUnit::Year));
         assert_eq!(kw.lookup("anos", "anos"), Token::Unit(TemporalUnit::Year));
         assert_eq!(kw.lookup("mes", "mes"), Token::Unit(TemporalUnit::Month));
-        assert_eq!(kw.lookup("meses", "meses"), Token::Unit(TemporalUnit::Month));
-        assert_eq!(kw.lookup("semana", "semana"), Token::Unit(TemporalUnit::Week));
-        assert_eq!(kw.lookup("semanas", "semanas"), Token::Unit(TemporalUnit::Week));
+        assert_eq!(
+            kw.lookup("meses", "meses"),
+            Token::Unit(TemporalUnit::Month)
+        );
+        assert_eq!(
+            kw.lookup("semana", "semana"),
+            Token::Unit(TemporalUnit::Week)
+        );
+        assert_eq!(
+            kw.lookup("semanas", "semanas"),
+            Token::Unit(TemporalUnit::Week)
+        );
         assert_eq!(kw.lookup("dia", "dia"), Token::Unit(TemporalUnit::Day));
         assert_eq!(kw.lookup("dias", "dias"), Token::Unit(TemporalUnit::Day));
         assert_eq!(kw.lookup("hora", "hora"), Token::Unit(TemporalUnit::Hour));
         assert_eq!(kw.lookup("horas", "horas"), Token::Unit(TemporalUnit::Hour));
-        assert_eq!(kw.lookup("minuto", "minuto"), Token::Unit(TemporalUnit::Minute));
-        assert_eq!(kw.lookup("minutos", "minutos"), Token::Unit(TemporalUnit::Minute));
-        assert_eq!(kw.lookup("segundo", "segundo"), Token::Unit(TemporalUnit::Second));
-        assert_eq!(kw.lookup("segundos", "segundos"), Token::Unit(TemporalUnit::Second));
+        assert_eq!(
+            kw.lookup("minuto", "minuto"),
+            Token::Unit(TemporalUnit::Minute)
+        );
+        assert_eq!(
+            kw.lookup("minutos", "minutos"),
+            Token::Unit(TemporalUnit::Minute)
+        );
+        assert_eq!(
+            kw.lookup("segundo", "segundo"),
+            Token::Unit(TemporalUnit::Second)
+        );
+        assert_eq!(
+            kw.lookup("segundos", "segundos"),
+            Token::Unit(TemporalUnit::Second)
+        );
     }
 
     // --- Articles ---

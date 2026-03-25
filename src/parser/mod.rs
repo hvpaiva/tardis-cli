@@ -1,15 +1,16 @@
 //! Custom natural-language date parser for **TARDIS**.
 //!
 //! Pipeline: input string -> lexer (tokens) -> grammar (AST) -> resolver (Zoned).
-//! Only [`parse`] and [`ParseError`] are public; all internals are `pub(crate)`.
+//! Public submodules: [`ast`], [`token`], [`error`] (for library consumers).
+//! Internal submodules: `grammar`, `lexer`, `resolver`, `suggest`.
 
-pub(crate) mod ast;
-pub(crate) mod error;
+pub mod ast;
+pub mod error;
 pub(crate) mod grammar;
 pub(crate) mod lexer;
 pub(crate) mod resolver;
 pub(crate) mod suggest;
-pub(crate) mod token;
+pub mod token;
 
 pub use error::ParseError;
 

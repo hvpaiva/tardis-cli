@@ -326,7 +326,9 @@ fn invalid_now_should_fail() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("Invalid 'now' argument:"))
-        .stderr(predicate::str::contains("expect RFC 3339, ex.: 2025-06-24T12:00:00Z"));
+        .stderr(predicate::str::contains(
+            "expect RFC 3339, ex.: 2025-06-24T12:00:00Z",
+        ));
 }
 
 #[test]
@@ -621,10 +623,7 @@ fn completions_powershell() {
 fn generate_man_page() {
     let tmp = TempDir::new().unwrap();
 
-    let output = td_cmd(&tmp)
-        .arg("--generate-man")
-        .output()
-        .unwrap();
+    let output = td_cmd(&tmp).arg("--generate-man").output().unwrap();
 
     let stdout = String::from_utf8(output.stdout).unwrap();
 
@@ -1426,10 +1425,7 @@ fn test_range_last_week_two_lines() {
         lines[0], "2025-06-09",
         "Start should be Monday of last week"
     );
-    assert_eq!(
-        lines[1], "2025-06-15",
-        "End should be Sunday of last week"
-    );
+    assert_eq!(lines[1], "2025-06-15", "End should be Sunday of last week");
 }
 
 #[test]

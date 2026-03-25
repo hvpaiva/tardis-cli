@@ -168,22 +168,64 @@ mod tests {
         assert_eq!(kw.lookup("and", "and"), Token::And);
 
         // Weekdays (full)
-        assert_eq!(kw.lookup("monday", "monday"), Token::Weekday(jiff::civil::Weekday::Monday));
-        assert_eq!(kw.lookup("tuesday", "tuesday"), Token::Weekday(jiff::civil::Weekday::Tuesday));
-        assert_eq!(kw.lookup("wednesday", "wednesday"), Token::Weekday(jiff::civil::Weekday::Wednesday));
-        assert_eq!(kw.lookup("thursday", "thursday"), Token::Weekday(jiff::civil::Weekday::Thursday));
-        assert_eq!(kw.lookup("friday", "friday"), Token::Weekday(jiff::civil::Weekday::Friday));
-        assert_eq!(kw.lookup("saturday", "saturday"), Token::Weekday(jiff::civil::Weekday::Saturday));
-        assert_eq!(kw.lookup("sunday", "sunday"), Token::Weekday(jiff::civil::Weekday::Sunday));
+        assert_eq!(
+            kw.lookup("monday", "monday"),
+            Token::Weekday(jiff::civil::Weekday::Monday)
+        );
+        assert_eq!(
+            kw.lookup("tuesday", "tuesday"),
+            Token::Weekday(jiff::civil::Weekday::Tuesday)
+        );
+        assert_eq!(
+            kw.lookup("wednesday", "wednesday"),
+            Token::Weekday(jiff::civil::Weekday::Wednesday)
+        );
+        assert_eq!(
+            kw.lookup("thursday", "thursday"),
+            Token::Weekday(jiff::civil::Weekday::Thursday)
+        );
+        assert_eq!(
+            kw.lookup("friday", "friday"),
+            Token::Weekday(jiff::civil::Weekday::Friday)
+        );
+        assert_eq!(
+            kw.lookup("saturday", "saturday"),
+            Token::Weekday(jiff::civil::Weekday::Saturday)
+        );
+        assert_eq!(
+            kw.lookup("sunday", "sunday"),
+            Token::Weekday(jiff::civil::Weekday::Sunday)
+        );
 
         // Weekdays (abbreviated)
-        assert_eq!(kw.lookup("mon", "mon"), Token::Weekday(jiff::civil::Weekday::Monday));
-        assert_eq!(kw.lookup("tue", "tue"), Token::Weekday(jiff::civil::Weekday::Tuesday));
-        assert_eq!(kw.lookup("wed", "wed"), Token::Weekday(jiff::civil::Weekday::Wednesday));
-        assert_eq!(kw.lookup("thu", "thu"), Token::Weekday(jiff::civil::Weekday::Thursday));
-        assert_eq!(kw.lookup("fri", "fri"), Token::Weekday(jiff::civil::Weekday::Friday));
-        assert_eq!(kw.lookup("sat", "sat"), Token::Weekday(jiff::civil::Weekday::Saturday));
-        assert_eq!(kw.lookup("sun", "sun"), Token::Weekday(jiff::civil::Weekday::Sunday));
+        assert_eq!(
+            kw.lookup("mon", "mon"),
+            Token::Weekday(jiff::civil::Weekday::Monday)
+        );
+        assert_eq!(
+            kw.lookup("tue", "tue"),
+            Token::Weekday(jiff::civil::Weekday::Tuesday)
+        );
+        assert_eq!(
+            kw.lookup("wed", "wed"),
+            Token::Weekday(jiff::civil::Weekday::Wednesday)
+        );
+        assert_eq!(
+            kw.lookup("thu", "thu"),
+            Token::Weekday(jiff::civil::Weekday::Thursday)
+        );
+        assert_eq!(
+            kw.lookup("fri", "fri"),
+            Token::Weekday(jiff::civil::Weekday::Friday)
+        );
+        assert_eq!(
+            kw.lookup("sat", "sat"),
+            Token::Weekday(jiff::civil::Weekday::Saturday)
+        );
+        assert_eq!(
+            kw.lookup("sun", "sun"),
+            Token::Weekday(jiff::civil::Weekday::Sunday)
+        );
 
         // Months (full)
         assert_eq!(kw.lookup("january", "january"), Token::Month(1));
@@ -215,20 +257,38 @@ mod tests {
         // Temporal units
         assert_eq!(kw.lookup("year", "year"), Token::Unit(TemporalUnit::Year));
         assert_eq!(kw.lookup("years", "years"), Token::Unit(TemporalUnit::Year));
-        assert_eq!(kw.lookup("month", "month"), Token::Unit(TemporalUnit::Month));
-        assert_eq!(kw.lookup("months", "months"), Token::Unit(TemporalUnit::Month));
+        assert_eq!(
+            kw.lookup("month", "month"),
+            Token::Unit(TemporalUnit::Month)
+        );
+        assert_eq!(
+            kw.lookup("months", "months"),
+            Token::Unit(TemporalUnit::Month)
+        );
         assert_eq!(kw.lookup("week", "week"), Token::Unit(TemporalUnit::Week));
         assert_eq!(kw.lookup("weeks", "weeks"), Token::Unit(TemporalUnit::Week));
         assert_eq!(kw.lookup("day", "day"), Token::Unit(TemporalUnit::Day));
         assert_eq!(kw.lookup("days", "days"), Token::Unit(TemporalUnit::Day));
         assert_eq!(kw.lookup("hour", "hour"), Token::Unit(TemporalUnit::Hour));
         assert_eq!(kw.lookup("hours", "hours"), Token::Unit(TemporalUnit::Hour));
-        assert_eq!(kw.lookup("minute", "minute"), Token::Unit(TemporalUnit::Minute));
-        assert_eq!(kw.lookup("minutes", "minutes"), Token::Unit(TemporalUnit::Minute));
+        assert_eq!(
+            kw.lookup("minute", "minute"),
+            Token::Unit(TemporalUnit::Minute)
+        );
+        assert_eq!(
+            kw.lookup("minutes", "minutes"),
+            Token::Unit(TemporalUnit::Minute)
+        );
         assert_eq!(kw.lookup("min", "min"), Token::Unit(TemporalUnit::Minute));
         assert_eq!(kw.lookup("mins", "mins"), Token::Unit(TemporalUnit::Minute));
-        assert_eq!(kw.lookup("second", "second"), Token::Unit(TemporalUnit::Second));
-        assert_eq!(kw.lookup("seconds", "seconds"), Token::Unit(TemporalUnit::Second));
+        assert_eq!(
+            kw.lookup("second", "second"),
+            Token::Unit(TemporalUnit::Second)
+        );
+        assert_eq!(
+            kw.lookup("seconds", "seconds"),
+            Token::Unit(TemporalUnit::Second)
+        );
         assert_eq!(kw.lookup("sec", "sec"), Token::Unit(TemporalUnit::Second));
         assert_eq!(kw.lookup("secs", "secs"), Token::Unit(TemporalUnit::Second));
     }

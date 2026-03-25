@@ -11,7 +11,7 @@
 //! Non-reversibility is inherent: `Jan 31 + 1 month = Feb 28`, but
 //! `Feb 28 - 1 month = Jan 28` (not Jan 31).
 
-use jiff::{civil, Span, Zoned};
+use jiff::{Span, Zoned, civil};
 
 use crate::parser::{
     ast::*,
@@ -64,9 +64,9 @@ fn resolve_relative(
 
     let civil_dt = apply_time_or_midnight(target_date, time);
     let tz = now.time_zone().clone();
-    tz.to_ambiguous_zoned(civil_dt).compatible().map_err(|e| {
-        ParseError::resolution(format!("ambiguous datetime: {e}"))
-    })
+    tz.to_ambiguous_zoned(civil_dt)
+        .compatible()
+        .map_err(|e| ParseError::resolution(format!("ambiguous datetime: {e}")))
 }
 
 /// Resolve day references: next/last/this <weekday> at midnight or given time.
@@ -111,9 +111,9 @@ fn resolve_day_ref(
 
     let civil_dt = apply_time_or_midnight(target_date, time);
     let tz = now.time_zone().clone();
-    tz.to_ambiguous_zoned(civil_dt).compatible().map_err(|e| {
-        ParseError::resolution(format!("ambiguous datetime: {e}"))
-    })
+    tz.to_ambiguous_zoned(civil_dt)
+        .compatible()
+        .map_err(|e| ParseError::resolution(format!("ambiguous datetime: {e}")))
 }
 
 /// Resolve absolute dates with optional time.
@@ -132,9 +132,9 @@ fn resolve_absolute(
     let date = civil::date(year, abs.month, abs.day);
     let civil_dt = apply_time_or_midnight(date, time);
     let tz = now.time_zone().clone();
-    tz.to_ambiguous_zoned(civil_dt).compatible().map_err(|e| {
-        ParseError::resolution(format!("ambiguous datetime: {e}"))
-    })
+    tz.to_ambiguous_zoned(civil_dt)
+        .compatible()
+        .map_err(|e| ParseError::resolution(format!("ambiguous datetime: {e}")))
 }
 
 /// Resolve time-only expressions against today's date from `now`.
@@ -142,25 +142,21 @@ fn resolve_time_only(time: &TimeExpr, now: &Zoned) -> Result<Zoned, ParseError> 
     let today = now.date();
     let civil_dt = apply_time(today, time);
     let tz = now.time_zone().clone();
-    tz.to_ambiguous_zoned(civil_dt).compatible().map_err(|e| {
-        ParseError::resolution(format!("ambiguous datetime: {e}"))
-    })
+    tz.to_ambiguous_zoned(civil_dt)
+        .compatible()
+        .map_err(|e| ParseError::resolution(format!("ambiguous datetime: {e}")))
 }
 
 /// Resolve epoch timestamps, dispatching on precision.
-fn resolve_epoch(
-    epoch: &EpochValue,
-    tz: &jiff::tz::TimeZone,
-) -> Result<Zoned, ParseError> {
+fn resolve_epoch(epoch: &EpochValue, tz: &jiff::tz::TimeZone) -> Result<Zoned, ParseError> {
     let timestamp = match epoch.precision {
         EpochPrecision::Seconds => jiff::Timestamp::from_second(epoch.raw),
         EpochPrecision::Milliseconds => jiff::Timestamp::from_millisecond(epoch.raw),
         EpochPrecision::Microseconds => jiff::Timestamp::from_microsecond(epoch.raw),
         EpochPrecision::Nanoseconds => jiff::Timestamp::from_nanosecond(epoch.raw as i128),
     };
-    let ts = timestamp.map_err(|e| {
-        ParseError::resolution(format!("epoch timestamp out of range: {e}"))
-    })?;
+    let ts = timestamp
+        .map_err(|e| ParseError::resolution(format!("epoch timestamp out of range: {e}")))?;
     Ok(ts.to_zoned(tz.clone()))
 }
 
@@ -211,10 +207,7 @@ fn resolve_arithmetic(
 /// - Monday as week start (ISO 8601, D-08)
 /// - End boundaries are inclusive: 23:59:59.999999999 (D-09/Pitfall 3)
 /// - All boundaries use `compatible()` for DST safety
-pub(crate) fn resolve_range(
-    range: &RangeExpr,
-    now: &Zoned,
-) -> Result<(Zoned, Zoned), ParseError> {
+pub(crate) fn resolve_range(range: &RangeExpr, now: &Zoned) -> Result<(Zoned, Zoned), ParseError> {
     let tz = now.time_zone().clone();
     let today = now.date();
 
@@ -269,22 +262,14 @@ pub(crate) fn resolve_range(
             let (year, month) = prev_month(today.year(), today.month());
             month_range(year, month, &tz)
         }
-        RangeExpr::ThisMonth => {
-            month_range(today.year(), today.month(), &tz)
-        }
+        RangeExpr::ThisMonth => month_range(today.year(), today.month(), &tz),
         RangeExpr::NextMonth => {
             let (year, month) = next_month(today.year(), today.month());
             month_range(year, month, &tz)
         }
-        RangeExpr::LastYear => {
-            year_range(today.year() - 1, &tz)
-        }
-        RangeExpr::ThisYear => {
-            year_range(today.year(), &tz)
-        }
-        RangeExpr::NextYear => {
-            year_range(today.year() + 1, &tz)
-        }
+        RangeExpr::LastYear => year_range(today.year() - 1, &tz),
+        RangeExpr::ThisYear => year_range(today.year(), &tz),
+        RangeExpr::NextYear => year_range(today.year() + 1, &tz),
         RangeExpr::Quarter(year, q) => {
             let actual_year = if *year == 0 { today.year() } else { *year };
             quarter_range(actual_year, *q, &tz)
@@ -293,10 +278,7 @@ pub(crate) fn resolve_range(
 }
 
 /// Create a Zoned at midnight (00:00:00.000000000) for the given date.
-fn zoned_midnight(
-    date: civil::Date,
-    tz: &jiff::tz::TimeZone,
-) -> Result<Zoned, ParseError> {
+fn zoned_midnight(date: civil::Date, tz: &jiff::tz::TimeZone) -> Result<Zoned, ParseError> {
     let dt = date.at(0, 0, 0, 0);
     tz.to_ambiguous_zoned(dt)
         .compatible()
@@ -304,10 +286,7 @@ fn zoned_midnight(
 }
 
 /// Create a Zoned at end of day (23:59:59.999999999) for the given date.
-fn zoned_end_of_day(
-    date: civil::Date,
-    tz: &jiff::tz::TimeZone,
-) -> Result<Zoned, ParseError> {
+fn zoned_end_of_day(date: civil::Date, tz: &jiff::tz::TimeZone) -> Result<Zoned, ParseError> {
     let dt = date.at(23, 59, 59, 999_999_999);
     tz.to_ambiguous_zoned(dt)
         .compatible()
@@ -327,10 +306,7 @@ fn month_range(
 }
 
 /// Compute year range: Jan 1 at midnight to Dec 31 at end of day.
-fn year_range(
-    year: i16,
-    tz: &jiff::tz::TimeZone,
-) -> Result<(Zoned, Zoned), ParseError> {
+fn year_range(year: i16, tz: &jiff::tz::TimeZone) -> Result<(Zoned, Zoned), ParseError> {
     let first = civil::date(year, 1, 1);
     let last = civil::date(year, 12, 31);
     Ok((zoned_midnight(first, tz)?, zoned_end_of_day(last, tz)?))
@@ -338,11 +314,7 @@ fn year_range(
 
 /// Compute quarter range.
 /// Q1=Jan-Mar, Q2=Apr-Jun, Q3=Jul-Sep, Q4=Oct-Dec.
-fn quarter_range(
-    year: i16,
-    q: i8,
-    tz: &jiff::tz::TimeZone,
-) -> Result<(Zoned, Zoned), ParseError> {
+fn quarter_range(year: i16, q: i8, tz: &jiff::tz::TimeZone) -> Result<(Zoned, Zoned), ParseError> {
     let (start_month, end_month) = match q {
         1 => (1, 3),
         2 => (4, 6),
@@ -479,8 +451,7 @@ mod tests {
     #[test]
     fn resolve_overmorrow() {
         let now = make_now();
-        let result =
-            resolve(&DateExpr::Relative(RelativeDate::Overmorrow, None), &now).unwrap();
+        let result = resolve(&DateExpr::Relative(RelativeDate::Overmorrow, None), &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-17T00:00:00");
     }
 
@@ -664,11 +635,7 @@ mod tests {
     #[test]
     fn resolve_time_only() {
         let now = make_now(); // 2025-06-15
-        let result = resolve(
-            &DateExpr::TimeOnly(TimeExpr::HourMinute(15, 30)),
-            &now,
-        )
-        .unwrap();
+        let result = resolve(&DateExpr::TimeOnly(TimeExpr::HourMinute(15, 30)), &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-15T15:30:00");
     }
 
@@ -1155,7 +1122,8 @@ mod tests {
     #[test]
     fn parse_now_plus_1_day_plus_3_hours_minus_30_minutes_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("now + 1 day + 3 hours - 30 minutes", &now, &en_kw()).unwrap();
+        let result =
+            crate::parser::parse("now + 1 day + 3 hours - 30 minutes", &now, &en_kw()).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-16T14:30:00");
     }
 

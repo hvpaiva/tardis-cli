@@ -185,22 +185,12 @@ fn bench_format(c: &mut Criterion) {
         b.iter(|| core::process(&app_epoch_fmt, &[]).unwrap());
     });
 
-    let app_unix_fmt = App::new(
-        "2025-01-01".into(),
-        "unix".into(),
-        utc(),
-        Some(fixed_now()),
-    );
+    let app_unix_fmt = App::new("2025-01-01".into(), "unix".into(), utc(), Some(fixed_now()));
     c.bench_function("format_unix_output", |b| {
         b.iter(|| core::process(&app_unix_fmt, &[]).unwrap());
     });
 
-    let app_compact = App::new(
-        "today".into(),
-        "%Y%m%d".into(),
-        utc(),
-        Some(fixed_now()),
-    );
+    let app_compact = App::new("today".into(), "%Y%m%d".into(), utc(), Some(fixed_now()));
     c.bench_function("format_compact_date", |b| {
         b.iter(|| core::process(&app_compact, &[]).unwrap());
     });
@@ -228,12 +218,7 @@ fn bench_preset(c: &mut Criterion) {
         b.iter(|| core::process(&app_preset, &presets).unwrap());
     });
 
-    let app_preset_br = App::new(
-        "2025-01-01".into(),
-        "br".into(),
-        utc(),
-        Some(fixed_now()),
-    );
+    let app_preset_br = App::new("2025-01-01".into(), "br".into(), utc(), Some(fixed_now()));
     c.bench_function("preset_br_resolve", |b| {
         b.iter(|| core::process(&app_preset_br, &presets).unwrap());
     });

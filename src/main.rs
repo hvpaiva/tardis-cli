@@ -9,8 +9,7 @@ use tardis_cli::{
     config::Config,
     core::{self, App},
     locale::{self, LocaleKeywords},
-    parser,
-    user_input_error,
+    parser, user_input_error,
 };
 
 fn main() {
@@ -37,6 +36,21 @@ fn run() -> Result<()> {
     let is_terminal = io::stdin().is_terminal();
     let cmd = Command::from_raw_cli(cli, io::stdin(), is_terminal)?;
     let cfg = Config::load()?;
+
+    if cmd.verbose {
+        eprintln!(
+            "[config] path={}",
+            tardis_cli::config::config_path()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|_| "unknown".into())
+        );
+        eprintln!(
+            "[config] format={} timezone={} locale={}",
+            cfg.format,
+            cfg.timezone,
+            cfg.locale.as_deref().unwrap_or("auto")
+        );
+    }
 
     // Batch mode: if input has multiple lines, process each.
     let lines: Vec<&str> = cmd.input.lines().collect();
@@ -77,8 +91,29 @@ fn run() -> Result<()> {
 }
 
 fn process_and_print(cmd: &Command, cfg: &Config) -> Result<()> {
+    let start = std::time::Instant::now();
     let app = App::from_cli(cmd, cfg)?;
+
+    if cmd.verbose {
+        eprintln!("[parse] input={:?}", cmd.input);
+        eprintln!(
+            "[parse] effective_format={} timezone={}",
+            app.format,
+            app.timezone.iana_name().unwrap_or("system")
+        );
+        eprintln!("[parse] locale={}", app.locale_code);
+    }
+
     let result = core::process(&app, &cfg.presets())?;
+
+    if cmd.verbose {
+        let elapsed = start.elapsed();
+        eprintln!(
+            "[resolve] output={:?} epoch={}",
+            result.formatted, result.epoch
+        );
+        eprintln!("[timing] {:.3}ms", elapsed.as_secs_f64() * 1000.0);
+    }
 
     if cmd.json {
         let json = serde_json::json!({
@@ -113,6 +148,7 @@ fn handle_subcmd(subcmd: SubCmd) -> Result<()> {
         SubCmd::Convert(args) => handle_convert(args),
         SubCmd::Tz(args) => handle_tz(args),
         SubCmd::Info(args) => handle_info(args),
+        _ => unreachable!(),
     }
 }
 
@@ -135,10 +171,7 @@ fn resolve_timezone(tz_arg: &Option<String>) -> Result<jiff::tz::TimeZone> {
 }
 
 /// Resolve a `Zoned` "now" reference from the `--now` arg and timezone.
-fn resolve_now_zoned(
-    now_arg: &Option<String>,
-    tz: &jiff::tz::TimeZone,
-) -> Result<jiff::Zoned> {
+fn resolve_now_zoned(now_arg: &Option<String>, tz: &jiff::tz::TimeZone) -> Result<jiff::Zoned> {
     match resolve_now(now_arg)? {
         Some(ts) => Ok(ts.to_zoned(tz.clone())),
         None => Ok(jiff::Zoned::now().with_time_zone(tz.clone())),
@@ -253,8 +286,14 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
     // Parse input: if --from is specified, use strptime; otherwise auto-detect via parser
     let zoned = if let Some(ref from_fmt) = args.from {
         let pattern = resolve_builtin_format(from_fmt);
-        jiff::Zoned::strptime(&pattern, &args.input)
-            .map_err(|e| user_input_error!(InvalidDateFormat, "failed to parse with format '{}': {}", from_fmt, e))?
+        jiff::Zoned::strptime(&pattern, &args.input).map_err(|e| {
+            user_input_error!(
+                InvalidDateFormat,
+                "failed to parse with format '{}': {}",
+                from_fmt,
+                e
+            )
+        })?
     } else {
         parser::parse(&args.input, &now, &locale_kw)
             .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?
@@ -299,8 +338,7 @@ fn handle_tz(args: TzArgs) -> Result<()> {
     // Convert to target timezone
     let target_tz = jiff::tz::TimeZone::get(&args.to)
         .map_err(|e| user_input_error!(UnsupportedTimezone, "{}", e))?;
-    let converted = zoned
-        .with_time_zone(target_tz);
+    let converted = zoned.with_time_zone(target_tz);
 
     if args.json {
         let json = serde_json::json!({
@@ -335,7 +373,11 @@ fn handle_info(args: InfoArgs) -> Result<()> {
     let iwd = zoned.date().iso_week_date();
     let quarter = (zoned.month() - 1) / 3 + 1;
     let day_of_year = zoned.date().day_of_year();
-    let days_in_year = if zoned.date().in_leap_year() { 366 } else { 365 };
+    let days_in_year = if zoned.date().in_leap_year() {
+        366
+    } else {
+        365
+    };
     let epoch_secs = zoned.timestamp().as_second();
     let jdn = epoch_secs as f64 / 86400.0 + 2_440_587.5;
 
@@ -376,12 +418,8 @@ fn handle_info(args: InfoArgs) -> Result<()> {
     };
 
     let mut lines = Vec::new();
-    lines.push(format!(
-        "{bold}{cyan}  Date{reset}         {date_str}"
-    ));
-    lines.push(format!(
-        "{bold}{cyan}  Time{reset}         {time_str}"
-    ));
+    lines.push(format!("{bold}{cyan}  Date{reset}         {date_str}"));
+    lines.push(format!("{bold}{cyan}  Time{reset}         {time_str}"));
     lines.push(format!(
         "{bold}{cyan}  Week{reset}         W{:02}, {}",
         iwd.week(),
@@ -393,15 +431,9 @@ fn handle_info(args: InfoArgs) -> Result<()> {
     lines.push(format!(
         "{bold}{cyan}  Day of Year{reset}  {day_of_year}/{days_in_year}"
     ));
-    lines.push(format!(
-        "{bold}{cyan}  Leap Year{reset}    {leap_str}"
-    ));
-    lines.push(format!(
-        "{bold}{cyan}  Unix Epoch{reset}   {epoch_secs}"
-    ));
-    lines.push(format!(
-        "{bold}{cyan}  Julian Day{reset}   {jdn:.2}"
-    ));
+    lines.push(format!("{bold}{cyan}  Leap Year{reset}    {leap_str}"));
+    lines.push(format!("{bold}{cyan}  Unix Epoch{reset}   {epoch_secs}"));
+    lines.push(format!("{bold}{cyan}  Julian Day{reset}   {jdn:.2}"));
 
     let output = lines.join("\n");
     output_value(&output, args.no_newline);
@@ -452,6 +484,7 @@ fn handle_config(action: ConfigAction) -> Result<()> {
                 }
             }
         }
+        _ => unreachable!(),
     }
     Ok(())
 }
@@ -479,17 +512,13 @@ fn generate_man_page() -> Result<()> {
         b"td \"tomorrow\"\n.br\ntd \"next friday at 3pm\"\n.br\ntd \"in 2 hours\"\n",
     );
     buf.extend_from_slice(b".TP\n\\fBWith format:\\fR\n");
-    buf.extend_from_slice(
-        b"td \"today\" \\-f \"%Y\\-%m\\-%d\"\n.br\ntd \"now\" \\-f epoch\n",
-    );
+    buf.extend_from_slice(b"td \"today\" \\-f \"%Y\\-%m\\-%d\"\n.br\ntd \"now\" \\-f epoch\n");
     buf.extend_from_slice(b".TP\n\\fBWith timezone:\\fR\n");
     buf.extend_from_slice(
         b"td \"now\" \\-t \"America/Sao_Paulo\"\n.br\ntd \"now\" \\-t UTC \\-f \"%Y\\-%m\\-%dT%H:%M:%S%:z\"\n",
     );
     buf.extend_from_slice(b".TP\n\\fBEpoch input:\\fR\n");
-    buf.extend_from_slice(
-        b"td @1735689600\n.br\ntd @1735689600 \\-f \"%Y\\-%m\\-%d\" \\-t UTC\n",
-    );
+    buf.extend_from_slice(b"td @1735689600\n.br\ntd @1735689600 \\-f \"%Y\\-%m\\-%d\" \\-t UTC\n");
     buf.extend_from_slice(b".TP\n\\fBJSON output:\\fR\n");
     buf.extend_from_slice(b"td \"tomorrow\" \\-\\-json\n");
     buf.extend_from_slice(b".TP\n\\fBBatch mode (pipe multiple lines):\\fR\n");
@@ -553,6 +582,7 @@ fn handle_completions(shell: ShellType) {
         ShellType::Fish => Shell::Fish,
         ShellType::Elvish => Shell::Elvish,
         ShellType::Powershell => Shell::PowerShell,
+        _ => unreachable!(),
     };
 
     let mut cmd = Cli::command();
@@ -581,13 +611,7 @@ mod tests {
                     .to_zoned(utc()),
             )
         }};
-        ($dt:expr) => {{
-            Some(
-                $dt.parse::<jiff::Timestamp>()
-                    .unwrap()
-                    .to_zoned(utc()),
-            )
-        }};
+        ($dt:expr) => {{ Some($dt.parse::<jiff::Timestamp>().unwrap().to_zoned(utc())) }};
     }
 
     fn app(date: &str, fmt: &str, tz: TimeZone, now: Option<Zoned>) -> App {
@@ -607,7 +631,12 @@ mod tests {
 
     #[test]
     fn resolves_preset() {
-        let a = app("2030-12-31 00:00", "br", utc(), now!("2030-12-31T00:00:00Z"));
+        let a = app(
+            "2030-12-31 00:00",
+            "br",
+            utc(),
+            now!("2030-12-31T00:00:00Z"),
+        );
 
         let mut map = HashMap::new();
         map.insert("br".to_string(), "%d/%m/%Y".to_string());

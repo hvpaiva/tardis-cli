@@ -7,7 +7,7 @@
 
 use assert_cmd::Command;
 use assert_fs::TempDir;
-use jiff::{tz::TimeZone, Timestamp, Zoned};
+use jiff::{Timestamp, Zoned, tz::TimeZone};
 use predicates::prelude::*;
 use tardis_cli::{locale, parser};
 
@@ -310,7 +310,14 @@ fn td_locale_cmd(locale: &str) -> Command {
 #[test]
 fn cli_pt_amanha() {
     td_locale_cmd("pt")
-        .args(["--now", "2025-06-24T12:00:00Z", "-f", "%Y-%m-%d", "--timezone", "UTC"])
+        .args([
+            "--now",
+            "2025-06-24T12:00:00Z",
+            "-f",
+            "%Y-%m-%d",
+            "--timezone",
+            "UTC",
+        ])
         .arg("amanha")
         .assert()
         .success()
@@ -320,7 +327,14 @@ fn cli_pt_amanha() {
 #[test]
 fn cli_pt_daqui_a_3_dias() {
     td_locale_cmd("pt")
-        .args(["--now", "2025-06-24T12:00:00Z", "-f", "%Y-%m-%d", "--timezone", "UTC"])
+        .args([
+            "--now",
+            "2025-06-24T12:00:00Z",
+            "-f",
+            "%Y-%m-%d",
+            "--timezone",
+            "UTC",
+        ])
         .arg("daqui a 3 dias")
         .assert()
         .success()
@@ -330,7 +344,14 @@ fn cli_pt_daqui_a_3_dias() {
 #[test]
 fn cli_en_tomorrow() {
     td_locale_cmd("en")
-        .args(["--now", "2025-06-24T12:00:00Z", "-f", "%Y-%m-%d", "--timezone", "UTC"])
+        .args([
+            "--now",
+            "2025-06-24T12:00:00Z",
+            "-f",
+            "%Y-%m-%d",
+            "--timezone",
+            "UTC",
+        ])
         .arg("tomorrow")
         .assert()
         .success()
@@ -340,7 +361,14 @@ fn cli_en_tomorrow() {
 #[test]
 fn cli_pt_ha_2_horas() {
     td_locale_cmd("pt")
-        .args(["--now", "2025-06-24T12:00:00Z", "-f", "%Y-%m-%d %H:%M", "--timezone", "UTC"])
+        .args([
+            "--now",
+            "2025-06-24T12:00:00Z",
+            "-f",
+            "%Y-%m-%d %H:%M",
+            "--timezone",
+            "UTC",
+        ])
         .arg("ha 2 horas")
         .assert()
         .success()
@@ -351,7 +379,14 @@ fn cli_pt_ha_2_horas() {
 fn cli_invalid_locale_falls_back_to_en() {
     // Unknown locale falls back to English
     td_locale_cmd("invalid")
-        .args(["--now", "2025-06-24T12:00:00Z", "-f", "%Y-%m-%d", "--timezone", "UTC"])
+        .args([
+            "--now",
+            "2025-06-24T12:00:00Z",
+            "-f",
+            "%Y-%m-%d",
+            "--timezone",
+            "UTC",
+        ])
         .arg("today")
         .assert()
         .success()

@@ -4,12 +4,12 @@ use std::{
     io::{self, IsTerminal, Read},
 };
 
-use jiff::Timestamp;
 use clap::{
     Parser, Subcommand, ValueEnum,
     builder::styling::{AnsiColor, Styles},
 };
 use color_print::cstr;
+use jiff::Timestamp;
 
 use crate::{Result, user_input_error};
 
@@ -50,9 +50,9 @@ pub const INPUT_HELP: &str = cstr!(
 If omitted and STDIN is a pipe, reads from it. If omitted in a terminal, defaults to <bold>"now"</bold>.
 
 Supports <bold>@&lt;epoch&gt;</bold> syntax for Unix timestamps (e.g. <bold>@1719244800</bold>).
+Smart precision: seconds, milliseconds, microseconds, and nanoseconds auto-detected.
 
-Supported formats:
-<underline>https://github.com/technologicalMayhem/human-date-parser?tab=readme-ov-file#formats</underline>
+Supports arithmetic (<bold>"tomorrow + 3 hours"</bold>) and range expressions (<bold>"last week"</bold>).
 "#
 );
 
@@ -60,13 +60,13 @@ const FORMAT_HELP: &str = cstr!(
     r#"
 <bold>Output format.</bold>
 
-Accepts chrono‑style strftime patterns (e.g. <bold>"%Y‑%m‑%d"</bold>) or a named
+Accepts strftime patterns (e.g. <bold>"%Y‑%m‑%d"</bold>) or a named
 preset defined in the config file.
 
 Special values: <bold>"epoch"</bold> or <bold>"unix"</bold> output a Unix timestamp (seconds).
 
 Reference:
-<underline>https://docs.rs/chrono/latest/chrono/format/strftime/index.html</underline>
+<underline>https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html</underline>
 
 If not provided, tries to read from <bold><blue>TARDIS_FORMAT</blue></bold> and
 falls back to the default format defined in the config file.
@@ -80,7 +80,7 @@ pub const TIMEZONE_HELP: &str = cstr!(
 Examples: <italic>"UTC", "America/Sao_Paulo", "Europe/London".</italic>
 
 Reference:
-<underline>https://docs.rs/chrono-tz/latest/chrono_tz/enum.Tz.html</underline>
+<underline>https://www.iana.org/time-zones</underline>
 
 If not provided, tries to read from <bold><blue>TARDIS_TIMEZONE</blue></bold> and
 falls back to the default time zone defined in the config file.
@@ -141,8 +141,16 @@ pub struct Cli {
     pub no_newline: bool,
 
     /// Locale for input parsing (e.g. en, pt). Auto-detected if omitted.
-    #[arg(short = 'L', long, help = "Locale for input parsing (e.g. en, pt). Auto-detected if omitted.")]
+    #[arg(
+        short = 'L',
+        long,
+        help = "Locale for input parsing (e.g. en, pt). Auto-detected if omitted."
+    )]
     pub locale: Option<String>,
+
+    /// Print verbose diagnostics to stderr (config, parse steps, timing).
+    #[arg(short = 'v', long)]
+    pub verbose: bool,
 
     /// In batch mode, skip lines that fail to parse instead of aborting.
     /// Errors are printed to stderr; stdout gets an empty line to preserve alignment.
@@ -158,6 +166,7 @@ pub struct Cli {
     pub subcmd: Option<SubCmd>,
 }
 
+#[non_exhaustive]
 #[derive(Debug, Subcommand)]
 pub enum SubCmd {
     /// Manage configuration file.
@@ -264,6 +273,7 @@ pub struct InfoArgs {
     pub timezone: Option<String>,
 }
 
+#[non_exhaustive]
 #[derive(Debug, Subcommand)]
 pub enum ConfigAction {
     /// Print the path to the configuration file.
@@ -276,6 +286,7 @@ pub enum ConfigAction {
     Presets,
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, ValueEnum)]
 pub enum ShellType {
     Bash,
@@ -286,6 +297,7 @@ pub enum ShellType {
 }
 
 /// Normalised user command ready for further processing.
+#[non_exhaustive]
 #[derive(Debug)]
 pub struct Command {
     pub input: String,
@@ -295,6 +307,7 @@ pub struct Command {
     pub now: Option<Timestamp>,
     pub json: bool,
     pub no_newline: bool,
+    pub verbose: bool,
     pub skip_errors: bool,
 }
 
@@ -310,6 +323,7 @@ impl Command {
             now: self.now,
             json: self.json,
             no_newline: self.no_newline,
+            verbose: self.verbose,
             skip_errors: self.skip_errors,
         }
     }
@@ -379,6 +393,7 @@ impl Command {
             now,
             json: cli.json,
             no_newline: cli.no_newline,
+            verbose: cli.verbose,
             skip_errors: cli.skip_errors,
         })
     }

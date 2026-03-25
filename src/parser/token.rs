@@ -1,23 +1,22 @@
 //! Token types and span tracking for the TARDIS lexer.
 
-
 /// Byte offset range into the original input string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct ByteSpan {
+pub struct ByteSpan {
     pub start: usize,
     pub end: usize,
 }
 
 /// A token paired with its source position.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct SpannedToken {
+pub struct SpannedToken {
     pub kind: Token,
     pub span: ByteSpan,
 }
 
 /// Temporal duration unit (PARS-06: all seven standard units).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum TemporalUnit {
+pub enum TemporalUnit {
     Year,
     Month,
     Week,
@@ -29,7 +28,7 @@ pub(crate) enum TemporalUnit {
 
 /// Epoch timestamp precision levels (EPOCH-01, EPOCH-02).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum EpochPrecision {
+pub enum EpochPrecision {
     Seconds,
     Milliseconds,
     Microseconds,
@@ -41,7 +40,7 @@ pub(crate) enum EpochPrecision {
 /// Keywords are simple enum variants (zero heap allocation per D-04 perf constraint).
 /// Only `Word(String)` carries owned data (for unrecognized words in error messages).
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Token {
+pub enum Token {
     // Relative keywords
     Now,
     Today,

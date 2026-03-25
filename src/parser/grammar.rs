@@ -8,12 +8,7 @@
 //! P0: epoch, P1: duration offset, P2: relative with time, P3: day ref,
 //! P4: absolute datetime, P5: time only, P6: bare weekday.
 
-use crate::parser::{
-    ast::*,
-    error::ParseError,
-    suggest,
-    token::*,
-};
+use crate::parser::{ast::*, error::ParseError, suggest, token::*};
 
 /// Recursive descent parser over a token slice.
 pub(crate) struct Parser<'a> {
@@ -436,14 +431,10 @@ impl<'a> Parser<'a> {
         if self.match_token(&Token::Number(0)) {
             let first = self.last_number();
 
-            if self.match_token(&Token::Dash)
-                && self.match_token(&Token::Number(0))
-            {
+            if self.match_token(&Token::Dash) && self.match_token(&Token::Number(0)) {
                 let second = self.last_number();
 
-                if self.match_token(&Token::Dash)
-                    && self.match_token(&Token::Number(0))
-                {
+                if self.match_token(&Token::Dash) && self.match_token(&Token::Number(0)) {
                     let third = self.last_number();
 
                     let abs = AbsoluteDate {
@@ -533,11 +524,7 @@ impl<'a> Parser<'a> {
                 // Peek ahead: only treat as subtraction if duration components follow.
                 // Otherwise stop (it might be a date separator or something else).
                 if let Some(comps) = self.try_duration_components() {
-                    result = DateExpr::Arithmetic(
-                        Box::new(result),
-                        ArithOp::Sub,
-                        comps,
-                    );
+                    result = DateExpr::Arithmetic(Box::new(result), ArithOp::Sub, comps);
                     continue;
                 }
                 // Not a duration after dash -- backtrack
@@ -549,11 +536,7 @@ impl<'a> Parser<'a> {
 
             if let Some(op) = op {
                 if let Some(comps) = self.try_duration_components() {
-                    result = DateExpr::Arithmetic(
-                        Box::new(result),
-                        op,
-                        comps,
-                    );
+                    result = DateExpr::Arithmetic(Box::new(result), op, comps);
                     continue;
                 }
                 // No duration components after operator -- backtrack
@@ -705,8 +688,7 @@ impl<'a> Parser<'a> {
     fn unexpected_input_error(&self) -> ParseError {
         if let Some(Token::Word(w)) = self.peek() {
             if let Some(suggestion) = suggest::suggest_keyword(w, 2, self.keywords) {
-                return ParseError::unrecognized(self.input)
-                    .with_suggestion(suggestion);
+                return ParseError::unrecognized(self.input).with_suggestion(suggestion);
             }
         }
         ParseError::unrecognized(self.input)
@@ -876,7 +858,13 @@ mod tests {
     fn epoch_at_sign_number() {
         let tokens = vec![st(Token::AtSign), st(Token::Number(1_735_689_600))];
         let result = parse_tokens(&tokens).unwrap();
-        assert!(matches!(result, DateExpr::Epoch(EpochValue { raw: 1_735_689_600, precision: EpochPrecision::Seconds })));
+        assert!(matches!(
+            result,
+            DateExpr::Epoch(EpochValue {
+                raw: 1_735_689_600,
+                precision: EpochPrecision::Seconds
+            })
+        ));
     }
 
     #[test]
@@ -1085,7 +1073,10 @@ mod tests {
 
     #[test]
     fn detect_epoch_precision_seconds() {
-        assert_eq!(detect_epoch_precision(1_735_689_600), EpochPrecision::Seconds);
+        assert_eq!(
+            detect_epoch_precision(1_735_689_600),
+            EpochPrecision::Seconds
+        );
     }
 
     #[test]
@@ -1342,55 +1333,37 @@ mod tests {
 
     #[test]
     fn last_week_range() {
-        let tokens = vec![
-            st(Token::Last),
-            st(Token::Unit(TemporalUnit::Week)),
-        ];
+        let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Week))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::LastWeek));
     }
 
     #[test]
     fn this_month_range() {
-        let tokens = vec![
-            st(Token::This),
-            st(Token::Unit(TemporalUnit::Month)),
-        ];
+        let tokens = vec![st(Token::This), st(Token::Unit(TemporalUnit::Month))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::ThisMonth));
     }
 
     #[test]
     fn next_year_range() {
-        let tokens = vec![
-            st(Token::Next),
-            st(Token::Unit(TemporalUnit::Year)),
-        ];
+        let tokens = vec![st(Token::Next), st(Token::Unit(TemporalUnit::Year))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::NextYear));
     }
 
     #[test]
     fn q3_2025_quarter_range() {
-        let tokens = vec![
-            st(Token::Quarter(3)),
-            st(Token::Number(2025)),
-        ];
+        let tokens = vec![st(Token::Quarter(3)), st(Token::Number(2025))];
         let result = parse_tokens(&tokens).unwrap();
-        assert_eq!(
-            result,
-            DateExpr::Range(RangeExpr::Quarter(2025, 3))
-        );
+        assert_eq!(result, DateExpr::Range(RangeExpr::Quarter(2025, 3)));
     }
 
     #[test]
     fn q1_no_year_quarter_range() {
         let tokens = vec![st(Token::Quarter(1))];
         let result = parse_tokens(&tokens).unwrap();
-        assert_eq!(
-            result,
-            DateExpr::Range(RangeExpr::Quarter(0, 1))
-        );
+        assert_eq!(result, DateExpr::Range(RangeExpr::Quarter(0, 1)));
     }
 
     #[test]
@@ -1429,10 +1402,7 @@ mod tests {
     #[test]
     fn last_monday_still_parses_as_day_ref() {
         // "last monday" should NOT become a range -- must stay as DayRef
-        let tokens = vec![
-            st(Token::Last),
-            st(Token::Weekday(Weekday::Monday)),
-        ];
+        let tokens = vec![st(Token::Last), st(Token::Weekday(Weekday::Monday))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(
             result,
@@ -1442,60 +1412,42 @@ mod tests {
 
     #[test]
     fn this_week_range() {
-        let tokens = vec![
-            st(Token::This),
-            st(Token::Unit(TemporalUnit::Week)),
-        ];
+        let tokens = vec![st(Token::This), st(Token::Unit(TemporalUnit::Week))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::ThisWeek));
     }
 
     #[test]
     fn next_week_range() {
-        let tokens = vec![
-            st(Token::Next),
-            st(Token::Unit(TemporalUnit::Week)),
-        ];
+        let tokens = vec![st(Token::Next), st(Token::Unit(TemporalUnit::Week))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::NextWeek));
     }
 
     #[test]
     fn last_month_range() {
-        let tokens = vec![
-            st(Token::Last),
-            st(Token::Unit(TemporalUnit::Month)),
-        ];
+        let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Month))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::LastMonth));
     }
 
     #[test]
     fn next_month_range() {
-        let tokens = vec![
-            st(Token::Next),
-            st(Token::Unit(TemporalUnit::Month)),
-        ];
+        let tokens = vec![st(Token::Next), st(Token::Unit(TemporalUnit::Month))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::NextMonth));
     }
 
     #[test]
     fn last_year_range() {
-        let tokens = vec![
-            st(Token::Last),
-            st(Token::Unit(TemporalUnit::Year)),
-        ];
+        let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Year))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::LastYear));
     }
 
     #[test]
     fn this_year_range() {
-        let tokens = vec![
-            st(Token::This),
-            st(Token::Unit(TemporalUnit::Year)),
-        ];
+        let tokens = vec![st(Token::This), st(Token::Unit(TemporalUnit::Year))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::ThisYear));
     }

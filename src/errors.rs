@@ -2,10 +2,10 @@
 //!
 //! This module provides a single [`Error`] enum that groups together all
 //! *user* and *system* failures plus two convenience macros for constructing
-//! those errors ergonomically.  It also offers the [`Failure`] trait, allowing
-//! any error value to map itself to an appropriate process exit.  All public
-//! items live behind concise documentation so that generated docs.rs output
-//! remains immediately useful without excessive inline comments.
+//! those errors ergonomically.  [`Error::exit`] maps any error value to an
+//! appropriate process exit code.  All public items live behind concise
+//! documentation so that generated docs.rs output remains immediately useful
+//! without excessive inline comments.
 
 /// POSIX sysexits-compatible exit codes.
 const EX_USAGE: i32 = 64; // Command line usage error
@@ -13,6 +13,7 @@ const EX_IOERR: i32 = 74; // Input/output error
 const EX_CONFIG: i32 = 78; // Configuration error
 
 /// All possible failures surfaced by the CLI.
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum Error {
     /// Problems attributable to the user (bad flags, invalid input, …).
@@ -25,6 +26,7 @@ pub enum Error {
 }
 
 /// Human‑error variants.
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum UserInputError {
     #[error("Invalid date format: {0}")]
@@ -44,6 +46,7 @@ pub enum UserInputError {
 }
 
 /// Failures that stem from the operating environment or runtime.
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug)]
 pub enum SystemError {
     #[error("Configuration error: {0}")]

@@ -3,7 +3,6 @@
 //! Errors carry the original input, byte-level position information, and
 //! optional typo-correction suggestions (D-08).
 
-
 use std::fmt;
 
 use crate::parser::token::ByteSpan;
@@ -21,13 +20,19 @@ pub struct ParseError {
 
 #[derive(Debug)]
 enum ParseErrorKind {
-    UnexpectedToken { expected: String, found: String },
+    UnexpectedToken {
+        expected: String,
+        found: String,
+    },
     UnrecognizedInput,
     /// Reserved for explicit epoch range errors (currently handled by ResolutionFailed).
     #[allow(dead_code)]
     EpochOutOfRange,
     ResolutionFailed(String),
-    InputTooLong { len: usize, max: usize },
+    InputTooLong {
+        len: usize,
+        max: usize,
+    },
     /// Reserved for future unsupported-feature errors.
     #[allow(dead_code)]
     Unsupported(String),
@@ -45,12 +50,7 @@ impl ParseError {
     }
 
     /// Construct an error for unexpected token with position.
-    pub(crate) fn unexpected(
-        input: &str,
-        span: ByteSpan,
-        expected: &str,
-        found: &str,
-    ) -> Self {
+    pub(crate) fn unexpected(input: &str, span: ByteSpan, expected: &str, found: &str) -> Self {
         Self {
             kind: ParseErrorKind::UnexpectedToken {
                 expected: expected.to_string(),
@@ -123,12 +123,8 @@ impl ParseError {
                     format!("expected {}, found '{}'", expected, found)
                 }
             }
-            ParseErrorKind::UnrecognizedInput => {
-                "could not parse as a date expression".to_string()
-            }
-            ParseErrorKind::EpochOutOfRange => {
-                "epoch timestamp out of range".to_string()
-            }
+            ParseErrorKind::UnrecognizedInput => "could not parse as a date expression".to_string(),
+            ParseErrorKind::EpochOutOfRange => "epoch timestamp out of range".to_string(),
             ParseErrorKind::ResolutionFailed(detail) => detail.clone(),
             ParseErrorKind::InputTooLong { len, max } => {
                 format!("input too long ({len} bytes, max {max})")
@@ -165,12 +161,8 @@ mod tests {
 
     #[test]
     fn unexpected_token_with_span() {
-        let err = ParseError::unexpected(
-            "next 32",
-            ByteSpan { start: 5, end: 7 },
-            "day name",
-            "32",
-        );
+        let err =
+            ParseError::unexpected("next 32", ByteSpan { start: 5, end: 7 }, "day name", "32");
         assert_eq!(
             err.format_message(),
             "expected day name at position 5, found '32'"
@@ -180,13 +172,15 @@ mod tests {
     #[test]
     fn input_too_long_message() {
         let err = ParseError::input_too_long(2048, 1024);
-        assert_eq!(err.format_message(), "input too long (2048 bytes, max 1024)");
+        assert_eq!(
+            err.format_message(),
+            "input too long (2048 bytes, max 1024)"
+        );
     }
 
     #[test]
     fn error_with_suggestion() {
-        let err =
-            ParseError::unrecognized("thursdya").with_suggestion("thursday".to_string());
+        let err = ParseError::unrecognized("thursdya").with_suggestion("thursday".to_string());
         assert!(err.format_message().contains("Did you mean 'thursday'?"));
     }
 

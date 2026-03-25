@@ -88,11 +88,11 @@ impl LocaleKeywords {
 pub fn strip_diacritics(c: char) -> char {
     match c {
         '\u{00e1}' | '\u{00e0}' | '\u{00e2}' | '\u{00e3}' => 'a', // a with acute/grave/circumflex/tilde
-        '\u{00e9}' | '\u{00ea}' => 'e', // e with acute/circumflex
-        '\u{00ed}' => 'i',              // i with acute
-        '\u{00f3}' | '\u{00f4}' | '\u{00f5}' => 'o', // o with acute/circumflex/tilde
-        '\u{00fa}' | '\u{00fc}' => 'u', // u with acute/diaeresis
-        '\u{00e7}' => 'c',              // c with cedilla
+        '\u{00e9}' | '\u{00ea}' => 'e',                           // e with acute/circumflex
+        '\u{00ed}' => 'i',                                        // i with acute
+        '\u{00f3}' | '\u{00f4}' | '\u{00f5}' => 'o',              // o with acute/circumflex/tilde
+        '\u{00fa}' | '\u{00fc}' => 'u',                           // u with acute/diaeresis
+        '\u{00e7}' => 'c',                                        // c with cedilla
         // Uppercase variants (mapped to lowercase base)
         '\u{00c1}' | '\u{00c0}' | '\u{00c2}' | '\u{00c3}' => 'a',
         '\u{00c9}' | '\u{00ca}' => 'e',
@@ -116,10 +116,7 @@ pub fn detect_locale_from_env() -> &'static str {
             }
             // Extract language prefix: "pt_BR.UTF-8" -> "pt"
             let lower = val.to_lowercase();
-            let lang = lower
-                .split(['_', '-', '.'])
-                .next()
-                .unwrap_or("");
+            let lang = lower.split(['_', '-', '.']).next().unwrap_or("");
             if lang == "pt" {
                 return "pt";
             }
@@ -378,10 +375,7 @@ mod tests {
     #[test]
     fn locale_keywords_units_mapped() {
         let kw = LocaleKeywords::from_locale(&en::EN_LOCALE);
-        assert_eq!(
-            kw.lookup("hour", "hour"),
-            Token::Unit(TemporalUnit::Hour)
-        );
+        assert_eq!(kw.lookup("hour", "hour"), Token::Unit(TemporalUnit::Hour));
         assert_eq!(
             kw.lookup("minutes", "minutes"),
             Token::Unit(TemporalUnit::Minute)
@@ -409,10 +403,7 @@ mod tests {
         let kw = LocaleKeywords::from_locale(&MOCK);
         assert_eq!(kw.lookup("foo", "foo"), Token::Now);
         assert_eq!(kw.lookup("bar", "bar"), Token::Today);
-        assert_eq!(
-            kw.lookup("baz", "Baz"),
-            Token::Word("Baz".to_string())
-        );
+        assert_eq!(kw.lookup("baz", "Baz"), Token::Word("Baz".to_string()));
     }
 
     #[test]

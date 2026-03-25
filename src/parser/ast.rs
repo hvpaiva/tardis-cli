@@ -3,12 +3,11 @@
 //! The AST separates syntax (what the user typed) from semantics (what datetime
 //! it resolves to). The resolver in `resolver.rs` maps these nodes to `jiff::Zoned`.
 
-
 use crate::parser::token::{EpochPrecision, TemporalUnit};
 
 /// Top-level AST node representing a parsed date expression.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) enum DateExpr {
+pub enum DateExpr {
     // Phase 2: Fully implemented
     /// "now" or empty input
     Now,
@@ -36,7 +35,7 @@ pub(crate) enum DateExpr {
 
 /// Named relative date variants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RelativeDate {
+pub enum RelativeDate {
     Today,
     Tomorrow,
     Yesterday,
@@ -46,7 +45,7 @@ pub(crate) enum RelativeDate {
 
 /// Direction for day references and duration offsets.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Direction {
+pub enum Direction {
     Next,
     Last,
     This,
@@ -56,21 +55,21 @@ pub(crate) enum Direction {
 
 /// A single duration component (e.g., "3 hours" -> count=3, unit=Hour).
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct DurationComponent {
+pub struct DurationComponent {
     pub count: i64,
     pub unit: TemporalUnit,
 }
 
 /// Time expression (hours:minutes or hours:minutes:seconds).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum TimeExpr {
+pub enum TimeExpr {
     HourMinute(i8, i8),
     HourMinuteSecond(i8, i8, i8),
 }
 
 /// Absolute date components.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct AbsoluteDate {
+pub struct AbsoluteDate {
     pub year: i16,
     pub month: i8,
     pub day: i8,
@@ -78,21 +77,21 @@ pub(crate) struct AbsoluteDate {
 
 /// Epoch value with precision.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) struct EpochValue {
+pub struct EpochValue {
     pub raw: i64,
     pub precision: EpochPrecision,
 }
 
 /// Arithmetic operation for compound date expressions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ArithOp {
+pub enum ArithOp {
     Add,
     Sub,
 }
 
 /// Range expression types for date range queries.
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) enum RangeExpr {
+pub enum RangeExpr {
     LastWeek,
     ThisWeek,
     NextWeek,
@@ -113,10 +112,7 @@ mod tests {
 
     #[test]
     fn date_expr_relative_with_time() {
-        let expr = DateExpr::Relative(
-            RelativeDate::Tomorrow,
-            Some(TimeExpr::HourMinute(15, 30)),
-        );
+        let expr = DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourMinute(15, 30)));
         assert!(matches!(
             expr,
             DateExpr::Relative(RelativeDate::Tomorrow, Some(_))

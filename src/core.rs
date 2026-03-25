@@ -8,6 +8,7 @@ use jiff::{Zoned, tz::TimeZone};
 use crate::{Result, cli::Command, config::Config, locale, parser, user_input_error};
 
 /// Immutable application context passed to [`process`].
+#[non_exhaustive]
 #[derive(Debug)]
 pub struct App {
     /// Raw human-readable expression (e.g. `"next Friday 10 am"`).
@@ -23,6 +24,7 @@ pub struct App {
 }
 
 /// Pairing of a **named** preset with a strftime format string.
+#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct Preset {
     pub name: String,
@@ -30,6 +32,7 @@ pub struct Preset {
 }
 
 /// Result of processing a date expression.
+#[non_exhaustive]
 #[derive(Debug)]
 pub struct ProcessOutput {
     /// Formatted date string.
@@ -55,9 +58,8 @@ pub fn process(app: &App, presets: &[Preset]) -> Result<ProcessOutput> {
     let locale_kw = locale::LocaleKeywords::from_locale(locale_ref);
 
     // New parser handles everything: epoch, relative, absolute, time-only
-    let zoned = parser::parse(&app.date, &now, &locale_kw).map_err(|e| {
-        user_input_error!(InvalidDateFormat, "{}", e.format_message())
-    })?;
+    let zoned = parser::parse(&app.date, &now, &locale_kw)
+        .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
 
     let formatted = format_output(&zoned, &fmt)?;
     Ok(ProcessOutput {
@@ -90,15 +92,11 @@ fn format_output(zoned: &Zoned, fmt: &str) -> Result<String> {
 fn validate_format_output(fmt: &str, output: &str) -> Result<()> {
     // Known strftime specifiers (both jiff and POSIX)
     const KNOWN_SPECIFIERS: &[char] = &[
-        'A', 'a', 'B', 'b', 'C', 'c', 'D', 'd', 'e', 'F', 'G', 'g',
-        'H', 'h', 'I', 'j', 'k', 'l', 'M', 'm', 'N', 'n', 'P', 'p',
-        'R', 'r', 'S', 's', 'T', 't', 'U', 'u', 'V', 'v', 'W', 'w',
-        'X', 'x', 'Y', 'y', 'Z', 'z',
-        // jiff extensions
-        'f',
-        // Modifiers (these precede another specifier)
-        '-', '0', '_', ':',
-        // Literal percent
+        'A', 'a', 'B', 'b', 'C', 'c', 'D', 'd', 'e', 'F', 'G', 'g', 'H', 'h', 'I', 'j', 'k', 'l',
+        'M', 'm', 'N', 'n', 'P', 'p', 'R', 'r', 'S', 's', 'T', 't', 'U', 'u', 'V', 'v', 'W', 'w',
+        'X', 'x', 'Y', 'y', 'Z', 'z', // jiff extensions
+        'f', // Modifiers (these precede another specifier)
+        '-', '0', '_', ':', // Literal percent
         '%',
     ];
 
@@ -216,10 +214,7 @@ impl App {
         };
 
         // Resolve locale via D-06 precedence: CLI > config > env > EN
-        let locale_ref = locale::resolve_locale(
-            cmd.locale.as_deref(),
-            cfg.locale.as_deref(),
-        );
+        let locale_ref = locale::resolve_locale(cmd.locale.as_deref(), cfg.locale.as_deref());
         let locale_code = locale_ref.code().to_string();
 
         let now = cmd.now.map(|ts| ts.to_zoned(timezone.clone()));
@@ -331,6 +326,7 @@ mod tests {
             now: now.map(|s| s.parse::<Timestamp>().unwrap()),
             json: false,
             no_newline: false,
+            verbose: false,
             skip_errors: false,
         }
     }

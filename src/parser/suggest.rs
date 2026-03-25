@@ -3,7 +3,6 @@
 //! Hand-rolled implementation (~20 lines DP algorithm) instead of adding a
 //! `strsim` dependency, per the project's "fewer is better" dependency philosophy.
 
-
 /// Compute Levenshtein edit distance between two strings.
 pub(crate) fn edit_distance(a: &str, b: &str) -> usize {
     let a_len = a.len();
@@ -41,7 +40,11 @@ pub(crate) fn edit_distance(a: &str, b: &str) -> usize {
 /// Default max_distance of 2 catches most single-character typos.
 ///
 /// Accepts a locale-aware keyword list instead of using a hardcoded list.
-pub(crate) fn suggest_keyword(word: &str, max_distance: usize, keywords: &[String]) -> Option<String> {
+pub(crate) fn suggest_keyword(
+    word: &str,
+    max_distance: usize,
+    keywords: &[String],
+) -> Option<String> {
     let word_lower = word.to_ascii_lowercase();
     let mut best: Option<(String, usize)> = None;
 

@@ -20,11 +20,12 @@ const CONFIG_FILE: &str = "config.toml";
 const TEMPLATE: &str = include_str!("../assets/config_template.toml");
 
 /// In-memory representation of the user configuration.
+#[non_exhaustive]
 #[derive(Debug, Deserialize)]
 pub struct Config {
     /// Default output format (ISO-8601 by default).
     pub format: String,
-    /// Time-zone identifier recognised by `chrono-tz` (e.g. `"America/Sao_Paulo"`).
+    /// Time-zone identifier (IANA name, e.g. `"America/Sao_Paulo"`).
     pub timezone: String,
     /// Locale for natural-language parsing (e.g. `"en"`, `"pt"`). Optional.
     #[serde(default)]

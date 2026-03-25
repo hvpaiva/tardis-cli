@@ -8,7 +8,6 @@
 //! Only `Token::Word(String)` carries owned data
 //! (for unrecognized words used in error messages and typo suggestions).
 
-
 use crate::locale::{self, LocaleKeywords};
 use crate::parser::token::{ByteSpan, EpochPrecision, SpannedToken, Token};
 
@@ -96,10 +95,7 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
                     let value: i64 = num_str.parse().unwrap_or(0);
                     tokens.push(SpannedToken {
                         kind: Token::Number(value),
-                        span: ByteSpan {
-                            start,
-                            end: pos,
-                        },
+                        span: ByteSpan { start, end: pos },
                     });
                     try_epoch_suffix(input, &mut pos, &mut tokens);
                     continue;
@@ -134,10 +130,7 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
                     let value: i64 = num_str.parse().unwrap_or(0);
                     tokens.push(SpannedToken {
                         kind: Token::Number(-value),
-                        span: ByteSpan {
-                            start,
-                            end: pos,
-                        },
+                        span: ByteSpan { start, end: pos },
                     });
                     // Check for epoch suffix immediately after number
                     try_epoch_suffix(input, &mut pos, &mut tokens);
@@ -167,10 +160,7 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
             let value: i64 = num_str.parse().unwrap_or(0);
             tokens.push(SpannedToken {
                 kind: Token::Number(value),
-                span: ByteSpan {
-                    start,
-                    end: pos,
-                },
+                span: ByteSpan { start, end: pos },
             });
             // Check for epoch suffix immediately after number
             try_epoch_suffix(input, &mut pos, &mut tokens);
@@ -222,10 +212,7 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
                 if let Some(kind) = match_quarter(&combined_lower) {
                     tokens.push(SpannedToken {
                         kind,
-                        span: ByteSpan {
-                            start,
-                            end: pos,
-                        },
+                        span: ByteSpan { start, end: pos },
                     });
                     continue;
                 }
@@ -236,10 +223,7 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
             let kind = locale_keywords.lookup(&normalized, original);
             tokens.push(SpannedToken {
                 kind,
-                span: ByteSpan {
-                    start,
-                    end: pos,
-                },
+                span: ByteSpan { start, end: pos },
             });
             continue;
         }
@@ -249,10 +233,7 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
         pos += 1;
         tokens.push(SpannedToken {
             kind: Token::Word(input[start..pos].to_string()),
-            span: ByteSpan {
-                start,
-                end: pos,
-            },
+            span: ByteSpan { start, end: pos },
         });
     }
 
@@ -356,10 +337,7 @@ fn try_epoch_suffix(input: &str, pos: &mut usize, tokens: &mut Vec<SpannedToken>
                 *pos += 2;
                 tokens.push(SpannedToken {
                     kind: Token::EpochSuffix(p),
-                    span: ByteSpan {
-                        start,
-                        end: *pos,
-                    },
+                    span: ByteSpan { start, end: *pos },
                 });
                 return;
             }
@@ -374,10 +352,7 @@ fn try_epoch_suffix(input: &str, pos: &mut usize, tokens: &mut Vec<SpannedToken>
             *pos += 1;
             tokens.push(SpannedToken {
                 kind: Token::EpochSuffix(EpochPrecision::Seconds),
-                span: ByteSpan {
-                    start,
-                    end: *pos,
-                },
+                span: ByteSpan { start, end: *pos },
             });
         }
     }
@@ -442,7 +417,11 @@ mod tests {
     fn duration_past() {
         assert_eq!(
             kinds("3 hours ago"),
-            vec![Token::Number(3), Token::Unit(TemporalUnit::Hour), Token::Ago]
+            vec![
+                Token::Number(3),
+                Token::Unit(TemporalUnit::Hour),
+                Token::Ago
+            ]
         );
     }
 
@@ -513,10 +492,7 @@ mod tests {
 
     #[test]
     fn negative_epoch() {
-        assert_eq!(
-            kinds("@-86400"),
-            vec![Token::AtSign, Token::Number(-86400)]
-        );
+        assert_eq!(kinds("@-86400"), vec![Token::AtSign, Token::Number(-86400)]);
     }
 
     #[test]
@@ -751,18 +727,12 @@ mod tests {
 
     #[test]
     fn mixed_case_all_caps() {
-        assert_eq!(
-            kinds("YESTERDAY"),
-            vec![Token::Yesterday]
-        );
+        assert_eq!(kinds("YESTERDAY"), vec![Token::Yesterday]);
     }
 
     #[test]
     fn mixed_case_camel() {
-        assert_eq!(
-            kinds("Tomorrow"),
-            vec![Token::Tomorrow]
-        );
+        assert_eq!(kinds("Tomorrow"), vec![Token::Tomorrow]);
     }
 
     #[test]
@@ -823,7 +793,10 @@ mod tests {
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].kind, Token::Number(100));
         assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 3 });
-        assert_eq!(tokens[1].kind, Token::EpochSuffix(EpochPrecision::Milliseconds));
+        assert_eq!(
+            tokens[1].kind,
+            Token::EpochSuffix(EpochPrecision::Milliseconds)
+        );
         assert_eq!(tokens[1].span, ByteSpan { start: 3, end: 5 });
     }
 
@@ -1002,7 +975,11 @@ mod tests {
     fn pt_tokenize_ha_2_horas() {
         assert_eq!(
             pt_kinds("ha 2 horas"),
-            vec![Token::Ago, Token::Number(2), Token::Unit(TemporalUnit::Hour)]
+            vec![
+                Token::Ago,
+                Token::Number(2),
+                Token::Unit(TemporalUnit::Hour)
+            ]
         );
     }
 
@@ -1049,10 +1026,7 @@ mod tests {
     #[test]
     fn pt_tokenize_accented_marco() {
         // "marco" (with cedilla/accent) -> March
-        assert_eq!(
-            pt_kinds("mar\u{00e7}o"),
-            vec![Token::Month(3)]
-        );
+        assert_eq!(pt_kinds("mar\u{00e7}o"), vec![Token::Month(3)]);
     }
 
     #[test]
@@ -1069,7 +1043,11 @@ mod tests {
     fn pt_tokenize_em_5_minutos() {
         assert_eq!(
             pt_kinds("em 5 minutos"),
-            vec![Token::In, Token::Number(5), Token::Unit(TemporalUnit::Minute)]
+            vec![
+                Token::In,
+                Token::Number(5),
+                Token::Unit(TemporalUnit::Minute)
+            ]
         );
     }
 
