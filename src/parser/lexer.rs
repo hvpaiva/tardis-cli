@@ -79,12 +79,14 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
                 continue;
             }
             b'+' => {
-                // Pitfall 7: "+5" (no preceding token or not after Number) -> Number(5)
-                // "+5" at start or after non-Number -> parse as positive number
-                let prev_is_number = tokens
-                    .last()
-                    .is_some_and(|t| matches!(t.kind, Token::Number(_)));
-                if pos + 1 < len && bytes[pos + 1].is_ascii_digit() && !prev_is_number {
+                // "+5" is a positive number ONLY at the start of input or after @
+                // (epoch like @+1735689600). In all other positions, emit Plus operator
+                // so "tomorrow+3h" tokenizes as [Tomorrow, Plus, Number(3), Unit(Hour)].
+                let is_sign_position = tokens.is_empty()
+                    || tokens
+                        .last()
+                        .is_some_and(|t| matches!(t.kind, Token::AtSign));
+                if pos + 1 < len && bytes[pos + 1].is_ascii_digit() && is_sign_position {
                     // Parse as positive number (skip the '+')
                     let start = pos;
                     pos += 1; // skip '+'
@@ -112,13 +114,15 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
                 continue;
             }
             b'-' => {
-                // Look ahead: if next char is a digit AND the previous token is NOT
-                // a Number (to distinguish negative numbers from ISO date separators),
-                // parse as negative number.
-                let prev_is_number = tokens
-                    .last()
-                    .is_some_and(|t| matches!(t.kind, Token::Number(_)));
-                if pos + 1 < len && bytes[pos + 1].is_ascii_digit() && !prev_is_number {
+                // "-5" is a negative number ONLY at the start of input or after @
+                // (epoch like @-1735689600). In all other positions, emit Dash so
+                // "tomorrow-3h" tokenizes as [Tomorrow, Dash, Number(3), Unit(Hour)]
+                // and ISO dates "2025-03-24" remain [Number, Dash, Number, Dash, Number].
+                let is_sign_position = tokens.is_empty()
+                    || tokens
+                        .last()
+                        .is_some_and(|t| matches!(t.kind, Token::AtSign));
+                if pos + 1 < len && bytes[pos + 1].is_ascii_digit() && is_sign_position {
                     let start = pos;
                     pos += 1; // skip the '-'
                     let num_start = pos;

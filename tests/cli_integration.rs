@@ -1499,7 +1499,11 @@ fn test_this_week_still_returns_range() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.trim().lines().collect();
-    assert_eq!(lines.len(), 2, "Range should output exactly 2 lines, got: {lines:?}");
+    assert_eq!(
+        lines.len(),
+        2,
+        "Range should output exactly 2 lines, got: {lines:?}"
+    );
 }
 
 #[test]
@@ -1522,7 +1526,11 @@ fn test_next_week_still_returns_range() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.trim().lines().collect();
-    assert_eq!(lines.len(), 2, "Range should output exactly 2 lines, got: {lines:?}");
+    assert_eq!(
+        lines.len(),
+        2,
+        "Range should output exactly 2 lines, got: {lines:?}"
+    );
 }
 
 #[test]
@@ -1630,4 +1638,263 @@ fn test_chained_arithmetic() {
         .assert()
         .success()
         .stdout(predicate::str::contains("2025-06-16T14:30:00"));
+}
+
+// ============================================================
+// No-space arithmetic tests — ensures lexer emits Plus/Dash
+// instead of absorbing operator into a signed number (PARS-04)
+// ============================================================
+
+#[test]
+fn test_arithmetic_no_space_tomorrow_plus_3h() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "tomorrow+3h",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-16T03:00:00"));
+}
+
+#[test]
+fn test_arithmetic_no_space_tomorrow_minus_2h() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "tomorrow-2h",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-15T22:00:00"));
+}
+
+#[test]
+fn test_arithmetic_no_space_now_plus_1d() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "now+1d",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T12:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-16T12:00:00"));
+}
+
+#[test]
+fn test_arithmetic_no_space_chained() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "now+1d+3h-30min",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T12:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-16T14:30:00"));
+}
+
+#[test]
+fn test_arithmetic_no_space_yesterday_plus_1w() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "yesterday+1w",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-21"));
+}
+
+#[test]
+fn test_arithmetic_no_space_with_locale_en() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "tomorrow+3h",
+            "--locale",
+            "en",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-16T03:00:00"));
+}
+
+#[test]
+fn test_arithmetic_no_space_pt_locale() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .env("LANG", "pt_BR.UTF-8")
+        .args([
+            "amanha+3d",
+            "--locale",
+            "pt",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-19"));
+}
+
+#[test]
+fn test_arithmetic_no_space_pt_hours() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .env("LANG", "pt_BR.UTF-8")
+        .args([
+            "amanha+3h",
+            "--locale",
+            "pt",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-16T03:00:00"));
+}
+
+// Ensure "in N unit" still works (direction-based offset)
+#[test]
+fn test_direction_offset_still_works() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "in 5 hours",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T12:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-15T17:00:00"));
+}
+
+// Ensure ISO dates still parse correctly (dash between numbers)
+#[test]
+fn test_iso_date_dash_still_works() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "2025-06-15",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-15"));
+}
+
+// Ensure negative epoch still works
+#[test]
+fn test_negative_epoch_still_works() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "@-86400",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("1969-12-31"));
+}
+
+// Abbreviated units with spaces (regression guard)
+#[test]
+fn test_abbreviated_units_with_spaces() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "tomorrow + 3hr",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-16T03:00:00"));
+
+    td_cmd(&tmp)
+        .args([
+            "tomorrow + 2wk",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-15T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-30"));
 }
