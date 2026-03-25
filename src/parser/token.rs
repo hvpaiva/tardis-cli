@@ -83,6 +83,16 @@ pub(crate) enum Token {
     Slash,
     AtSign,
 
+    // Arithmetic operators
+    Plus,
+
+    // Verbal arithmetic keywords
+    After,
+    Before,
+
+    // Quarter indicator (Q1-Q4)
+    Quarter(i8),
+
     // Epoch suffix (@NNNms, @NNNus, @NNNns, @NNNs)
     EpochSuffix(EpochPrecision),
 

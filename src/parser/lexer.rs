@@ -72,6 +72,42 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
                 pos += 1;
                 continue;
             }
+            b'+' => {
+                // Pitfall 7: "+5" (no preceding token or not after Number) -> Number(5)
+                // "+5" at start or after non-Number -> parse as positive number
+                let prev_is_number = tokens
+                    .last()
+                    .is_some_and(|t| matches!(t.kind, Token::Number(_)));
+                if pos + 1 < len && bytes[pos + 1].is_ascii_digit() && !prev_is_number {
+                    // Parse as positive number (skip the '+')
+                    let start = pos;
+                    pos += 1; // skip '+'
+                    while pos < len && bytes[pos].is_ascii_digit() {
+                        pos += 1;
+                    }
+                    let num_str = &input[start + 1..pos];
+                    let value: i64 = num_str.parse().unwrap_or(0);
+                    tokens.push(SpannedToken {
+                        kind: Token::Number(value),
+                        span: ByteSpan {
+                            start,
+                            end: pos,
+                        },
+                    });
+                    try_epoch_suffix(input, &mut pos, &mut tokens);
+                    continue;
+                }
+                // Otherwise emit Plus operator
+                tokens.push(SpannedToken {
+                    kind: Token::Plus,
+                    span: ByteSpan {
+                        start: pos,
+                        end: pos + 1,
+                    },
+                });
+                pos += 1;
+                continue;
+            }
             b'-' => {
                 // Look ahead: if next char is a digit AND the previous token is NOT
                 // a Number (to distinguish negative numbers from ISO date separators),
@@ -140,8 +176,30 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
             while pos < len && bytes[pos].is_ascii_alphabetic() {
                 pos += 1;
             }
+
+            // Special handling for Q+digit patterns (Q1, Q2, Q3, Q4)
             let original = &input[start..pos];
             let lower = original.to_ascii_lowercase();
+            if lower == "q" && pos < len && bytes[pos].is_ascii_digit() {
+                let digit_start = pos;
+                while pos < len && bytes[pos].is_ascii_digit() {
+                    pos += 1;
+                }
+                let combined_lower = format!("q{}", &input[digit_start..pos]);
+                if let Some(kind) = match_quarter(&combined_lower) {
+                    tokens.push(SpannedToken {
+                        kind,
+                        span: ByteSpan {
+                            start,
+                            end: pos,
+                        },
+                    });
+                    continue;
+                }
+                // Not a valid quarter -- restore pos and treat "q" as word
+                pos = digit_start;
+            }
+
             let kind = match_keyword(&lower, original);
             tokens.push(SpannedToken {
                 kind,
@@ -224,6 +282,17 @@ fn try_epoch_suffix(input: &str, pos: &mut usize, tokens: &mut Vec<SpannedToken>
     }
 }
 
+/// Try to match a quarter pattern like "q1", "q2", "q3", "q4".
+fn match_quarter(lower: &str) -> Option<Token> {
+    match lower {
+        "q1" => Some(Token::Quarter(1)),
+        "q2" => Some(Token::Quarter(2)),
+        "q3" => Some(Token::Quarter(3)),
+        "q4" => Some(Token::Quarter(4)),
+        _ => None,
+    }
+}
+
 /// Match a lowercase word against the keyword table.
 ///
 /// Returns the corresponding `Token` variant, or `Token::Word` with original
@@ -244,6 +313,10 @@ fn match_keyword(lower: &str, original: &str) -> Token {
         "in" => Token::In,
         "ago" => Token::Ago,
         "from" => Token::From,
+
+        // Verbal arithmetic keywords
+        "after" => Token::After,
+        "before" => Token::Before,
 
         // Articles
         "a" => Token::A,
@@ -709,5 +782,105 @@ mod tests {
         assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 3 });
         assert_eq!(tokens[1].kind, Token::EpochSuffix(EpochPrecision::Milliseconds));
         assert_eq!(tokens[1].span, ByteSpan { start: 3, end: 5 });
+    }
+
+    // ── Phase 3: Arithmetic and range token tests ────────────────
+
+    #[test]
+    fn tomorrow_plus_3_hours_tokenizes() {
+        assert_eq!(
+            kinds("tomorrow + 3 hours"),
+            vec![
+                Token::Tomorrow,
+                Token::Plus,
+                Token::Number(3),
+                Token::Unit(TemporalUnit::Hour),
+            ]
+        );
+    }
+
+    #[test]
+    fn now_minus_30_minutes_tokenizes() {
+        // Dash is reused for minus since context resolves
+        assert_eq!(
+            kinds("now - 30 minutes"),
+            vec![
+                Token::Now,
+                Token::Dash,
+                Token::Number(30),
+                Token::Unit(TemporalUnit::Minute),
+            ]
+        );
+    }
+
+    #[test]
+    fn three_hours_after_tomorrow_tokenizes() {
+        assert_eq!(
+            kinds("3 hours after tomorrow"),
+            vec![
+                Token::Number(3),
+                Token::Unit(TemporalUnit::Hour),
+                Token::After,
+                Token::Tomorrow,
+            ]
+        );
+    }
+
+    #[test]
+    fn two_days_before_next_friday_tokenizes() {
+        assert_eq!(
+            kinds("2 days before next friday"),
+            vec![
+                Token::Number(2),
+                Token::Unit(TemporalUnit::Day),
+                Token::Before,
+                Token::Next,
+                Token::Weekday(Weekday::Friday),
+            ]
+        );
+    }
+
+    #[test]
+    fn plus_5_still_tokenizes_as_number_pitfall_7() {
+        // Pitfall 7: "+5" at the start should tokenize as Number(5), not Plus+Number
+        assert_eq!(kinds("+5"), vec![Token::Number(5)]);
+    }
+
+    #[test]
+    fn plus_after_number_is_operator() {
+        // "3 + 5" -- the plus after number IS an operator
+        assert_eq!(
+            kinds("3 + 5"),
+            vec![Token::Number(3), Token::Plus, Token::Number(5)]
+        );
+    }
+
+    #[test]
+    fn quarter_q1_tokenizes() {
+        assert_eq!(kinds("Q1"), vec![Token::Quarter(1)]);
+    }
+
+    #[test]
+    fn quarter_q3_2025_tokenizes() {
+        assert_eq!(
+            kinds("Q3 2025"),
+            vec![Token::Quarter(3), Token::Number(2025)]
+        );
+    }
+
+    #[test]
+    fn quarter_case_insensitive() {
+        assert_eq!(kinds("q2"), vec![Token::Quarter(2)]);
+        assert_eq!(kinds("q4"), vec![Token::Quarter(4)]);
+    }
+
+    #[test]
+    fn after_keyword() {
+        assert_eq!(kinds("after"), vec![Token::After]);
+    }
+
+    #[test]
+    fn before_keyword() {
+        assert_eq!(kinds("before"), vec![Token::Before]);
     }
 }

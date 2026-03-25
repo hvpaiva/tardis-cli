@@ -27,12 +27,10 @@ pub(crate) enum DateExpr {
     /// "3 hours ago from next friday"
     OffsetFrom(Direction, Vec<DurationComponent>, Box<DateExpr>),
 
-    // Phase 3: Type-defined now, parsing/resolution deferred (D-06)
+    // Phase 3: Arithmetic and range expressions
     /// "tomorrow + 3 hours" -- compound arithmetic
-    #[allow(dead_code)]
     Arithmetic(Box<DateExpr>, ArithOp, Vec<DurationComponent>),
     /// "last week", "this month", "Q3 2025" -- range expressions
-    #[allow(dead_code)]
     Range(RangeExpr),
 }
 
@@ -84,17 +82,15 @@ pub(crate) struct EpochValue {
     pub precision: EpochPrecision,
 }
 
-/// Arithmetic operation (Phase 3 extension point).
+/// Arithmetic operation for compound date expressions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
 pub(crate) enum ArithOp {
     Add,
     Sub,
 }
 
-/// Range expression types (Phase 3 extension point).
+/// Range expression types for date range queries.
 #[derive(Debug, Clone, PartialEq)]
-#[allow(dead_code)]
 pub(crate) enum RangeExpr {
     LastWeek,
     ThisWeek,
@@ -105,7 +101,8 @@ pub(crate) enum RangeExpr {
     LastYear,
     ThisYear,
     NextYear,
-    // Quarter(i32, i8) -- e.g., Q3 2025
+    /// Quarter(year, quarter_number). year=0 is sentinel for "current year".
+    Quarter(i16, i8),
 }
 
 #[cfg(test)]

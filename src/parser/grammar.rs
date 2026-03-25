@@ -40,32 +40,53 @@ impl<'a> Parser<'a> {
             return Ok(DateExpr::Now);
         }
 
-        // Single `Now` token
+        // Single `Now` token (only if truly the only token)
         if self.tokens.len() == 1 && self.tokens[0].kind == Token::Now {
             self.pos = 1;
             return Ok(DateExpr::Now);
         }
 
+        // Multi-token starting with `Now` -- consume and try arithmetic tail
+        if self.peek() == Some(&Token::Now) && self.tokens.len() > 1 {
+            self.advance();
+            let expr = DateExpr::Now;
+            let expr = self.try_arithmetic_tail(expr)?;
+            return self.with_optional_trailing(expr);
+        }
+
         // Try productions in priority order (most specific first)
         if let Some(expr) = self.try_epoch()? {
+            let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
         }
         if let Some(expr) = self.try_duration_offset()? {
+            let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
         }
         if let Some(expr) = self.try_relative_with_time()? {
+            let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
         }
         if let Some(expr) = self.try_day_ref_with_time()? {
+            let expr = self.try_arithmetic_tail(expr)?;
+            return self.with_optional_trailing(expr);
+        }
+        // Range expressions: "last week", "this month", "next year", "Q3 2025"
+        // Must come after day_ref (so "last monday" still parses as DayRef)
+        // but before absolute_datetime
+        if let Some(expr) = self.try_range()? {
             return self.with_optional_trailing(expr);
         }
         if let Some(expr) = self.try_absolute_datetime()? {
+            let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
         }
         if let Some(expr) = self.try_time_only()? {
+            let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
         }
         if let Some(expr) = self.try_bare_weekday()? {
+            let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
         }
 
@@ -204,6 +225,7 @@ impl<'a> Parser<'a> {
     // ── P1: Duration offset ────────────────────────────────────
 
     /// `In [A|An|Number] Unit ...` or `[A|An|Number] Unit ... Ago [From expr]`
+    /// Also handles verbal arithmetic: `[A|An|Number] Unit ... After/Before expr`
     fn try_duration_offset(&mut self) -> Result<Option<DateExpr>, ParseError> {
         let saved = self.save();
 
@@ -215,9 +237,28 @@ impl<'a> Parser<'a> {
             self.restore(saved);
         }
 
-        // Pattern B: "N unit(s) [and N unit(s) ...] ago [from expr]"
+        // Pattern B: "N unit(s) [and N unit(s) ...] after/before/ago [from expr]"
         self.restore(saved);
         if let Some(comps) = self.try_duration_components() {
+            // Check for verbal arithmetic: "after" / "before" (D-06)
+            // Must check BEFORE "ago" since "3 hours after tomorrow" != "3 hours ago"
+            if self.match_token(&Token::After) {
+                let base = self.parse_expression()?;
+                return Ok(Some(DateExpr::OffsetFrom(
+                    Direction::Future,
+                    comps,
+                    Box::new(base),
+                )));
+            }
+            if self.match_token(&Token::Before) {
+                let base = self.parse_expression()?;
+                return Ok(Some(DateExpr::OffsetFrom(
+                    Direction::Past,
+                    comps,
+                    Box::new(base),
+                )));
+            }
+
             if self.match_token(&Token::Ago) {
                 // Check for "from" clause
                 if self.match_token(&Token::From) {
@@ -455,6 +496,140 @@ impl<'a> Parser<'a> {
             let weekday = self.last_weekday();
             return Ok(Some(DateExpr::DayRef(Direction::Next, weekday, None)));
         }
+        Ok(None)
+    }
+
+    // ── Arithmetic tail (Phase 3) ────────────────────────────────
+
+    /// After parsing a primary expression, consume trailing `+ duration` or `- duration`
+    /// chains, wrapping left-to-right: `Arithmetic(Arithmetic(base, Add, [1d]), Sub, [30m])`
+    fn try_arithmetic_tail(&mut self, base: DateExpr) -> Result<DateExpr, ParseError> {
+        let mut result = base;
+
+        loop {
+            let saved = self.save();
+
+            // Check for Plus or Dash operator
+            let op = if self.match_token(&Token::Plus) {
+                Some(ArithOp::Add)
+            } else if self.match_token(&Token::Dash) {
+                // Peek ahead: only treat as subtraction if duration components follow.
+                // Otherwise stop (it might be a date separator or something else).
+                if let Some(comps) = self.try_duration_components() {
+                    result = DateExpr::Arithmetic(
+                        Box::new(result),
+                        ArithOp::Sub,
+                        comps,
+                    );
+                    continue;
+                }
+                // Not a duration after dash -- backtrack
+                self.restore(saved);
+                break;
+            } else {
+                None
+            };
+
+            if let Some(op) = op {
+                if let Some(comps) = self.try_duration_components() {
+                    result = DateExpr::Arithmetic(
+                        Box::new(result),
+                        op,
+                        comps,
+                    );
+                    continue;
+                }
+                // No duration components after operator -- backtrack
+                self.restore(saved);
+                break;
+            }
+
+            // No operator found -- done
+            break;
+        }
+
+        Ok(result)
+    }
+
+    // ── Range expressions (Phase 3) ────────────────────────────
+
+    /// Try to parse range expressions:
+    /// - `Last/This/Next Unit(Week/Month/Year)` -> `Range(LastWeek/ThisWeek/etc.)`
+    /// - `Quarter(n) [Number(year)]` -> `Range(Quarter(year_or_0, n))`
+    fn try_range(&mut self) -> Result<Option<DateExpr>, ParseError> {
+        let saved = self.save();
+
+        // Pattern A: "last/this/next week/month/year"
+        let dir = match self.peek() {
+            Some(Token::Last) => {
+                self.advance();
+                Some(Direction::Last)
+            }
+            Some(Token::This) => {
+                self.advance();
+                Some(Direction::This)
+            }
+            Some(Token::Next) => {
+                self.advance();
+                Some(Direction::Next)
+            }
+            _ => None,
+        };
+
+        if let Some(dir) = dir {
+            // Only match if next token is Unit(Week/Month/Year) -- NOT Weekday
+            if let Some(Token::Unit(unit)) = self.peek() {
+                let unit = *unit;
+                match unit {
+                    TemporalUnit::Week => {
+                        self.advance();
+                        let range = match dir {
+                            Direction::Last => RangeExpr::LastWeek,
+                            Direction::This => RangeExpr::ThisWeek,
+                            Direction::Next => RangeExpr::NextWeek,
+                            _ => unreachable!(),
+                        };
+                        return Ok(Some(DateExpr::Range(range)));
+                    }
+                    TemporalUnit::Month => {
+                        self.advance();
+                        let range = match dir {
+                            Direction::Last => RangeExpr::LastMonth,
+                            Direction::This => RangeExpr::ThisMonth,
+                            Direction::Next => RangeExpr::NextMonth,
+                            _ => unreachable!(),
+                        };
+                        return Ok(Some(DateExpr::Range(range)));
+                    }
+                    TemporalUnit::Year => {
+                        self.advance();
+                        let range = match dir {
+                            Direction::Last => RangeExpr::LastYear,
+                            Direction::This => RangeExpr::ThisYear,
+                            Direction::Next => RangeExpr::NextYear,
+                            _ => unreachable!(),
+                        };
+                        return Ok(Some(DateExpr::Range(range)));
+                    }
+                    _ => {}
+                }
+            }
+            self.restore(saved);
+        }
+
+        // Pattern B: "Q3 2025" or "Q1" (standalone quarter)
+        if let Some(Token::Quarter(q)) = self.peek() {
+            let q = *q;
+            self.advance();
+            // Optional year
+            let year = if self.match_token(&Token::Number(0)) {
+                self.last_number() as i16
+            } else {
+                0 // sentinel: resolver will fill in current year
+            };
+            return Ok(Some(DateExpr::Range(RangeExpr::Quarter(year, q))));
+        }
+
         Ok(None)
     }
 
@@ -1025,5 +1200,280 @@ mod tests {
                 }]
             )
         );
+    }
+
+    // ── Phase 3: Arithmetic expression grammar tests ──────────────
+
+    #[test]
+    fn tomorrow_plus_3_hours_arithmetic() {
+        let tokens = vec![
+            st(Token::Tomorrow),
+            st(Token::Plus),
+            st(Token::Number(3)),
+            st(Token::Unit(TemporalUnit::Hour)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Arithmetic(
+                Box::new(DateExpr::Relative(RelativeDate::Tomorrow, None)),
+                ArithOp::Add,
+                vec![DurationComponent {
+                    count: 3,
+                    unit: TemporalUnit::Hour,
+                }],
+            )
+        );
+    }
+
+    #[test]
+    fn now_plus_1_day_plus_3_hours_minus_30_minutes_chained() {
+        let tokens = vec![
+            st(Token::Now),
+            st(Token::Plus),
+            st(Token::Number(1)),
+            st(Token::Unit(TemporalUnit::Day)),
+            st(Token::Plus),
+            st(Token::Number(3)),
+            st(Token::Unit(TemporalUnit::Hour)),
+            st(Token::Dash),
+            st(Token::Number(30)),
+            st(Token::Unit(TemporalUnit::Minute)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        // Left-to-right: Arithmetic(Arithmetic(Arithmetic(Now, Add, [1d]), Add, [3h]), Sub, [30m])
+        assert_eq!(
+            result,
+            DateExpr::Arithmetic(
+                Box::new(DateExpr::Arithmetic(
+                    Box::new(DateExpr::Arithmetic(
+                        Box::new(DateExpr::Now),
+                        ArithOp::Add,
+                        vec![DurationComponent {
+                            count: 1,
+                            unit: TemporalUnit::Day,
+                        }],
+                    )),
+                    ArithOp::Add,
+                    vec![DurationComponent {
+                        count: 3,
+                        unit: TemporalUnit::Hour,
+                    }],
+                )),
+                ArithOp::Sub,
+                vec![DurationComponent {
+                    count: 30,
+                    unit: TemporalUnit::Minute,
+                }],
+            )
+        );
+    }
+
+    #[test]
+    fn three_hours_after_tomorrow_verbal() {
+        let tokens = vec![
+            st(Token::Number(3)),
+            st(Token::Unit(TemporalUnit::Hour)),
+            st(Token::After),
+            st(Token::Tomorrow),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        // Per D-06: reuses OffsetFrom(Future, ...)
+        assert_eq!(
+            result,
+            DateExpr::OffsetFrom(
+                Direction::Future,
+                vec![DurationComponent {
+                    count: 3,
+                    unit: TemporalUnit::Hour,
+                }],
+                Box::new(DateExpr::Relative(RelativeDate::Tomorrow, None)),
+            )
+        );
+    }
+
+    #[test]
+    fn two_days_before_next_friday_verbal() {
+        let tokens = vec![
+            st(Token::Number(2)),
+            st(Token::Unit(TemporalUnit::Day)),
+            st(Token::Before),
+            st(Token::Next),
+            st(Token::Weekday(Weekday::Friday)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(
+            result,
+            DateExpr::OffsetFrom(
+                Direction::Past,
+                vec![DurationComponent {
+                    count: 2,
+                    unit: TemporalUnit::Day,
+                }],
+                Box::new(DateExpr::DayRef(Direction::Next, Weekday::Friday, None)),
+            )
+        );
+    }
+
+    // ── Phase 3: Range expression grammar tests ──────────────
+
+    #[test]
+    fn last_week_range() {
+        let tokens = vec![
+            st(Token::Last),
+            st(Token::Unit(TemporalUnit::Week)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(result, DateExpr::Range(RangeExpr::LastWeek));
+    }
+
+    #[test]
+    fn this_month_range() {
+        let tokens = vec![
+            st(Token::This),
+            st(Token::Unit(TemporalUnit::Month)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(result, DateExpr::Range(RangeExpr::ThisMonth));
+    }
+
+    #[test]
+    fn next_year_range() {
+        let tokens = vec![
+            st(Token::Next),
+            st(Token::Unit(TemporalUnit::Year)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(result, DateExpr::Range(RangeExpr::NextYear));
+    }
+
+    #[test]
+    fn q3_2025_quarter_range() {
+        let tokens = vec![
+            st(Token::Quarter(3)),
+            st(Token::Number(2025)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Range(RangeExpr::Quarter(2025, 3))
+        );
+    }
+
+    #[test]
+    fn q1_no_year_quarter_range() {
+        let tokens = vec![st(Token::Quarter(1))];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Range(RangeExpr::Quarter(0, 1))
+        );
+    }
+
+    #[test]
+    fn iso_date_minus_3_days_arithmetic() {
+        let tokens = vec![
+            st(Token::Number(2025)),
+            st(Token::Dash),
+            st(Token::Number(1)),
+            st(Token::Dash),
+            st(Token::Number(1)),
+            st(Token::Dash),
+            st(Token::Number(3)),
+            st(Token::Unit(TemporalUnit::Day)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Arithmetic(
+                Box::new(DateExpr::Absolute(
+                    AbsoluteDate {
+                        year: 2025,
+                        month: 1,
+                        day: 1,
+                    },
+                    None,
+                )),
+                ArithOp::Sub,
+                vec![DurationComponent {
+                    count: 3,
+                    unit: TemporalUnit::Day,
+                }],
+            )
+        );
+    }
+
+    #[test]
+    fn last_monday_still_parses_as_day_ref() {
+        // "last monday" should NOT become a range -- must stay as DayRef
+        let tokens = vec![
+            st(Token::Last),
+            st(Token::Weekday(Weekday::Monday)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(
+            result,
+            DateExpr::DayRef(Direction::Last, Weekday::Monday, None)
+        );
+    }
+
+    #[test]
+    fn this_week_range() {
+        let tokens = vec![
+            st(Token::This),
+            st(Token::Unit(TemporalUnit::Week)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(result, DateExpr::Range(RangeExpr::ThisWeek));
+    }
+
+    #[test]
+    fn next_week_range() {
+        let tokens = vec![
+            st(Token::Next),
+            st(Token::Unit(TemporalUnit::Week)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(result, DateExpr::Range(RangeExpr::NextWeek));
+    }
+
+    #[test]
+    fn last_month_range() {
+        let tokens = vec![
+            st(Token::Last),
+            st(Token::Unit(TemporalUnit::Month)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(result, DateExpr::Range(RangeExpr::LastMonth));
+    }
+
+    #[test]
+    fn next_month_range() {
+        let tokens = vec![
+            st(Token::Next),
+            st(Token::Unit(TemporalUnit::Month)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(result, DateExpr::Range(RangeExpr::NextMonth));
+    }
+
+    #[test]
+    fn last_year_range() {
+        let tokens = vec![
+            st(Token::Last),
+            st(Token::Unit(TemporalUnit::Year)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(result, DateExpr::Range(RangeExpr::LastYear));
+    }
+
+    #[test]
+    fn this_year_range() {
+        let tokens = vec![
+            st(Token::This),
+            st(Token::Unit(TemporalUnit::Year)),
+        ];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(result, DateExpr::Range(RangeExpr::ThisYear));
     }
 }
