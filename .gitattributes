@@ -27,4 +27,5 @@ Cargo.*            text eol=lf
 *.7z               -text binary
 
 *.svg              diff=svg
-*.lock             -diff          # não precisa ver diff byte-a-byte
+# Lock files: suppress diff noise
+*.lock             -diff
