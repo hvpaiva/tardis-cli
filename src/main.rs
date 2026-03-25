@@ -95,7 +95,9 @@ fn run() -> Result<()> {
             if let Err(e) = result {
                 if cmd.skip_errors {
                     eprintln!("{e}");
-                    println!();
+                    if !io::stdout().is_terminal() {
+                        println!();
+                    }
                     had_error = true;
                 } else {
                     return Err(e);
@@ -395,7 +397,7 @@ fn handle_tz(args: TzArgs) -> Result<()> {
         output_value(&format!("{json}"), args.no_newline);
     } else {
         output_value(
-            &converted.strftime("%Y-%m-%dT%H:%M:%S %Z").to_string(),
+            &converted.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string(),
             args.no_newline,
         );
     }
