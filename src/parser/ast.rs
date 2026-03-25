@@ -92,12 +92,16 @@ pub enum ArithOp {
 /// Range expression types for date range queries.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RangeExpr {
+    // Deprecated: "last week/month/year" now resolves as Offset, not Range.
+    // Kept for backward compatibility of the public #[non_exhaustive]-style enum.
     LastWeek,
     ThisWeek,
     NextWeek,
+    // Deprecated: "last month" now resolves as Offset, not Range.
     LastMonth,
     ThisMonth,
     NextMonth,
+    // Deprecated: "last year" now resolves as Offset, not Range.
     LastYear,
     ThisYear,
     NextYear,

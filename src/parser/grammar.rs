@@ -581,35 +581,37 @@ impl<'a> Parser<'a> {
             if let Some(Token::Unit(unit)) = self.peek() {
                 let unit = *unit;
                 match unit {
-                    TemporalUnit::Week => {
+                    TemporalUnit::Week | TemporalUnit::Month | TemporalUnit::Year => {
                         self.advance();
-                        let range = match dir {
-                            Direction::Last => RangeExpr::LastWeek,
-                            Direction::This => RangeExpr::ThisWeek,
-                            Direction::Next => RangeExpr::NextWeek,
+                        match dir {
+                            Direction::Last => {
+                                // "last week/month/year" -> single date (today - 1 unit)
+                                // Consistent with "yesterday" = today - 1 day
+                                return Ok(Some(DateExpr::Offset(
+                                    Direction::Past,
+                                    vec![DurationComponent { count: 1, unit }],
+                                )));
+                            }
+                            Direction::This => {
+                                let range = match unit {
+                                    TemporalUnit::Week => RangeExpr::ThisWeek,
+                                    TemporalUnit::Month => RangeExpr::ThisMonth,
+                                    TemporalUnit::Year => RangeExpr::ThisYear,
+                                    _ => unreachable!(),
+                                };
+                                return Ok(Some(DateExpr::Range(range)));
+                            }
+                            Direction::Next => {
+                                let range = match unit {
+                                    TemporalUnit::Week => RangeExpr::NextWeek,
+                                    TemporalUnit::Month => RangeExpr::NextMonth,
+                                    TemporalUnit::Year => RangeExpr::NextYear,
+                                    _ => unreachable!(),
+                                };
+                                return Ok(Some(DateExpr::Range(range)));
+                            }
                             _ => unreachable!(),
-                        };
-                        return Ok(Some(DateExpr::Range(range)));
-                    }
-                    TemporalUnit::Month => {
-                        self.advance();
-                        let range = match dir {
-                            Direction::Last => RangeExpr::LastMonth,
-                            Direction::This => RangeExpr::ThisMonth,
-                            Direction::Next => RangeExpr::NextMonth,
-                            _ => unreachable!(),
-                        };
-                        return Ok(Some(DateExpr::Range(range)));
-                    }
-                    TemporalUnit::Year => {
-                        self.advance();
-                        let range = match dir {
-                            Direction::Last => RangeExpr::LastYear,
-                            Direction::This => RangeExpr::ThisYear,
-                            Direction::Next => RangeExpr::NextYear,
-                            _ => unreachable!(),
-                        };
-                        return Ok(Some(DateExpr::Range(range)));
+                        }
                     }
                     _ => {}
                 }
@@ -1332,10 +1334,62 @@ mod tests {
     // ── Phase 3: Range expression grammar tests ──────────────
 
     #[test]
-    fn last_week_range() {
+    fn last_week_offset() {
+        // "last week" -> Offset(Past, 1 week) -- single date, not range
         let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Week))];
         let result = parse_tokens(&tokens).unwrap();
-        assert_eq!(result, DateExpr::Range(RangeExpr::LastWeek));
+        assert_eq!(
+            result,
+            DateExpr::Offset(
+                Direction::Past,
+                vec![DurationComponent {
+                    count: 1,
+                    unit: TemporalUnit::Week,
+                }],
+            )
+        );
+    }
+
+    #[test]
+    fn last_month_offset() {
+        // "last month" -> Offset(Past, 1 month) -- single date, not range
+        let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Month))];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Offset(
+                Direction::Past,
+                vec![DurationComponent {
+                    count: 1,
+                    unit: TemporalUnit::Month,
+                }],
+            )
+        );
+    }
+
+    #[test]
+    fn last_year_offset() {
+        // "last year" -> Offset(Past, 1 year) -- single date, not range
+        let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Year))];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Offset(
+                Direction::Past,
+                vec![DurationComponent {
+                    count: 1,
+                    unit: TemporalUnit::Year,
+                }],
+            )
+        );
+    }
+
+    #[test]
+    fn this_week_still_range() {
+        // "this week" should remain a range expression
+        let tokens = vec![st(Token::This), st(Token::Unit(TemporalUnit::Week))];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(result, DateExpr::Range(RangeExpr::ThisWeek));
     }
 
     #[test]
@@ -1343,6 +1397,14 @@ mod tests {
         let tokens = vec![st(Token::This), st(Token::Unit(TemporalUnit::Month))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::ThisMonth));
+    }
+
+    #[test]
+    fn next_week_still_range() {
+        // "next week" should remain a range expression
+        let tokens = vec![st(Token::Next), st(Token::Unit(TemporalUnit::Week))];
+        let result = parse_tokens(&tokens).unwrap();
+        assert_eq!(result, DateExpr::Range(RangeExpr::NextWeek));
     }
 
     #[test]
@@ -1425,10 +1487,20 @@ mod tests {
     }
 
     #[test]
-    fn last_month_range() {
+    fn last_month_offset_locale() {
+        // "last month" -> Offset(Past, 1 month) -- single date, not range
         let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Month))];
         let result = parse_tokens(&tokens).unwrap();
-        assert_eq!(result, DateExpr::Range(RangeExpr::LastMonth));
+        assert_eq!(
+            result,
+            DateExpr::Offset(
+                Direction::Past,
+                vec![DurationComponent {
+                    count: 1,
+                    unit: TemporalUnit::Month,
+                }],
+            )
+        );
     }
 
     #[test]
@@ -1439,10 +1511,20 @@ mod tests {
     }
 
     #[test]
-    fn last_year_range() {
+    fn last_year_offset_locale() {
+        // "last year" -> Offset(Past, 1 year) -- single date, not range
         let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Year))];
         let result = parse_tokens(&tokens).unwrap();
-        assert_eq!(result, DateExpr::Range(RangeExpr::LastYear));
+        assert_eq!(
+            result,
+            DateExpr::Offset(
+                Direction::Past,
+                vec![DurationComponent {
+                    count: 1,
+                    unit: TemporalUnit::Year,
+                }],
+            )
+        );
     }
 
     #[test]
