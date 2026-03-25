@@ -31,6 +31,9 @@ just check               # runs fmt, lint, test, audit
 | `just coverage` | generate HTML coverage report |
 | `just bench` | run criterion benchmarks |
 | `just run "tomorrow"` | run the CLI locally |
+| `just vet` | run cargo vet check |
+| `just sbom` | generate SBOM |
+| `just semver-check` | check semver compatibility |
 
 ## Guidelines
 
@@ -43,10 +46,26 @@ just check               # runs fmt, lint, test, audit
 
 ```
 src/
-  main.rs    — binary entry-point
-  lib.rs     — module re-exports
-  cli.rs     — CLI parsing (clap)
-  core.rs    — date parsing + formatting logic
-  config.rs  — TOML config loading
-  errors.rs  — error types + exit handling
+  main.rs       - binary entry-point
+  lib.rs        - module re-exports
+  cli.rs        - CLI parsing (clap)
+  core.rs       - date parsing + formatting logic
+  config.rs     - TOML config loading
+  errors.rs     - error types + exit handling
+  parser/       - hand-rolled natural-language date parser
+    lexer.rs    - tokenization
+    grammar.rs  - recursive descent parser
+    resolver.rs - AST to jiff::Zoned resolution
+    suggest.rs  - "did you mean?" error suggestions
+  locale/       - multi-locale support (EN, PT)
 ```
+
+## Features
+
+TARDIS provides several subcommands and capabilities beyond basic date parsing:
+
+- **Subcommands**: `diff` (date difference), `convert` (format conversion), `tz` (timezone conversion), `info` (date metadata)
+- **Multi-locale**: `--locale` flag supports EN and PT natural-language expressions
+- **Verbose mode**: `--verbose` flag outputs diagnostic information to stderr
+- **Arithmetic**: expressions like `"tomorrow + 3 hours"` or `"next friday - 2 days"`
+- **Ranges**: expressions like `"2025-01-01..2025-01-03"` produce multi-line output
