@@ -1471,8 +1471,7 @@ mod tests {
     #[test]
     fn parse_now_plus_1_day_plus_3_hours_minus_30_minutes_e2e() {
         let now = make_now();
-        let result =
-            crate::parser::parse("now + 1 day + 3 hours - 30 minutes", &now).unwrap();
+        let result = crate::parser::parse("now + 1 day + 3 hours - 30 minutes", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-16T14:30:00");
     }
 

@@ -51,9 +51,8 @@ pub fn process(app: &App, presets: &[Preset]) -> Result<ProcessOutput> {
 
     let fmt = resolve_format(&app.format, presets)?;
 
-    let zoned = parser::parse(&app.date, &now).map_err(|e| {
-        user_input_error!(InvalidDateFormat, "{}", e.format_message())
-    })?;
+    let zoned = parser::parse(&app.date, &now)
+        .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
 
     let formatted = format_output(&zoned, &fmt)?;
     Ok(ProcessOutput {

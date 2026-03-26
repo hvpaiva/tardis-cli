@@ -24,10 +24,7 @@ const MAX_INPUT_LEN: usize = 1024;
 /// * `now` -- reference "now" for relative resolution
 ///
 /// Returns the resolved datetime or a [`ParseError`] with span-based diagnostics.
-pub fn parse(
-    input: &str,
-    now: &jiff::Zoned,
-) -> std::result::Result<jiff::Zoned, ParseError> {
+pub fn parse(input: &str, now: &jiff::Zoned) -> std::result::Result<jiff::Zoned, ParseError> {
     // UX-03: Input length validation
     if input.len() > MAX_INPUT_LEN {
         return Err(ParseError::input_too_long(input.len(), MAX_INPUT_LEN));

@@ -8,7 +8,9 @@
 //! Only `Token::Word(String)` carries owned data
 //! (for unrecognized words used in error messages and typo suggestions).
 
-use crate::parser::token::{BoundaryKind, ByteSpan, EpochPrecision, SpannedToken, TemporalUnit, Token};
+use crate::parser::token::{
+    BoundaryKind, ByteSpan, EpochPrecision, SpannedToken, TemporalUnit, Token,
+};
 
 /// Complete keyword table for the suggestion engine and iteration.
 ///
