@@ -62,7 +62,10 @@ Desktop.ini
 *.tmp
 
 .planning/
+.claude/
 CLAUDE.md
+sbom.json
+*.pending-snap
 
 # Criterion benchmark baselines (machine-specific)
 /target/criterion/
