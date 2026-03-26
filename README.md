@@ -97,15 +97,6 @@ See the [Subcommand Reference](docs/SUBCOMMANDS.md) for full usage and examples.
 - [Format Specifiers](docs/FORMAT-SPECIFIERS.md) -- strftime/strptime format reference
 - [Configuration](docs/CONFIGURATION.md) -- Config file, environment variables, precedence
 
-## vs. Other Tools
-
-| Tool | Natural language | Subcommands | JSON | Config presets |
-|------|:----------------:|:-----------:|:----:|:--------------:|
-| `td` | Yes | diff, tz, convert, info, range | Yes | Yes |
-| `date` | No | No | No | No |
-| `dateutils` | No | Yes | No | No |
-| `dateadd` | No | No | No | No |
-
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
