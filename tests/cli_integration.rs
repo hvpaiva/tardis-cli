@@ -3302,3 +3302,103 @@ fn diff_json_piped_is_compact() {
         .unwrap_or_else(|e| panic!("piped diff JSON should be valid: {e}, got: {stdout}"));
     assert!(parsed.is_object(), "diff JSON should be an object");
 }
+
+// --- Verbose flag on subcommands ---
+
+#[test]
+fn verbose_diff() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "diff",
+            "2025-01-01",
+            "2025-06-01",
+            "-v",
+            "--now",
+            "2025-01-01T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("[parse]"));
+}
+
+#[test]
+fn verbose_convert() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "convert",
+            "2025-01-01",
+            "--to",
+            "epoch",
+            "-v",
+            "--now",
+            "2025-01-01T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("[parse]"));
+}
+
+#[test]
+fn verbose_tz() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "tz",
+            "2025-01-01 12:00",
+            "--to",
+            "America/New_York",
+            "-v",
+            "--now",
+            "2025-01-01T00:00:00Z",
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("[parse]"));
+}
+
+#[test]
+fn verbose_info() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "info",
+            "2025-01-01",
+            "-v",
+            "--now",
+            "2025-01-01T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("[parse]"));
+}
+
+#[test]
+fn verbose_range() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "range",
+            "this week",
+            "-v",
+            "--now",
+            "2025-01-06T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("[parse]"));
+}

@@ -232,6 +232,7 @@ fn emit_json(value: &serde_json::Value, no_newline: bool) {
 
 /// Handle `td range <expression>` -- expand expression to start/end pair (D-04, D-05, D-06).
 fn handle_range(args: RangeArgs) -> Result<()> {
+    let start_instant = std::time::Instant::now();
     let tz = resolve_timezone(&args.timezone)?;
     let now = resolve_now_zoned(&args.now, &tz)?;
     let cfg = Config::load()?;
@@ -241,11 +242,26 @@ fn handle_range(args: RangeArgs) -> Result<()> {
         .map(resolve_builtin_format)
         .unwrap_or_else(|| cfg.format.clone());
 
+    if args.verbose {
+        verbose!("parse", "input={:?}", args.input);
+        verbose!(
+            "parse",
+            "timezone={}",
+            tz.iana_name().unwrap_or("system")
+        );
+    }
+
     let (start, end) = parser::parse_range_with_granularity(&args.input, &now)
         .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
 
     let start_str = start.strftime(&fmt).to_string();
     let end_str = end.strftime(&fmt).to_string();
+
+    if args.verbose {
+        verbose!("resolve", "start={} end={}", start_str, end_str);
+        let elapsed = start_instant.elapsed();
+        verbose!("timing", "{:.3}ms", elapsed.as_secs_f64() * 1000.0);
+    }
 
     if args.json {
         let json = serde_json::json!({
@@ -270,8 +286,18 @@ fn handle_range(args: RangeArgs) -> Result<()> {
 
 /// Handle `td diff <date1> <date2>` -- compute calendar-aware duration (D-01, SUBCMD-01).
 fn handle_diff(args: DiffArgs) -> Result<()> {
+    let start_instant = std::time::Instant::now();
     let tz = resolve_timezone(&args.timezone)?;
     let now = resolve_now_zoned(&args.now, &tz)?;
+
+    if args.verbose {
+        verbose!("parse", "date1={:?} date2={:?}", args.date1, args.date2);
+        verbose!(
+            "parse",
+            "timezone={}",
+            tz.iana_name().unwrap_or("system")
+        );
+    }
 
     let z1 = parser::parse(&args.date1, &now)
         .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
@@ -285,6 +311,18 @@ fn handle_diff(args: DiffArgs) -> Result<()> {
 
     // Total seconds (absolute duration)
     let total_secs = z2.timestamp().as_second() - z1.timestamp().as_second();
+
+    if args.verbose {
+        verbose!(
+            "resolve",
+            "human={:?} seconds={} iso={}",
+            format!("{:#}", span),
+            total_secs,
+            format!("{}", span)
+        );
+        let elapsed = start_instant.elapsed();
+        verbose!("timing", "{:.3}ms", elapsed.as_secs_f64() * 1000.0);
+    }
 
     if args.json {
         let json = serde_json::json!({
@@ -307,8 +345,24 @@ fn handle_diff(args: DiffArgs) -> Result<()> {
 
 /// Handle `td convert <input> --to <format>` -- format conversion (D-02, SUBCMD-02).
 fn handle_convert(args: ConvertArgs) -> Result<()> {
+    let start_instant = std::time::Instant::now();
     let tz = resolve_timezone(&args.timezone)?;
     let now = resolve_now_zoned(&args.now, &tz)?;
+
+    if args.verbose {
+        verbose!(
+            "parse",
+            "input={:?} from={:?} to={:?}",
+            args.input,
+            args.from,
+            args.to
+        );
+        verbose!(
+            "parse",
+            "timezone={}",
+            tz.iana_name().unwrap_or("system")
+        );
+    }
 
     // Parse input: if --from is specified, use strptime; otherwise auto-detect via parser
     let zoned = if let Some(ref from_fmt) = args.from {
@@ -354,6 +408,12 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
         zoned.strftime(&to_fmt).to_string()
     };
 
+    if args.verbose {
+        verbose!("resolve", "output={:?}", output);
+        let elapsed = start_instant.elapsed();
+        verbose!("timing", "{:.3}ms", elapsed.as_secs_f64() * 1000.0);
+    }
+
     if args.json {
         let json = serde_json::json!({
             "input": args.input,
@@ -370,9 +430,20 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
 
 /// Handle `td tz <datetime> --to <timezone>` -- timezone conversion (D-03, SUBCMD-03).
 fn handle_tz(args: TzArgs) -> Result<()> {
+    let start_instant = std::time::Instant::now();
     // Source timezone: --from > system default
     let from_tz = resolve_timezone(&args.from)?;
     let now = resolve_now_zoned(&args.now, &from_tz)?;
+
+    if args.verbose {
+        verbose!(
+            "parse",
+            "input={:?} from={:?} to={:?}",
+            args.input,
+            args.from,
+            args.to
+        );
+    }
 
     // Parse input in source timezone
     let zoned = parser::parse(&args.input, &now)
@@ -382,6 +453,17 @@ fn handle_tz(args: TzArgs) -> Result<()> {
     let target_tz = jiff::tz::TimeZone::get(&args.to)
         .map_err(|e| user_input_error!(UnsupportedTimezone, "{}", e))?;
     let converted = zoned.with_time_zone(target_tz);
+
+    if args.verbose {
+        verbose!(
+            "resolve",
+            "original={} converted={}",
+            zoned.strftime("%Y-%m-%dT%H:%M:%S%:z"),
+            converted.strftime("%Y-%m-%dT%H:%M:%S%:z")
+        );
+        let elapsed = start_instant.elapsed();
+        verbose!("timing", "{:.3}ms", elapsed.as_secs_f64() * 1000.0);
+    }
 
     if args.json {
         let json = serde_json::json!({
@@ -403,8 +485,18 @@ fn handle_tz(args: TzArgs) -> Result<()> {
 
 /// Handle `td info <date>` -- calendar metadata card (D-04, SUBCMD-04).
 fn handle_info(args: InfoArgs) -> Result<()> {
+    let start_instant = std::time::Instant::now();
     let tz = resolve_timezone(&args.timezone)?;
     let now = resolve_now_zoned(&args.now, &tz)?;
+
+    if args.verbose {
+        verbose!("parse", "input={:?}", args.input);
+        verbose!(
+            "parse",
+            "timezone={}",
+            tz.iana_name().unwrap_or("system")
+        );
+    }
 
     let zoned = parser::parse(&args.input, &now)
         .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
@@ -419,6 +511,18 @@ fn handle_info(args: InfoArgs) -> Result<()> {
     };
     let epoch_secs = zoned.timestamp().as_second();
     let jdn = epoch_secs as f64 / 86400.0 + 2_440_587.5;
+
+    if args.verbose {
+        verbose!(
+            "resolve",
+            "date={} weekday={:?} quarter=Q{}",
+            zoned.strftime("%Y-%m-%d"),
+            zoned.weekday(),
+            quarter
+        );
+        let elapsed = start_instant.elapsed();
+        verbose!("timing", "{:.3}ms", elapsed.as_secs_f64() * 1000.0);
+    }
 
     if args.json {
         let json = serde_json::json!({

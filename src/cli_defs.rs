@@ -202,6 +202,9 @@ pub struct DiffArgs {
     /// Time-zone for resolution
     #[arg(short, long)]
     pub timezone: Option<String>,
+    /// Print verbose diagnostics to stderr
+    #[arg(short = 'v', long)]
+    pub verbose: bool,
 }
 
 #[derive(Debug, clap::Args)]
@@ -226,6 +229,9 @@ pub struct ConvertArgs {
     /// Time-zone for resolution
     #[arg(short, long)]
     pub timezone: Option<String>,
+    /// Print verbose diagnostics to stderr
+    #[arg(short = 'v', long)]
+    pub verbose: bool,
 }
 
 #[derive(Debug, clap::Args)]
@@ -247,6 +253,9 @@ pub struct TzArgs {
     /// Override "now" reference (RFC 3339)
     #[arg(long)]
     pub now: Option<String>,
+    /// Print verbose diagnostics to stderr
+    #[arg(short = 'v', long)]
+    pub verbose: bool,
 }
 
 #[derive(Debug, clap::Args)]
@@ -266,6 +275,9 @@ pub struct InfoArgs {
     /// Time-zone for resolution
     #[arg(short, long)]
     pub timezone: Option<String>,
+    /// Print verbose diagnostics to stderr
+    #[arg(short = 'v', long)]
+    pub verbose: bool,
 }
 
 /// Arguments for the `range` subcommand.
@@ -291,6 +303,9 @@ pub struct RangeArgs {
     /// Suppress trailing newline
     #[arg(short = 'n', long = "no-newline")]
     pub no_newline: bool,
+    /// Print verbose diagnostics to stderr
+    #[arg(short = 'v', long)]
+    pub verbose: bool,
 }
 
 #[non_exhaustive]
