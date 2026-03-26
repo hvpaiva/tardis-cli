@@ -3402,3 +3402,167 @@ fn verbose_range() {
         .success()
         .stderr(predicate::str::contains("[parse]"));
 }
+
+// ── AM/PM integration tests ─────────────────────────────────────
+
+#[test]
+fn am_pm_basic() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["3pm", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-15T15:00:00"));
+}
+
+#[test]
+fn am_pm_with_minutes() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["3:30pm", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-15T15:30:00"));
+}
+
+#[test]
+fn am_pm_midnight() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["12am", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-15T00:00:00"));
+}
+
+#[test]
+fn am_pm_noon() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["12pm", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-15T12:00:00"));
+}
+
+#[test]
+fn am_pm_compound() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args([
+            "next friday at 3pm",
+            "--now",
+            "2025-01-15T10:30:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-17T15:00:00"));
+}
+
+#[test]
+fn am_pm_tomorrow_3pm() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args([
+            "tomorrow at 3pm",
+            "--now",
+            "2025-01-15T10:30:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-16T15:00:00"));
+}
+
+#[test]
+fn am_pm_with_seconds() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["3:30:45pm", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-15T15:30:45"));
+}
+
+#[test]
+fn am_pm_11_59pm() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["11:59pm", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-15T23:59:00"));
+}
+
+#[test]
+fn am_pm_3am() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["3am", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-15T03:00:00"));
+}
+
+#[test]
+fn am_pm_with_space() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["3 pm", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-15T15:00:00"));
+}
+
+// ── Same time integration tests ─────────────────────────────────
+
+#[test]
+fn same_time_tomorrow() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args([
+            "tomorrow at same time",
+            "--now",
+            "2025-01-15T10:30:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-16T10:30:00"));
+}
+
+#[test]
+fn same_time_next_friday() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args([
+            "next friday at same time",
+            "--now",
+            "2025-01-15T10:30:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-17T10:30:00"));
+}
+
+#[test]
+fn same_time_yesterday() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args([
+            "yesterday at same time",
+            "--now",
+            "2025-01-15T10:30:00Z",
+            "-t",
+            "UTC",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-14T10:30:00"));
+}

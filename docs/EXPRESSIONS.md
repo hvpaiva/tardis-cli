@@ -191,6 +191,45 @@ $ td "9:00" --now "2025-01-15T10:30:00Z" -t UTC
 
 ```
 
+## AM/PM Time
+
+Use 12-hour clock notation with `am` or `pm`. Supports bare hours (`3pm`),
+hours with minutes (`3:30pm`), and full `HH:MM:SS` (`3:30:45pm`). A space
+before `am`/`pm` is optional. Can be combined with any date expression.
+
+```console
+$ td "3pm" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-15T15:00:00
+
+$ td "3:30pm" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-15T15:30:00
+
+$ td "12am" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-15T00:00:00
+
+$ td "12pm" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-15T12:00:00
+
+$ td "next friday at 3pm" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-17T15:00:00
+
+```
+
+## Same Time
+
+Use `at same time` after a date expression to preserve the current time
+of day from the `--now` reference (or the system clock when `--now` is not
+set).
+
+```console
+$ td "tomorrow at same time" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-16T10:30:00
+
+$ td "next friday at same time" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-17T10:30:00
+
+```
+
 ## Epoch Timestamps
 
 Prefix a Unix timestamp with `@`. Precision is auto-detected from the
