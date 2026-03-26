@@ -187,6 +187,8 @@ pub enum SubCmd {
     Tz(TzArgs),
     /// Display calendar metadata for a date.
     Info(InfoArgs),
+    /// Expand a date expression into a start/end range.
+    Range(RangeArgs),
 }
 
 #[derive(Debug, clap::Args)]
@@ -271,6 +273,28 @@ pub struct InfoArgs {
     /// Time-zone for resolution
     #[arg(short, long)]
     pub timezone: Option<String>,
+}
+
+/// Arguments for the `range` subcommand.
+#[derive(Debug, clap::Args)]
+pub struct RangeArgs {
+    /// Date expression to expand as range
+    pub input: String,
+    /// Output format (strftime pattern or preset name)
+    #[arg(value_name = "FMT", short, long)]
+    pub format: Option<String>,
+    /// Time-zone to apply (IANA/Olson ID)
+    #[arg(value_name = "TZ", short, long)]
+    pub timezone: Option<String>,
+    /// Override "now" reference (RFC 3339)
+    #[arg(long)]
+    pub now: Option<String>,
+    /// Output as JSON
+    #[arg(short, long)]
+    pub json: bool,
+    /// Suppress trailing newline
+    #[arg(short = 'n', long = "no-newline")]
+    pub no_newline: bool,
 }
 
 #[non_exhaustive]

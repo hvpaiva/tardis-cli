@@ -5,7 +5,10 @@ use std::io::{self, IsTerminal};
 
 use tardis_cli::{
     Result,
-    cli::{Cli, Command, ConfigAction, ConvertArgs, DiffArgs, InfoArgs, ShellType, SubCmd, TzArgs},
+    cli::{
+        Cli, Command, ConfigAction, ConvertArgs, DiffArgs, InfoArgs, RangeArgs, ShellType, SubCmd,
+        TzArgs,
+    },
     config::Config,
     core::{self, App},
     locale::{self, LocaleKeywords},
@@ -87,15 +90,13 @@ fn run() -> Result<()> {
                 continue;
             }
             let single_cmd = cmd.with_input(line.to_owned());
-            let result = if try_range_output(&single_cmd, &cfg).unwrap_or(false) {
-                Ok(())
-            } else {
-                process_and_print(&single_cmd, &cfg)
-            };
+            let result = process_and_print(&single_cmd, &cfg);
             if let Err(e) = result {
                 if cmd.skip_errors {
                     eprintln!("{e}");
-                    println!();
+                    if !io::stdout().is_terminal() {
+                        println!();
+                    }
                     had_error = true;
                 } else {
                     return Err(e);
@@ -106,10 +107,7 @@ fn run() -> Result<()> {
             std::process::exit(1);
         }
     } else {
-        // Try range expression first (per D-09, PARS-05)
-        if !try_range_output(&cmd, &cfg)? {
-            process_and_print(&cmd, &cfg)?;
-        }
+        process_and_print(&cmd, &cfg)?;
     }
 
     Ok(())
@@ -176,6 +174,7 @@ fn handle_subcmd(subcmd: SubCmd) -> Result<()> {
         SubCmd::Convert(args) => handle_convert(args),
         SubCmd::Tz(args) => handle_tz(args),
         SubCmd::Info(args) => handle_info(args),
+        SubCmd::Range(args) => handle_range(args),
         _ => unreachable!(),
     }
 }
@@ -207,13 +206,16 @@ fn resolve_now_zoned(now_arg: &Option<String>, tz: &jiff::tz::TimeZone) -> Resul
 }
 
 /// Resolve a builtin format name to a strftime pattern.
+///
+/// Case-insensitive lookup for well-known names (iso8601, rfc3339, etc.);
+/// custom strftime patterns are returned verbatim (preserving case of `%Y` etc.).
 fn resolve_builtin_format(name: &str) -> String {
     match name.to_lowercase().as_str() {
         "iso8601" | "iso" => "%Y-%m-%dT%H:%M:%S%:z".to_string(),
         "rfc3339" => "%Y-%m-%dT%H:%M:%S%:z".to_string(),
         "rfc2822" => "%a, %d %b %Y %H:%M:%S %z".to_string(),
         "epoch" | "unix" => "epoch".to_string(),
-        other => other.to_string(),
+        _ => name.to_string(),
     }
 }
 
@@ -226,52 +228,44 @@ fn output_value(value: &str, no_newline: bool) {
     }
 }
 
-/// Try to handle the input as a range expression (per D-09).
-/// Returns `Ok(true)` if it was a range and was output, `Ok(false)` if not a range.
-fn try_range_output(cmd: &Command, cfg: &Config) -> Result<bool> {
-    let app = App::from_cli(cmd, cfg)?;
-    let now = app
-        .now
-        .clone()
-        .unwrap_or_else(|| jiff::Zoned::now().with_time_zone(app.timezone.clone()));
+/// Handle `td range <expression>` -- expand expression to start/end pair (D-04, D-05, D-06).
+fn handle_range(args: RangeArgs) -> Result<()> {
+    let tz = resolve_timezone(&args.timezone)?;
+    let now = resolve_now_zoned(&args.now, &tz)?;
+    let cfg = Config::load()?;
+    let fmt = args
+        .format
+        .as_deref()
+        .map(resolve_builtin_format)
+        .unwrap_or_else(|| cfg.format.clone());
 
-    let locale_ref = locale::get_locale(&app.locale_code);
+    // Subcommands use EN locale by default (no --locale flag on subcommands yet;
+    // consistent with handle_diff, handle_convert, handle_tz, handle_info).
+    // TW boundary keywords are universal per D-12, so this works for all keywords.
+    let locale_ref = locale::get_locale("en");
     let locale_kw = LocaleKeywords::from_locale(locale_ref);
 
-    // Try range with detected locale; fall back to EN if non-EN fails
-    let range_result = match parser::parse_range(&cmd.input, &now, &locale_kw) {
-        ok @ Ok(_) => ok,
-        Err(_) if app.locale_code != "en" => {
-            let en_ref = locale::get_locale("en");
-            let en_kw = LocaleKeywords::from_locale(en_ref);
-            parser::parse_range(&cmd.input, &now, &en_kw)
-        }
-        err => err,
-    };
+    let (start, end) = parser::parse_range_with_granularity(&args.input, &now, &locale_kw)
+        .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
 
-    match range_result {
-        Ok((start, end)) => {
-            let fmt = &app.format;
-            let start_str = start.strftime(fmt).to_string();
-            let end_str = end.strftime(fmt).to_string();
+    let start_str = start.strftime(&fmt).to_string();
+    let end_str = end.strftime(&fmt).to_string();
 
-            if cmd.json {
-                let json = serde_json::json!({
-                    "input": cmd.input,
-                    "start": start_str,
-                    "end": end_str,
-                    "start_epoch": start.timestamp().as_second(),
-                    "end_epoch": end.timestamp().as_second(),
-                });
-                output_value(&format!("{json}"), cmd.no_newline);
-            } else {
-                // Two lines: start then end (per D-09)
-                output_value(&format!("{start_str}\n{end_str}"), cmd.no_newline);
-            }
-            Ok(true)
-        }
-        Err(_) => Ok(false), // Not a range expression, fall through
+    if args.json {
+        let json = serde_json::json!({
+            "input": args.input,
+            "start": start_str,
+            "end": end_str,
+            "start_epoch": start.timestamp().as_second(),
+            "end_epoch": end.timestamp().as_second(),
+            "timezone": tz.iana_name().unwrap_or("Unknown"),
+            "format": fmt,
+        });
+        output_value(&format!("{json}"), args.no_newline);
+    } else {
+        output_value(&format!("{start_str}\n{end_str}"), args.no_newline);
     }
+    Ok(())
 }
 
 /// Handle `td diff <date1> <date2>` -- compute calendar-aware duration (D-01, SUBCMD-01).
@@ -334,8 +328,13 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
             )
         })?
     } else {
-        parser::parse(&args.input, &now, &locale_kw)
-            .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?
+        // Try RFC 3339/ISO 8601 first (handles "2025-03-24T12:00:00Z" and similar)
+        if let Ok(ts) = args.input.parse::<jiff::Timestamp>() {
+            ts.to_zoned(tz.clone())
+        } else {
+            parser::parse(&args.input, &now, &locale_kw)
+                .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?
+        }
     };
 
     // Format output using --to
@@ -390,7 +389,7 @@ fn handle_tz(args: TzArgs) -> Result<()> {
         output_value(&format!("{json}"), args.no_newline);
     } else {
         output_value(
-            &converted.strftime("%Y-%m-%dT%H:%M:%S %Z").to_string(),
+            &converted.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string(),
             args.no_newline,
         );
     }

@@ -1455,8 +1455,12 @@ fn test_last_year_returns_single_date() {
         .stdout("2024-06-15\n"); // 2025 - 1 year = 2024
 }
 
+// Per D-01/D-02: default command now returns single line (start of period).
+// Range output moved to `td range` subcommand (D-04).
+
 #[test]
-fn test_range_this_month_two_lines() {
+fn test_this_month_returns_single_instant() {
+    // Default command: "this month" returns start-of-period (D-01, D-02)
     let tmp = TempDir::new().unwrap();
 
     let output = td_cmd(&tmp)
@@ -1474,14 +1478,17 @@ fn test_range_this_month_two_lines() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.trim().lines().collect();
-    assert_eq!(lines.len(), 2);
+    assert_eq!(
+        lines.len(),
+        1,
+        "Default command should return 1 line (start of period)"
+    );
     assert_eq!(lines[0], "2025-06-01");
-    assert_eq!(lines[1], "2025-06-30");
 }
 
 #[test]
-fn test_this_week_still_returns_range() {
-    // "this week" should still output two lines (start and end)
+fn test_this_week_returns_single_instant() {
+    // Default command: "this week" returns start-of-period Monday (D-01, D-02)
     let tmp = TempDir::new().unwrap();
 
     let output = td_cmd(&tmp)
@@ -1501,14 +1508,15 @@ fn test_this_week_still_returns_range() {
     let lines: Vec<&str> = stdout.trim().lines().collect();
     assert_eq!(
         lines.len(),
-        2,
-        "Range should output exactly 2 lines, got: {lines:?}"
+        1,
+        "Default command should return 1 line, got: {lines:?}"
     );
+    assert_eq!(lines[0], "2025-01-13"); // Monday
 }
 
 #[test]
-fn test_next_week_still_returns_range() {
-    // "next week" should still output two lines (start and end)
+fn test_next_week_returns_single_instant() {
+    // Default command: "next week" returns start of next week Monday (D-01, D-02)
     let tmp = TempDir::new().unwrap();
 
     let output = td_cmd(&tmp)
@@ -1528,18 +1536,46 @@ fn test_next_week_still_returns_range() {
     let lines: Vec<&str> = stdout.trim().lines().collect();
     assert_eq!(
         lines.len(),
-        2,
-        "Range should output exactly 2 lines, got: {lines:?}"
+        1,
+        "Default command should return 1 line, got: {lines:?}"
     );
+    assert_eq!(lines[0], "2025-01-20"); // Next Monday
 }
 
 #[test]
-fn test_range_json_output() {
-    // Range with --json should return {start, end} object (using "this week" which is still a range)
+fn test_range_subcommand_this_week() {
+    // `td range "this week"` returns two lines (D-04)
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "range",
+            "this week",
+            "-f",
+            "%Y-%m-%d",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-18T00:00:00Z",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert_eq!(lines.len(), 2, "Range subcommand should return 2 lines");
+    assert_eq!(lines[0], "2025-06-16"); // Monday
+    assert_eq!(lines[1], "2025-06-22"); // Sunday
+}
+
+#[test]
+fn test_range_subcommand_json_output() {
+    // `td range "this week" --json` returns {start, end} object (D-04)
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
         .args([
+            "range",
             "this week",
             "--json",
             "-f",
@@ -1556,7 +1592,8 @@ fn test_range_json_output() {
 }
 
 #[test]
-fn test_range_q3_2025() {
+fn test_q3_2025_returns_single_instant() {
+    // Default command: "Q3 2025" returns start of Q3 (D-01, D-02)
     let tmp = TempDir::new().unwrap();
 
     let output = td_cmd(&tmp)
@@ -1574,9 +1611,59 @@ fn test_range_q3_2025() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.trim().lines().collect();
-    assert_eq!(lines.len(), 2);
-    assert_eq!(lines[0], "2025-07-01");
-    assert_eq!(lines[1], "2025-09-30");
+    assert_eq!(lines.len(), 1, "Default command should return 1 line");
+    assert_eq!(lines[0], "2025-07-01"); // Start of Q3
+}
+
+#[test]
+fn test_range_subcommand_tomorrow_day_granularity() {
+    // `td range "tomorrow"` returns day granularity (D-05)
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "range",
+            "tomorrow",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-18T12:00:00Z",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert_eq!(lines.len(), 2, "Range subcommand should return 2 lines");
+    assert_eq!(lines[0], "2025-06-19T00:00:00");
+    assert_eq!(lines[1], "2025-06-19T23:59:59");
+}
+
+#[test]
+fn test_range_subcommand_now_is_instant() {
+    // `td range "now"` returns same value twice (D-06)
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "range",
+            "now",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+            "-t",
+            "UTC",
+            "--now",
+            "2025-06-18T12:00:00Z",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert_eq!(lines.len(), 2, "Range subcommand should return 2 lines");
+    assert_eq!(lines[0], lines[1], "now should produce identical start/end");
 }
 
 // ============================================================
