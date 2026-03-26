@@ -15,6 +15,7 @@ pub const AFTER_LONG_HELP: &str = cstr!(
 <green><bold>Environment Variables:</bold></green>
   <bold><blue>TARDIS_FORMAT</blue></bold>     Default output format or preset name.
   <bold><blue>TARDIS_TIMEZONE</blue></bold>   Default IANA time zone (e.g. America/Sao_Paulo).
+  <bold><blue>TARDIS_NOW</blue></bold>        Override "now" (RFC 3339). Same as --now.
 
 <green><bold>Configuration File:</bold></green>
   <blue><bold>$XDG_CONFIG_HOME</bold>/tardis/config.toml</blue>

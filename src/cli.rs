@@ -87,8 +87,11 @@ impl Command {
             _ => "now".to_owned(),
         };
 
-        let now = cli
+        // --now flag > TARDIS_NOW env var > system clock
+        let now_str = cli
             .now
+            .or_else(|| std::env::var("TARDIS_NOW").ok().filter(|s| !s.is_empty()));
+        let now = now_str
             .as_deref()
             .map(|s| s.parse::<Timestamp>())
             .transpose()

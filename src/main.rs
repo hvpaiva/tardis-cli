@@ -163,7 +163,11 @@ fn handle_subcmd(subcmd: SubCmd) -> Result<()> {
 
 /// Resolve the `--now` argument to an optional `jiff::Timestamp`.
 fn resolve_now(now_arg: &Option<String>) -> Result<Option<jiff::Timestamp>> {
-    now_arg
+    // --now flag > TARDIS_NOW env var > system clock
+    let effective = now_arg
+        .clone()
+        .or_else(|| std::env::var("TARDIS_NOW").ok().filter(|s| !s.is_empty()));
+    effective
         .as_deref()
         .map(|s| s.parse::<jiff::Timestamp>())
         .transpose()
