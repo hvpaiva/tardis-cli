@@ -4,8 +4,6 @@ pub mod cli;
 pub mod config;
 pub mod core;
 pub mod errors;
-#[allow(private_interfaces)]
-pub mod locale;
 pub mod parser;
 
 pub use errors::{Error, Result};
