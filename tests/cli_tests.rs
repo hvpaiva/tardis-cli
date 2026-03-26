@@ -1,6 +1,8 @@
 #[test]
 fn trycmd_docs() {
     trycmd::TestCases::new()
+        .env("TARDIS_NOW", "2025-01-15T10:30:00Z")
+        .env("TZ", "UTC")
         .case("docs/EXPRESSIONS.md")
         .case("docs/SUBCOMMANDS.md")
         .case("docs/CONFIGURATION.md")
@@ -9,7 +11,10 @@ fn trycmd_docs() {
 
 #[test]
 fn trycmd_readme() {
-    trycmd::TestCases::new().case("README.md");
+    trycmd::TestCases::new()
+        .env("TARDIS_NOW", "2025-01-15T10:30:00Z")
+        .env("TZ", "UTC")
+        .case("README.md");
 }
 
 /// Validate man page sources have required pandoc structure.

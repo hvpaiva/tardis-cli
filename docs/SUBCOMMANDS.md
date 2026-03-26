@@ -2,8 +2,9 @@
 
 Complete reference for all `td` subcommands.
 
-All examples use `--now` and `-t UTC` for deterministic, timezone-independent
-output.  In normal usage you can omit these flags.
+All examples run under a test harness that sets `TARDIS_NOW=2025-01-15T10:30:00Z`
+and `TZ=UTC` for deterministic output.  Some subcommand examples use explicit
+`--now` values when a specific reference time is required.
 
 ---
 
@@ -31,7 +32,7 @@ timestamps with `@` prefix.
 Human-readable difference:
 
 ```console
-$ td diff "2025-01-01" "2025-03-15" --now 2025-01-01T00:00:00Z -t UTC
+$ td diff "2025-01-01" "2025-03-15" --now 2025-01-01T00:00:00Z
 2mo 14d
 
 ```
@@ -39,7 +40,7 @@ $ td diff "2025-01-01" "2025-03-15" --now 2025-01-01T00:00:00Z -t UTC
 Difference in seconds:
 
 ```console
-$ td diff "2025-01-01" "2025-06-01" --output seconds --now 2025-01-01T00:00:00Z -t UTC
+$ td diff "2025-01-01" "2025-06-01" --output seconds --now 2025-01-01T00:00:00Z
 13046400
 
 ```
@@ -47,7 +48,7 @@ $ td diff "2025-01-01" "2025-06-01" --output seconds --now 2025-01-01T00:00:00Z 
 ISO 8601 duration:
 
 ```console
-$ td diff "2025-01-01" "2025-03-15" --output iso --now 2025-01-01T00:00:00Z -t UTC
+$ td diff "2025-01-01" "2025-03-15" --output iso --now 2025-01-01T00:00:00Z
 P2M14D
 
 ```
@@ -55,7 +56,7 @@ P2M14D
 JSON output:
 
 ```console
-$ td diff yesterday tomorrow --json --now 2025-06-24T12:00:00Z -t UTC
+$ td diff yesterday tomorrow --json --now 2025-06-24T12:00:00Z
 {"human":"2d","iso8601":"P2D","seconds":172800}
 
 ```
@@ -94,7 +95,7 @@ that strptime pattern.  When omitted, the input format is auto-detected.
 Convert to epoch:
 
 ```console
-$ td convert "2025-06-24" --to epoch --now 2025-06-24T00:00:00Z -t UTC
+$ td convert "2025-06-24" --to epoch --now 2025-06-24T00:00:00Z
 1750723200
 
 ```
@@ -102,7 +103,7 @@ $ td convert "2025-06-24" --to epoch --now 2025-06-24T00:00:00Z -t UTC
 Convert from ISO to custom format:
 
 ```console
-$ td convert "2025-06-24T09:00:00Z" --to "%d/%m/%Y %H:%M" -t UTC
+$ td convert "2025-06-24T09:00:00Z" --to "%d/%m/%Y %H:%M"
 24/06/2025 09:00
 
 ```
@@ -110,7 +111,7 @@ $ td convert "2025-06-24T09:00:00Z" --to "%d/%m/%Y %H:%M" -t UTC
 Convert a bare epoch timestamp:
 
 ```console
-$ td convert 1719244800 --to "%Y-%m-%d" -t UTC
+$ td convert 1719244800 --to "%Y-%m-%d"
 2024-06-24
 
 ```
@@ -166,7 +167,7 @@ Convert to Tokyo time:
 
 ```console
 $ td tz "tomorrow" --to Asia/Tokyo --now 2025-06-24T09:00:00Z
-2025-06-25T12:00:00+09:00
+2025-06-25T09:00:00+09:00
 
 ```
 
@@ -198,7 +199,7 @@ status.
 Info for current date:
 
 ```console
-$ td info --now 2025-06-24T09:00:00Z -t UTC
+$ td info --now 2025-06-24T09:00:00Z
   Date         Tuesday, June 24, 2025
   Time         09:00:00 UTC
   Week         W26, 2025
@@ -213,7 +214,7 @@ $ td info --now 2025-06-24T09:00:00Z -t UTC
 Info for a specific date:
 
 ```console
-$ td info "2025-12-25" --now 2025-06-24T09:00:00Z -t UTC
+$ td info "2025-12-25" --now 2025-06-24T09:00:00Z
   Date         Thursday, December 25, 2025
   Time         00:00:00 UTC
   Week         W52, 2025
@@ -228,7 +229,7 @@ $ td info "2025-12-25" --now 2025-06-24T09:00:00Z -t UTC
 JSON output with all metadata:
 
 ```console
-$ td info "2025-01-01" --json --now 2025-01-01T00:00:00Z -t UTC
+$ td info "2025-01-01" --json --now 2025-01-01T00:00:00Z
 {"date":"2025-01-01","day_of_year":1,"days_in_year":365,"iso_week":"W01","iso_week_year":2025,"julian_day":"2460676.50","leap_year":false,"quarter":1,"time":"00:00:00","timezone":"UTC","unix_epoch":1735689600,"weekday":"Wednesday"}
 
 ```
@@ -236,7 +237,7 @@ $ td info "2025-01-01" --json --now 2025-01-01T00:00:00Z -t UTC
 Info for a relative expression:
 
 ```console
-$ td info "3 days ago" --now 2025-06-24T09:00:00Z -t UTC
+$ td info "3 days ago" --now 2025-06-24T09:00:00Z
   Date         Saturday, June 21, 2025
   Time         09:00:00 UTC
   Week         W25, 2025
@@ -278,7 +279,7 @@ Sunday, while "tomorrow at 3pm" expands to the full hour 15:00-15:59.
 Expand "this week":
 
 ```console
-$ td range "this week" --now 2025-06-24T09:00:00Z -t UTC
+$ td range "this week" --now 2025-06-24T09:00:00Z
 2025-06-23T00:00:00
 2025-06-29T23:59:59
 
@@ -287,7 +288,7 @@ $ td range "this week" --now 2025-06-24T09:00:00Z -t UTC
 Expand "this month" with custom format:
 
 ```console
-$ td range "this month" -f "%Y-%m-%d" --now 2025-06-24T09:00:00Z -t UTC
+$ td range "this month" -f "%Y-%m-%d" --now 2025-06-24T09:00:00Z
 2025-06-01
 2025-06-30
 
@@ -296,7 +297,7 @@ $ td range "this month" -f "%Y-%m-%d" --now 2025-06-24T09:00:00Z -t UTC
 Custom delimiter:
 
 ```console
-$ td range "this week" -d " / " -f "%Y-%m-%d" --now 2025-06-24T09:00:00Z -t UTC
+$ td range "this week" -d " / " -f "%Y-%m-%d" --now 2025-06-24T09:00:00Z
 2025-06-23 / 2025-06-29
 
 ```
@@ -304,7 +305,7 @@ $ td range "this week" -d " / " -f "%Y-%m-%d" --now 2025-06-24T09:00:00Z -t UTC
 JSON output:
 
 ```console
-$ td range "this month" --json --now 2025-06-24T09:00:00Z -t UTC
+$ td range "this month" --json --now 2025-06-24T09:00:00Z
 {"delimiter":"/n","end":"2025-06-30T23:59:59","end_epoch":1751327999,"format":"%Y-%m-%dT%H:%M:%S","input":"this month","start":"2025-06-01T00:00:00","start_epoch":1748736000,"timezone":"UTC"}
 
 ```
@@ -312,7 +313,7 @@ $ td range "this month" --json --now 2025-06-24T09:00:00Z -t UTC
 Expand "today":
 
 ```console
-$ td range "today" --now 2025-06-24T09:00:00Z -t UTC
+$ td range "today" --now 2025-06-24T09:00:00Z
 2025-06-24T00:00:00
 2025-06-24T23:59:59
 
@@ -387,6 +388,7 @@ options.  Output is written to stdout; redirect to the appropriate file.
 Install Bash completions:
 
 ```bash
+mkdir -p ~/.local/share/bash-completion/completions
 td completions bash > ~/.local/share/bash-completion/completions/td
 ```
 
@@ -399,5 +401,6 @@ td completions zsh > "${fpath[1]}/_td"
 Install Fish completions:
 
 ```bash
+mkdir -p ~/.config/fish/completions
 td completions fish > ~/.config/fish/completions/td.fish
 ```

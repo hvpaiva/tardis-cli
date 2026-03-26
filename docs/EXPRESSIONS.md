@@ -2,8 +2,8 @@
 
 Complete reference of all date/time expressions supported by `td`.
 
-All examples use `--now "2025-01-15T10:30:00Z" -t UTC` for deterministic,
-reproducible output.
+All examples run under a test harness that sets `TARDIS_NOW=2025-01-15T10:30:00Z`
+and `TZ=UTC` for deterministic, reproducible output.
 
 ---
 
@@ -20,19 +20,19 @@ Simple keywords that resolve to a specific point in time.
 | `overmorrow` | Start of the day after tomorrow |
 
 ```console
-$ td now --now "2025-01-15T10:30:00Z" -t UTC
+$ td now
 2025-01-15T10:30:00
 
-$ td today --now "2025-01-15T10:30:00Z" -t UTC
+$ td today
 2025-01-15T00:00:00
 
-$ td tomorrow --now "2025-01-15T10:30:00Z" -t UTC
+$ td tomorrow
 2025-01-16T00:00:00
 
-$ td yesterday --now "2025-01-15T10:30:00Z" -t UTC
+$ td yesterday
 2025-01-14T00:00:00
 
-$ td overmorrow --now "2025-01-15T10:30:00Z" -t UTC
+$ td overmorrow
 2025-01-17T00:00:00
 
 ```
@@ -50,16 +50,16 @@ and three-letter abbreviations are both accepted (e.g., `monday` or `mon`).
 | `<weekday>`        | Bare weekday (same as `next`)        |
 
 ```console
-$ td "next monday" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "next monday"
 2025-01-20T00:00:00
 
-$ td "last friday" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "last friday"
 2025-01-10T00:00:00
 
-$ td "this wednesday" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "this wednesday"
 2025-01-15T00:00:00
 
-$ td friday --now "2025-01-15T10:30:00Z" -t UTC
+$ td friday
 2025-01-17T00:00:00
 
 ```
@@ -93,16 +93,16 @@ singular, plural, and abbreviated forms.
 | Second  | `second`, `seconds`, `sec`, `secs`            |
 
 ```console
-$ td "in 3 days" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "in 3 days"
 2025-01-18T10:30:00
 
-$ td "2 hours ago" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "2 hours ago"
 2025-01-15T08:30:00
 
-$ td "a week ago" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "a week ago"
 2025-01-08T10:30:00
 
-$ td "last month" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "last month"
 2024-12-01T00:00:00
 
 ```
@@ -113,19 +113,19 @@ Combine a base expression with `+` or `-` followed by a duration.
 Chains left-to-right: `base + A - B` applies A first, then subtracts B.
 
 ```console
-$ td "tomorrow + 3 hours" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "tomorrow + 3 hours"
 2025-01-16T03:00:00
 
-$ td "next friday - 1 day" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "next friday - 1 day"
 2025-01-16T00:00:00
 
-$ td "eod + 1h" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "eod + 1h"
 2025-01-16T00:59:59
 
-$ td "next friday at 15:00 + 2 hours" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "next friday at 15:00 + 2 hours"
 2025-01-17T17:00:00
 
-$ td "now + 1h30" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "now + 1h30"
 2025-01-15T12:00:00
 
 ```
@@ -137,7 +137,7 @@ Start an expression with `+` or `-` to apply a duration to the implicit
 from interpreting `-` as a flag.
 
 ```console
-$ td --now "2025-01-15T10:30:00Z" -t UTC -- "-1d"
+$ td -- "-1d"
 2025-01-14T10:30:00
 
 ```
@@ -153,10 +153,10 @@ assumed. ISO 8601 format (`YYYY-MM-DD`) and natural-language forms are
 both accepted.
 
 ```console
-$ td "2025-01-15" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "2025-01-15"
 2025-01-15T00:00:00
 
-$ td "15 March 2025" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "15 March 2025"
 2025-03-15T00:00:00
 
 ```
@@ -167,13 +167,13 @@ Append a time suffix to any date expression. The `at` keyword is
 optional. Hours can use `Nh` notation or `HH:MM[:SS]` format.
 
 ```console
-$ td "tomorrow at 15:00" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "tomorrow at 15:00"
 2025-01-16T15:00:00
 
-$ td "today 18h" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "today 18h"
 2025-01-15T18:00:00
 
-$ td "next monday 9:30" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "next monday 9:30"
 2025-01-20T09:30:00
 
 ```
@@ -188,22 +188,22 @@ and can follow any date keyword or `at`:
 - `3:30pm` — 12-hour clock with AM/PM
 
 ```console
-$ td "tomorrow 15:30" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "tomorrow 15:30"
 2025-01-16T15:30:00
 
-$ td "tomorrow 15h30" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "tomorrow 15h30"
 2025-01-16T15:30:00
 
-$ td "tomorrow 3:30pm" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "tomorrow 3:30pm"
 2025-01-16T15:30:00
 
-$ td "today at 9:00" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "today at 9:00"
 2025-01-15T09:00:00
 
-$ td "today 9h" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "today 9h"
 2025-01-15T09:00:00
 
-$ td "today 9am" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "today 9am"
 2025-01-15T09:00:00
 
 ```
@@ -215,19 +215,19 @@ hours with minutes (`3:30pm`), and full `HH:MM:SS` (`3:30:45pm`). A space
 before `am`/`pm` is optional. Requires a date context.
 
 ```console
-$ td "tomorrow at 3pm" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "tomorrow at 3pm"
 2025-01-16T15:00:00
 
-$ td "tomorrow at 3:30pm" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "tomorrow at 3:30pm"
 2025-01-16T15:30:00
 
-$ td "tomorrow 12am" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "tomorrow 12am"
 2025-01-16T00:00:00
 
-$ td "tomorrow 12pm" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "tomorrow 12pm"
 2025-01-16T12:00:00
 
-$ td "next friday at 3pm" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "next friday at 3pm"
 2025-01-17T15:00:00
 
 ```
@@ -239,10 +239,10 @@ of day from the `--now` reference (or the system clock when `--now` is not
 set).
 
 ```console
-$ td "tomorrow at same time" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "tomorrow at same time"
 2025-01-16T10:30:00
 
-$ td "next friday at same time" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "next friday at same time"
 2025-01-17T10:30:00
 
 ```
@@ -261,19 +261,19 @@ magnitude of the number, or can be specified explicitly with a suffix.
 | `ns`   | Nanoseconds  | `@1735689600000000000ns`   |
 
 ```console
-$ td "@1735689600" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "@1735689600"
 2025-01-01T00:00:00
 
-$ td "@1735689600s" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "@1735689600s"
 2025-01-01T00:00:00
 
-$ td "@1735689600000ms" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "@1735689600000ms"
 2025-01-01T00:00:00
 
-$ td "@1735689600000000us" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "@1735689600000000us"
 2025-01-01T00:00:00
 
-$ td "@1735689600000000000ns" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "@1735689600000000000ns"
 2025-01-01T00:00:00
 
 ```
@@ -298,13 +298,13 @@ Period expressions describe a span of time. When used with the default
 | `next year`   | Start of next year      | Jan 1 00:00 / Dec 31 23:59:59      |
 
 ```console
-$ td "this week" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "this week"
 2025-01-13T00:00:00
 
-$ td "this month" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "this month"
 2025-01-01T00:00:00
 
-$ td "this year" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "this year"
 2025-01-01T00:00:00
 
 ```
@@ -312,11 +312,11 @@ $ td "this year" --now "2025-01-15T10:30:00Z" -t UTC
 With `td range`:
 
 ```console
-$ td range "this week" --now "2025-01-15T10:30:00Z" -t UTC
+$ td range "this week"
 2025-01-13T00:00:00
 2025-01-19T23:59:59
 
-$ td range "next year" --now "2025-01-15T10:30:00Z" -t UTC
+$ td range "next year"
 2026-01-01T00:00:00
 2026-12-31T23:59:59
 
@@ -380,28 +380,28 @@ date expressions.
 | `eony`  | End of next year                |
 
 ```console
-$ td eod --now "2025-01-15T10:30:00Z" -t UTC
+$ td eod
 2025-01-15T23:59:59
 
-$ td sod --now "2025-01-15T10:30:00Z" -t UTC
+$ td sod
 2025-01-15T00:00:00
 
-$ td sow --now "2025-01-15T10:30:00Z" -t UTC
+$ td sow
 2025-01-13T00:00:00
 
-$ td eom --now "2025-01-15T10:30:00Z" -t UTC
+$ td eom
 2025-01-31T23:59:59
 
-$ td soy --now "2025-01-15T10:30:00Z" -t UTC
+$ td soy
 2025-01-01T00:00:00
 
-$ td eoy --now "2025-01-15T10:30:00Z" -t UTC
+$ td eoy
 2025-12-31T23:59:59
 
-$ td sopw --now "2025-01-15T10:30:00Z" -t UTC
+$ td sopw
 2025-01-06T00:00:00
 
-$ td eonm --now "2025-01-15T10:30:00Z" -t UTC
+$ td eonm
 2025-02-28T23:59:59
 
 ```
@@ -412,10 +412,10 @@ Combine multiple units in a single offset. The keyword `and` is optional
 between components; commas are also accepted as separators.
 
 ```console
-$ td "in 1h30min" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "in 1h30min"
 2025-01-15T12:00:00
 
-$ td "in 2d3h" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "in 2d3h"
 2025-01-17T13:30:00
 
 ```
@@ -429,10 +429,10 @@ Use `after` or `before` to apply a duration relative to a named
 expression.
 
 ```console
-$ td "3 hours after tomorrow" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "3 hours after tomorrow"
 2025-01-16T03:00:00
 
-$ td "2 days before friday" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "2 days before friday"
 2025-01-15T00:00:00
 
 ```
@@ -446,16 +446,16 @@ can be appended to any primary expression, including boundary keywords,
 absolute dates, weekday references, and epoch timestamps.
 
 ```console
-$ td "eod + 1h" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "eod + 1h"
 2025-01-16T00:59:59
 
-$ td "next friday at 15:00 + 2 hours" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "next friday at 15:00 + 2 hours"
 2025-01-17T17:00:00
 
-$ td "tomorrow + 3 hours" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "tomorrow + 3 hours"
 2025-01-16T03:00:00
 
-$ td "@1735689600 + 1d" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "@1735689600 + 1d"
 2025-01-02T00:00:00
 
 ```

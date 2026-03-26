@@ -136,6 +136,10 @@ Operator-prefixed offset:
 **TARDIS_TIMEZONE**
 :   Default IANA timezone.  Overridden by **-t**.
 
+**TARDIS_NOW**
+:   Override the current time (RFC 3339 format).  Overridden by **-\-now**.
+    Useful for deterministic output in scripts and tests.
+
 **XDG_CONFIG_HOME**
 :   Override the configuration directory base path.
 

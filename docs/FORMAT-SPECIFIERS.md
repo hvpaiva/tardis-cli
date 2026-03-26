@@ -5,8 +5,9 @@ by `td`.
 
 Used with `td -f "<pattern>"` or `td convert --to "<pattern>"`.
 
-All examples use `--now "2025-03-15T14:30:45Z" -t UTC` for deterministic
-output.
+All examples run under a test harness that sets `TARDIS_NOW=2025-01-15T10:30:00Z`
+and `TZ=UTC` for deterministic output.  Examples that need a different reference
+time use explicit `--now` flags.
 
 ---
 
@@ -83,10 +84,10 @@ Place a modifier between `%` and the specifier letter to control padding.
 | `%_`     | Space padding        | `%_d` on day 5   | ` 5`    |
 
 ```console
-$ td now --now "2025-03-05T14:30:45Z" -t UTC -f "%-d"
+$ td now --now "2025-03-05T14:30:45Z" -f "%-d"
 5
 
-$ td now --now "2025-03-05T14:30:45Z" -t UTC -f "%_d"
+$ td now --now "2025-03-05T14:30:45Z" -f "%_d"
  5
 
 ```
@@ -113,16 +114,16 @@ The `epoch` and `unix` names also work with `td -f`.
 | `rfc2822`          | `%a, %d %b %Y %H:%M:%S %z`      | `Sat, 15 Mar 2025 14:30:45 +0000`  |
 
 ```console
-$ td now --now "2025-03-15T14:30:45Z" -t UTC -f epoch
+$ td now --now "2025-03-15T14:30:45Z" -f epoch
 1742049045
 
-$ td convert "2025-03-15T14:30:45Z" --to iso8601 -t UTC
+$ td convert "2025-03-15T14:30:45Z" --to iso8601
 2025-03-15T14:30:45+00:00
 
-$ td convert "2025-03-15T14:30:45Z" --to rfc2822 -t UTC
+$ td convert "2025-03-15T14:30:45Z" --to rfc2822
 Sat, 15 Mar 2025 14:30:45 +0000
 
-$ td convert "2025-03-15T14:30:45Z" --to rfc3339 -t UTC
+$ td convert "2025-03-15T14:30:45Z" --to rfc3339
 2025-03-15T14:30:45+00:00
 
 ```
@@ -135,16 +136,16 @@ patterns or config preset names.
 ## Custom Examples
 
 ```console
-$ td now --now "2025-03-15T14:30:45Z" -t UTC -f "%Y-%m-%d"
+$ td now --now "2025-03-15T14:30:45Z" -f "%Y-%m-%d"
 2025-03-15
 
-$ td now --now "2025-03-15T14:30:45Z" -t UTC -f "%A, %B %d"
+$ td now --now "2025-03-15T14:30:45Z" -f "%A, %B %d"
 Saturday, March 15
 
-$ td now --now "2025-03-15T14:30:45Z" -t UTC -f "%H:%M"
+$ td now --now "2025-03-15T14:30:45Z" -f "%H:%M"
 14:30
 
-$ td now --now "2025-03-15T14:30:45Z" -t UTC -f "%d/%m/%Y"
+$ td now --now "2025-03-15T14:30:45Z" -f "%d/%m/%Y"
 15/03/2025
 
 ```

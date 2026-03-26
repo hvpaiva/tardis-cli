@@ -74,6 +74,7 @@ available strftime patterns and built-in format names.
 |--------------------|--------------------|------------------------------------------|
 | `TARDIS_FORMAT`    | `format` in config | Default output format (strftime or preset)|
 | `TARDIS_TIMEZONE`  | `timezone` in config | Default IANA timezone                  |
+| `TARDIS_NOW`       | `--now` flag       | Override "now" reference time (RFC 3339). Useful for deterministic output in scripts and tests. |
 | `XDG_CONFIG_HOME`  | Config directory   | Override config directory base path       |
 | `EDITOR`           | (none)             | Used by `td config edit` to open editor   |
 | `NO_COLOR`         | (none)             | Disables all ANSI color output            |

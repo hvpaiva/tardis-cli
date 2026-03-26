@@ -15,10 +15,10 @@
 > expressions into precise datetimes right from your terminal.
 
 ```console
-$ td "next friday at 3pm" --now 2025-01-15T10:30:00Z -t UTC
+$ td "next friday at 3pm"
 2025-01-17T15:00:00
 
-$ td "2 days ago" -f "%Y-%m-%d" --now 2025-01-15T10:30:00Z -t UTC
+$ td "2 days ago" -f "%Y-%m-%d"
 2025-01-13
 
 ```
@@ -47,22 +47,22 @@ td completions fish > ~/.config/fish/completions/td.fish
 ## Quick Start
 
 ```console
-$ td "tomorrow 15:00" --now 2025-01-15T10:30:00Z -t UTC
+$ td "tomorrow 15:00"
 2025-01-16T15:00:00
 
-$ td "in 2 hours" -f "%H:%M" --now 2025-01-15T10:30:00Z -t UTC
+$ td "in 2 hours" -f "%H:%M"
 12:30
 
-$ td @1735689600 -f "%Y-%m-%d" -t UTC
+$ td @1735689600 -f "%Y-%m-%d"
 2025-01-01
 
-$ td "now + 3h" --now 2025-01-15T10:30:00Z -t UTC
+$ td "now + 3h"
 2025-01-15T13:30:00
 
-$ td eod --now 2025-01-15T10:30:00Z -t UTC
+$ td eod
 2025-01-15T23:59:59
 
-$ td "today" --json --now 2025-01-15T00:00:00Z -t UTC
+$ td "today" --json --now "2025-01-15T00:00:00Z"
 {"epoch":1736899200,"format":"%Y-%m-%dT%H:%M:%S","input":"today","output":"2025-01-15T00:00:00","timezone":"UTC"}
 
 ```
