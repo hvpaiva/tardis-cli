@@ -4,6 +4,7 @@
 //! optional typo-correction suggestions (D-08).
 
 use std::fmt;
+use std::io::IsTerminal;
 
 use crate::parser::token::ByteSpan;
 
@@ -143,7 +144,16 @@ impl ParseError {
         };
 
         if let Some(suggestion) = &self.suggestion {
-            msg.push_str(&format!(". Did you mean '{suggestion}'?"));
+            // D-05: Multi-line format with blank separator.
+            // Yellow coloring applied only to the suggested word.
+            let use_color =
+                std::io::stderr().is_terminal() && std::env::var("NO_COLOR").is_err();
+            let colored_word = if use_color {
+                format!("\x1b[33m{suggestion}\x1b[0m")
+            } else {
+                suggestion.clone()
+            };
+            msg.push_str(&format!("\n\nDid you mean '{colored_word}'?"));
         }
 
         msg
@@ -221,6 +231,44 @@ mod tests {
     fn error_with_suggestion() {
         let err = ParseError::unrecognized("thursdya").with_suggestion("thursday".to_string());
         assert!(err.format_message().contains("Did you mean 'thursday'?"));
+    }
+
+    #[test]
+    fn suggestion_is_multiline_with_blank_separator() {
+        let err = ParseError::unrecognized("tomorow").with_suggestion("tomorrow".to_string());
+        let msg = err.format_message();
+        let lines: Vec<&str> = msg.lines().collect();
+        // Line 1: error message
+        assert!(lines[0].contains("could not parse 'tomorow'"));
+        // "\n\n" creates an empty line between error and suggestion
+        assert_eq!(
+            lines.len(),
+            3,
+            "Expected 3 lines: error, blank, suggestion. Got: {msg:?}"
+        );
+        assert!(lines[2].contains("Did you mean"));
+    }
+
+    #[test]
+    fn suggestion_no_ansi_when_not_terminal() {
+        // In test environment, stderr is not a terminal, so no ANSI codes expected
+        let err = ParseError::unrecognized("tomorow").with_suggestion("tomorrow".to_string());
+        let msg = err.format_message();
+        assert!(
+            !msg.contains("\x1b["),
+            "Expected no ANSI codes in non-terminal context, got: {msg:?}"
+        );
+    }
+
+    #[test]
+    fn error_without_suggestion_has_no_trailing_blank_lines() {
+        let err = ParseError::unrecognized("xyz");
+        let msg = err.format_message();
+        assert!(!msg.ends_with('\n'), "Message should not end with newline");
+        assert!(
+            !msg.contains("\n\n"),
+            "Message should not contain double newlines"
+        );
     }
 
     #[test]

@@ -435,12 +435,20 @@ fn golden_epoch_billion() {
 
 #[test]
 fn golden_error_question_marks() {
-    assert_snapshot!(td_golden("???"), @"ERROR: Invalid date format: could not parse '???' as a date expression. Did you mean 'a'?");
+    assert_snapshot!(td_golden("???"), @r"
+    ERROR: Invalid date format: could not parse '???' as a date expression
+
+    Did you mean 'a'?
+    ");
 }
 
 #[test]
 fn golden_error_not_a_date() {
-    assert_snapshot!(td_golden("not a date"), @"ERROR: Invalid date format: could not parse 'not a date' as a date expression. Did you mean 'nov'?");
+    assert_snapshot!(td_golden("not a date"), @r"
+    ERROR: Invalid date format: could not parse 'not a date' as a date expression
+
+    Did you mean 'nov'?
+    ");
 }
 
 #[test]
@@ -463,12 +471,20 @@ fn golden_error_gibberish_long() {
 
 #[test]
 fn golden_error_special_chars() {
-    assert_snapshot!(td_golden("!@#$%^&*()"), @"ERROR: Invalid date format: could not parse '!@#$%^&*()' as a date expression. Did you mean 'a'?");
+    assert_snapshot!(td_golden("!@#$%^&*()"), @r"
+    ERROR: Invalid date format: could not parse '!@#$%^&*()' as a date expression
+
+    Did you mean 'a'?
+    ");
 }
 
 #[test]
 fn golden_error_sql_injection_attempt() {
-    assert_snapshot!(td_golden("'; DROP TABLE dates; --"), @"ERROR: Invalid date format: could not parse ''; DROP TABLE dates; --' as a date expression. Did you mean 'a'?");
+    assert_snapshot!(td_golden("'; DROP TABLE dates; --"), @r"
+    ERROR: Invalid date format: could not parse ''; DROP TABLE dates; --' as a date expression
+
+    Did you mean 'a'?
+    ");
 }
 
 // ============================================================
