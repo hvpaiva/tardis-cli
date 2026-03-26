@@ -84,6 +84,17 @@ Override "now". Format <bold>RFC 3339</bold>, e.g. <italic>2025‑06‑24T09:00:
 "#
 );
 
+const SKIP_ERRORS_HELP: &str = cstr!(
+    r#"
+<bold>Skip unparseable lines in batch mode</bold> instead of aborting.
+
+Errors are printed to stderr. Stdout emits an empty line for each
+failed input to <bold>preserve line alignment</bold> with the original input.
+
+Exit code is <bold>1</bold> if any line failed, <bold>0</bold> if all succeeded.
+"#
+);
+
 pub const ABOUT_HELP: &str = cstr!(
     r#"
 <magenta>TARDIS — Time And Relative Date Input Simplifier</magenta>
@@ -135,10 +146,8 @@ pub struct Cli {
     #[arg(short = 'v', long)]
     pub verbose: bool,
 
-    /// In batch mode, skip lines that fail to parse instead of aborting.
-    /// Errors are printed to stderr; stdout gets an empty line to preserve alignment.
-    /// Exit code is 1 if any line failed.
-    #[arg(long)]
+    /// Skip unparseable lines in batch mode.
+    #[arg(long, long_help = SKIP_ERRORS_HELP)]
     pub skip_errors: bool,
 
     #[command(subcommand)]
