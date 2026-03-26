@@ -2870,6 +2870,138 @@ fn test_range_subcommand_no_newline() {
     // Just verify it doesn't crash with -n flag
 }
 
+// ── Range delimiter flag ────────────
+
+#[test]
+fn test_range_subcommand_custom_delimiter_dotdot() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "range",
+            "tomorrow",
+            "-d",
+            "..",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d",
+        ])
+        .output()
+        .expect("process");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("2025-03-27..2025-03-27"),
+        "Expected dotdot delimiter, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_range_subcommand_custom_delimiter_space() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "range",
+            "this week",
+            "--delimiter",
+            " to ",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d",
+        ])
+        .output()
+        .expect("process");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("2025-03-24 to 2025-03-30"),
+        "Expected ' to ' delimiter, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_range_subcommand_delimiter_default_is_newline() {
+    // Without -d flag, the output should be newline-separated (backward compat)
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "range",
+            "tomorrow",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d",
+        ])
+        .output()
+        .expect("process");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("2025-03-27\n2025-03-27"),
+        "Expected newline delimiter by default, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_range_subcommand_delimiter_in_json() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "range",
+            "tomorrow",
+            "-d",
+            "..",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"delimiter\":\"..\""));
+}
+
+#[test]
+fn test_range_subcommand_delimiter_with_no_newline() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "range",
+            "tomorrow",
+            "-d",
+            "..",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d",
+            "-n",
+        ])
+        .output()
+        .expect("process");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "Expected success");
+    assert!(
+        !stdout.ends_with('\n'),
+        "Expected no trailing newline with -n flag"
+    );
+    assert!(
+        stdout.contains(".."),
+        "Expected dotdot delimiter, got: {stdout}"
+    );
+}
+
 // ── Default command single-instant behavior (D-01) ────────────
 
 #[test]
