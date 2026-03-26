@@ -146,8 +146,7 @@ impl ParseError {
         if let Some(suggestion) = &self.suggestion {
             // D-05: Multi-line format with blank separator.
             // Yellow coloring applied only to the suggested word.
-            let use_color =
-                std::io::stderr().is_terminal() && std::env::var("NO_COLOR").is_err();
+            let use_color = std::io::stderr().is_terminal() && std::env::var("NO_COLOR").is_err();
             let colored_word = if use_color {
                 format!("\x1b[33m{suggestion}\x1b[0m")
             } else {

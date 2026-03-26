@@ -244,11 +244,7 @@ fn handle_range(args: RangeArgs) -> Result<()> {
 
     if args.verbose {
         verbose!("parse", "input={:?}", args.input);
-        verbose!(
-            "parse",
-            "timezone={}",
-            tz.iana_name().unwrap_or("system")
-        );
+        verbose!("parse", "timezone={}", tz.iana_name().unwrap_or("system"));
     }
 
     let (start, end) = parser::parse_range_with_granularity(&args.input, &now)
@@ -292,11 +288,7 @@ fn handle_diff(args: DiffArgs) -> Result<()> {
 
     if args.verbose {
         verbose!("parse", "date1={:?} date2={:?}", args.date1, args.date2);
-        verbose!(
-            "parse",
-            "timezone={}",
-            tz.iana_name().unwrap_or("system")
-        );
+        verbose!("parse", "timezone={}", tz.iana_name().unwrap_or("system"));
     }
 
     let z1 = parser::parse(&args.date1, &now)
@@ -357,11 +349,7 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
             args.from,
             args.to
         );
-        verbose!(
-            "parse",
-            "timezone={}",
-            tz.iana_name().unwrap_or("system")
-        );
+        verbose!("parse", "timezone={}", tz.iana_name().unwrap_or("system"));
     }
 
     // Parse input: if --from is specified, use strptime; otherwise auto-detect via parser
@@ -491,11 +479,7 @@ fn handle_info(args: InfoArgs) -> Result<()> {
 
     if args.verbose {
         verbose!("parse", "input={:?}", args.input);
-        verbose!(
-            "parse",
-            "timezone={}",
-            tz.iana_name().unwrap_or("system")
-        );
+        verbose!("parse", "timezone={}", tz.iana_name().unwrap_or("system"));
     }
 
     let zoned = parser::parse(&args.input, &now)

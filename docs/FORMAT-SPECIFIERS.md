@@ -166,8 +166,7 @@ time  = "%H:%M:%S"
 
 Then use them by name:
 
-```console
-$ td now --now "2025-03-15T14:30:45Z" -t UTC -f br
+```sh
+$ td now -f br
 15/03/2025
-
 ```
