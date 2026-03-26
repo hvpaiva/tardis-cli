@@ -1985,3 +1985,1064 @@ fn test_abbreviated_units_with_spaces() {
         .success()
         .stdout(predicate::str::contains("2025-06-30"));
 }
+
+// ============================================================
+// Phase 8: Expression gaps, TW boundaries, range subcommand
+// ============================================================
+//
+// All tests use --now 2025-03-26T12:00:00Z (a Wednesday) and -t UTC
+// for determinism. Each gap pattern from the CONTEXT.md inventory
+// (#1-#11) has at least one integration test.
+
+// ── Gap #1 and #2: NhMM compound duration inference ───────────
+
+#[test]
+fn test_nhmm_compound_now_plus_13h30() {
+    // Gap #1: "now+13h30" = now + 13 hours 30 minutes
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "now+13h30",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-27 01:30"));
+}
+
+#[test]
+fn test_nhmm_with_spaces() {
+    // Gap #2: "now + 13h 30" = same
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "now + 13h 30",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-27 01:30"));
+}
+
+#[test]
+fn test_tomorrow_plus_1h30() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "tomorrow+1h30",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-27 01:30"));
+}
+
+// ── Gap #3: N:MM as duration in arithmetic ────────────────────
+
+#[test]
+fn test_colon_duration_now_plus_13_30() {
+    // Gap #3: "now+13:30" = now + 13 hours 30 minutes
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "now+13:30",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-27 01:30"));
+}
+
+#[test]
+fn test_colon_duration_with_spaces() {
+    // "now + 13:30" = same
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "now + 13:30",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-27 01:30"));
+}
+
+// ── Gap #4 and #5: Operator-prefixed offsets ──────────────────
+
+#[test]
+fn test_operator_prefix_plus_1h() {
+    // Gap #4: "+1h" = now + 1 hour
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "+1h",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("13:00"));
+}
+
+#[test]
+fn test_operator_prefix_plus_3_hours() {
+    // Gap #4: "+3 hours" = now + 3 hours
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "+3 hours",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("15:00"));
+}
+
+#[test]
+fn test_operator_prefix_minus_1d() {
+    // Gap #4: "-1d" = now - 1 day (requires -- to avoid clap flag parsing)
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d",
+            "--",
+            "-1d",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-25"));
+}
+
+#[test]
+fn test_operator_prefix_compound_plus_1d3h() {
+    // Gap #4: "+1d3h" = now + 1 day 3 hours
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "+1d3h",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-27 15:00"));
+}
+
+#[test]
+fn test_operator_prefix_compound_plus_1h30min() {
+    // Gap #4: "+1h30min" = now + 1 hour 30 minutes
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "+1h30min",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("13:30"));
+}
+
+#[test]
+fn test_operator_prefix_with_space() {
+    // Gap #5: "+ 3h" = now + 3 hours (space after +)
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "+ 3h",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("15:00"));
+}
+
+#[test]
+fn test_operator_prefix_in_3h_equivalent() {
+    // "+3h" and "in 3h" should produce the same result
+    let tmp = TempDir::new().unwrap();
+
+    let out_plus = td_cmd(&tmp)
+        .args(["+3h", "--now", "2025-03-26T12:00:00Z", "-t", "UTC"])
+        .output()
+        .expect("process");
+    let out_in = td_cmd(&tmp)
+        .args(["in 3h", "--now", "2025-03-26T12:00:00Z", "-t", "UTC"])
+        .output()
+        .expect("process");
+    assert_eq!(out_plus.stdout, out_in.stdout);
+}
+
+// ── Gap #6, #7, #8: Nh as time suffix with day context ───────
+
+#[test]
+fn test_today_18h_time_suffix() {
+    // Gap #6: "today 18h" = "today 18:00"
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "today 18h",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("18:00"));
+}
+
+#[test]
+fn test_tomorrow_15h_time_suffix() {
+    // Gap #6: "tomorrow 15h" = "tomorrow 15:00"
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "tomorrow 15h",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-27 15:00"));
+}
+
+#[test]
+fn test_today_18_hours_time_suffix() {
+    // Gap #7: "today 18 hours" = "today 18:00"
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "today 18 hours",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("18:00"));
+}
+
+#[test]
+fn test_today_at_18h_time_suffix() {
+    // Gap #8: "today at 18h" = "today at 18:00"
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "today at 18h",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("18:00"));
+}
+
+#[test]
+fn test_nh_suffix_equals_colon_time() {
+    // "today 18h" and "today 18:00" must produce identical output
+    let tmp = TempDir::new().unwrap();
+
+    let out_h = td_cmd(&tmp)
+        .args(["today 18h", "--now", "2025-03-26T12:00:00Z", "-t", "UTC"])
+        .output()
+        .expect("process");
+    let out_colon = td_cmd(&tmp)
+        .args(["today 18:00", "--now", "2025-03-26T12:00:00Z", "-t", "UTC"])
+        .output()
+        .expect("process");
+    assert_eq!(out_h.stdout, out_colon.stdout);
+}
+
+// ── Gap #9: Time suffix + arithmetic ──────────────────────────
+
+#[test]
+fn test_today_18h_plus_2h() {
+    // Gap #9: "today 18h + 2h" = today 20:00
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "today 18h + 2h",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("20:00"));
+}
+
+#[test]
+fn test_tomorrow_8h_minus_30min() {
+    // Gap #9: "tomorrow 8h - 30min" = tomorrow 07:30
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "tomorrow 8h - 30min",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-27 07:30"));
+}
+
+// ── Gap #10: TW boundary keywords ────────────────────────────
+
+#[test]
+fn test_tw_eod() {
+    // Gap #10: "eod" = today 23:59:59
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "eod",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-26 23:59:59"));
+}
+
+#[test]
+fn test_tw_sod() {
+    // "sod" = today 00:00:00
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "sod",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-26 00:00:00"));
+}
+
+#[test]
+fn test_tw_sow() {
+    // "sow" = Monday 00:00:00 (2025-03-26 is Wednesday -> Monday is 2025-03-24)
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "sow",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-24 00:00:00"));
+}
+
+#[test]
+fn test_tw_eow() {
+    // "eow" = Sunday 23:59:59 (2025-03-30)
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "eow",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-30 23:59:59"));
+}
+
+#[test]
+fn test_tw_som() {
+    // "som" = 2025-03-01 00:00:00
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "som",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-01"));
+}
+
+#[test]
+fn test_tw_eom() {
+    // "eom" = 2025-03-31 23:59:59
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "eom",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-31 23:59:59"));
+}
+
+#[test]
+fn test_tw_soy() {
+    // "soy" = 2025-01-01 00:00:00
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "soy",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-01-01"));
+}
+
+#[test]
+fn test_tw_eoy() {
+    // "eoy" = 2025-12-31 23:59:59
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "eoy",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-12-31 23:59:59"));
+}
+
+#[test]
+fn test_tw_soww_eoww() {
+    // "soww" = Monday, "eoww" = Friday 23:59:59
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "soww",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-24"));
+
+    td_cmd(&tmp)
+        .args([
+            "eoww",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-28 23:59:59"));
+}
+
+#[test]
+fn test_tw_soq_eoq() {
+    // "soq" = Q1 start = 2025-01-01, "eoq" = Q1 end = 2025-03-31
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "soq",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-01-01"));
+
+    td_cmd(&tmp)
+        .args([
+            "eoq",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-31 23:59:59"));
+}
+
+#[test]
+fn test_tw_sopd_eopd() {
+    // Previous day boundaries (yesterday)
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "sopd",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-25 00:00:00"));
+
+    td_cmd(&tmp)
+        .args([
+            "eopd",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-25 23:59:59"));
+}
+
+#[test]
+fn test_tw_sond_eond() {
+    // Next day boundaries (tomorrow)
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "sond",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-27 00:00:00"));
+
+    td_cmd(&tmp)
+        .args([
+            "eond",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-27 23:59:59"));
+}
+
+// ── Gap #11: TW keywords + arithmetic ─────────────────────────
+
+#[test]
+fn test_tw_eod_plus_1h() {
+    // Gap #11: "eod + 1h" = today 23:59:59 + 1 hour
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "eod + 1h",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-27 00:59"));
+}
+
+#[test]
+fn test_tw_sow_minus_1d() {
+    // Gap #11: "sow - 1d" = Monday - 1 day = previous Sunday
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "sow - 1d",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-23")); // Sunday
+}
+
+#[test]
+fn test_tw_eom_plus_3d() {
+    // "eom + 3 days" = March 31 23:59:59 + 3 days
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "eom + 3 days",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-04-03"));
+}
+
+// ── Range subcommand tests ────────────────────────────────────
+
+#[test]
+fn test_range_subcommand_this_week_phase8() {
+    // "td range 'this week'" = two lines: Monday..Sunday
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "range",
+            "this week",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d",
+        ])
+        .output()
+        .expect("process");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("2025-03-24\n2025-03-30"),
+        "Expected Monday..Sunday, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_range_subcommand_tomorrow_phase8() {
+    // Day granularity: 00:00:00..23:59:59
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "range",
+            "tomorrow",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .output()
+        .expect("process");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("2025-03-27 00:00:00\n2025-03-27 23:59:59"),
+        "Expected day granularity, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_range_subcommand_tomorrow_at_18_30() {
+    // Minute granularity: 18:30:00..18:30:59
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "range",
+            "tomorrow at 18:30",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .output()
+        .expect("process");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.starts_with("2025-03-27 18:30:00\n2025-03-27 18:30:59"),
+        "Expected minute granularity, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_range_subcommand_now_instant() {
+    // D-06: "range now" = instant duplicated
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args(["range", "now", "--now", "2025-03-26T12:00:00Z", "-t", "UTC"])
+        .output()
+        .expect("process");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert_eq!(lines.len(), 2, "range now should produce 2 lines");
+    assert_eq!(lines[0], lines[1], "range now should duplicate the instant");
+}
+
+#[test]
+fn test_range_subcommand_json() {
+    // Range JSON output has start, end, start_epoch, end_epoch
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "range",
+            "tomorrow",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "--json",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"start\""))
+        .stdout(predicate::str::contains("\"end\""))
+        .stdout(predicate::str::contains("\"start_epoch\""))
+        .stdout(predicate::str::contains("\"end_epoch\""));
+}
+
+#[test]
+fn test_range_subcommand_no_newline() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "range",
+            "tomorrow",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-n",
+        ])
+        .assert()
+        .success();
+    // Just verify it doesn't crash with -n flag
+}
+
+// ── Default command single-instant behavior (D-01) ────────────
+
+#[test]
+fn test_default_this_week_single_instant() {
+    // D-01: "this week" in default command = Monday 00:00:00 (single line)
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "this week",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .output()
+        .expect("process");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert_eq!(
+        lines.len(),
+        1,
+        "default command should return single line for 'this week'"
+    );
+    assert!(
+        lines[0].starts_with("2025-03-24 00:00:00"),
+        "should be Monday midnight"
+    );
+}
+
+#[test]
+fn test_default_next_month_single_instant() {
+    // D-02: "next month" in default = April 1 00:00:00
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "next month",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d %H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-04-01 00:00:00"));
+}
+
+#[test]
+fn test_default_next_year_single_instant() {
+    // D-02: "next year" in default = Jan 1 2026 00:00:00
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "next year",
+            "--now",
+            "2025-03-26T12:00:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%d",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2026-01-01"));
+}
+
+// ── Regression guards (must still error) ──────────────────────
+
+#[test]
+fn test_bare_duration_3h_still_errors() {
+    // D-08: "3h" without operator = error
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["3h", "--now", "2025-03-26T12:00:00Z", "-t", "UTC"])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_bare_duration_2_hours_still_errors() {
+    // D-08: "2 hours" without operator = error
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["2 hours", "--now", "2025-03-26T12:00:00Z", "-t", "UTC"])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_bare_duration_1_day_still_errors() {
+    // D-08: "1 day" without operator = error
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["1 day", "--now", "2025-03-26T12:00:00Z", "-t", "UTC"])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_operator_without_unit_plus_1_errors() {
+    // D-09: "+1" without unit = error
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["+1", "--now", "2025-03-26T12:00:00Z", "-t", "UTC"])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_operator_without_unit_minus_1_errors() {
+    // D-09: "-1" without unit = error (requires -- to avoid clap flag parsing)
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["--now", "2025-03-26T12:00:00Z", "-t", "UTC", "--", "-1"])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_bare_18h_no_day_context_errors() {
+    // D-10: "18h" without day context = error
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["18h", "--now", "2025-03-26T12:00:00Z", "-t", "UTC"])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_bare_30min_still_errors() {
+    // D-08: "30min" without operator = error
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["30min", "--now", "2025-03-26T12:00:00Z", "-t", "UTC"])
+        .assert()
+        .failure();
+}
+
+// ── Epoch regression guards (lexer sign fix) ──────────────────
+
+#[test]
+fn test_epoch_positive_still_works() {
+    // Regression: "@+1735689600" must still work after lexer fix
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["@+1735689600", "-t", "UTC", "-f", "%Y-%m-%d"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-01-01"));
+}
+
+#[test]
+fn test_epoch_negative_still_works() {
+    // Regression: "@-86400" must still work (negative epoch)
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["@-86400", "-t", "UTC", "-f", "%Y-%m-%d"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("1969-12-31"));
+}
