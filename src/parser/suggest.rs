@@ -1,7 +1,9 @@
 //! Typo correction via Levenshtein distance for near-miss keyword suggestions.
 //!
-//! Hand-rolled implementation (~20 lines DP algorithm) instead of adding a
-//! `strsim` dependency, per the project's "fewer is better" dependency philosophy.
+//! Uses the compile-time [`KEYWORD_LIST`](super::lexer::KEYWORD_LIST) for
+//! near-miss suggestions. Hand-rolled implementation (~20 lines DP algorithm)
+//! instead of adding a `strsim` dependency, per the project's "fewer is better"
+//! dependency philosophy.
 
 /// Compute Levenshtein edit distance between two strings.
 pub(crate) fn edit_distance(a: &str, b: &str) -> usize {
@@ -39,28 +41,24 @@ pub(crate) fn edit_distance(a: &str, b: &str) -> usize {
 /// Returns `None` if no keyword is within `max_distance` edits.
 /// Default max_distance of 2 catches most single-character typos.
 ///
-/// Accepts a locale-aware keyword list instead of using a hardcoded list.
-pub(crate) fn suggest_keyword(
-    word: &str,
-    max_distance: usize,
-    keywords: &[String],
-) -> Option<String> {
+/// Iterates over [`KEYWORD_LIST`](super::lexer::KEYWORD_LIST) directly.
+pub(crate) fn suggest_keyword(word: &str, max_distance: usize) -> Option<String> {
     let word_lower = word.to_ascii_lowercase();
     let mut best: Option<(String, usize)> = None;
 
-    for kw in keywords {
+    for &(kw, _) in super::lexer::KEYWORD_LIST {
         let dist = edit_distance(&word_lower, kw);
         if dist <= max_distance && dist > 0 {
             let is_better = match &best {
                 None => true,
                 Some((prev_kw, prev_dist)) => {
                     // Lower distance wins; on tie, prefer alphabetically first
-                    // for deterministic output across HashMap iteration orders
-                    dist < *prev_dist || (dist == *prev_dist && kw < prev_kw)
+                    // for deterministic output across iteration orders
+                    dist < *prev_dist || (dist == *prev_dist && kw < prev_kw.as_str())
                 }
             };
             if is_better {
-                best = Some((kw.clone(), dist));
+                best = Some((kw.to_string(), dist));
             }
         }
     }
@@ -72,11 +70,6 @@ pub(crate) fn suggest_keyword(
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
-    use crate::locale::{LocaleKeywords, en::EN_LOCALE};
-
-    fn en_keywords() -> Vec<String> {
-        LocaleKeywords::from_locale(&EN_LOCALE).all_keywords()
-    }
 
     #[test]
     fn edit_distance_identical() {
@@ -101,37 +94,32 @@ mod tests {
 
     #[test]
     fn suggest_thursdya_finds_thursday() {
-        let kws = en_keywords();
-        let suggestion = suggest_keyword("thursdya", 2, &kws);
+        let suggestion = suggest_keyword("thursdya", 2);
         assert_eq!(suggestion, Some("thursday".to_string()));
     }
 
     #[test]
     fn suggest_tomorow_finds_tomorrow() {
-        let kws = en_keywords();
-        let suggestion = suggest_keyword("tomorow", 2, &kws);
+        let suggestion = suggest_keyword("tomorow", 2);
         assert_eq!(suggestion, Some("tomorrow".to_string()));
     }
 
     #[test]
     fn suggest_no_match_for_gibberish() {
-        let kws = en_keywords();
-        let suggestion = suggest_keyword("xyzzy", 2, &kws);
+        let suggestion = suggest_keyword("xyzzy", 2);
         assert!(suggestion.is_none());
     }
 
     #[test]
     fn suggest_case_insensitive() {
-        let kws = en_keywords();
-        let suggestion = suggest_keyword("THURSDYA", 2, &kws);
+        let suggestion = suggest_keyword("THURSDYA", 2);
         assert_eq!(suggestion, Some("thursday".to_string()));
     }
 
     #[test]
     fn suggest_exact_match_excluded() {
         // Exact matches (distance 0) should not be returned as "suggestions"
-        let kws = en_keywords();
-        let suggestion = suggest_keyword("wednesday", 2, &kws);
+        let suggestion = suggest_keyword("wednesday", 2);
         assert!(suggestion.is_none());
     }
 }

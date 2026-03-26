@@ -14,8 +14,6 @@ pub mod token;
 
 pub use error::ParseError;
 
-use crate::locale::LocaleKeywords;
-
 /// Maximum input length in bytes (UX-03). Inputs longer than this are rejected
 /// before tokenization to prevent abuse.
 const MAX_INPUT_LEN: usize = 1024;
@@ -24,13 +22,11 @@ const MAX_INPUT_LEN: usize = 1024;
 ///
 /// * `input` -- the raw expression (e.g. `"next friday"`, `"@1735689600"`, `"in 3 days"`)
 /// * `now` -- reference "now" for relative resolution
-/// * `locale_keywords` -- locale-driven keyword table for tokenization
 ///
 /// Returns the resolved datetime or a [`ParseError`] with span-based diagnostics.
 pub fn parse(
     input: &str,
     now: &jiff::Zoned,
-    locale_keywords: &LocaleKeywords,
 ) -> std::result::Result<jiff::Zoned, ParseError> {
     // UX-03: Input length validation
     if input.len() > MAX_INPUT_LEN {
@@ -47,9 +43,8 @@ pub fn parse(
         return Ok(ts.to_zoned(now.time_zone().clone()));
     }
 
-    let tokens = lexer::tokenize(trimmed, locale_keywords);
-    let kw_list = locale_keywords.all_keywords();
-    let mut parser = grammar::Parser::new(&tokens, trimmed, &kw_list);
+    let tokens = lexer::tokenize(trimmed);
+    let mut parser = grammar::Parser::new(&tokens, trimmed);
     let expr = parser.parse_expression()?;
     resolver::resolve(&expr, now)
 }
@@ -68,7 +63,6 @@ pub fn parse(
 pub fn parse_range_with_granularity(
     input: &str,
     now: &jiff::Zoned,
-    locale_keywords: &LocaleKeywords,
 ) -> std::result::Result<(jiff::Zoned, jiff::Zoned), ParseError> {
     if input.len() > MAX_INPUT_LEN {
         return Err(ParseError::input_too_long(input.len(), MAX_INPUT_LEN));
@@ -86,9 +80,8 @@ pub fn parse_range_with_granularity(
         return Ok((z.clone(), z));
     }
 
-    let tokens = lexer::tokenize(trimmed, locale_keywords);
-    let kw_list = locale_keywords.all_keywords();
-    let mut parser = grammar::Parser::new(&tokens, trimmed, &kw_list);
+    let tokens = lexer::tokenize(trimmed);
+    let mut parser = grammar::Parser::new(&tokens, trimmed);
     let expr = parser.parse_expression()?;
     resolver::resolve_range_with_granularity(&expr, now)
 }
@@ -103,7 +96,6 @@ pub fn parse_range_with_granularity(
 pub fn parse_range(
     input: &str,
     now: &jiff::Zoned,
-    locale_keywords: &LocaleKeywords,
 ) -> std::result::Result<(jiff::Zoned, jiff::Zoned), ParseError> {
     // UX-03: Input length validation
     if input.len() > MAX_INPUT_LEN {
@@ -117,9 +109,8 @@ pub fn parse_range(
         ));
     }
 
-    let tokens = lexer::tokenize(trimmed, locale_keywords);
-    let kw_list = locale_keywords.all_keywords();
-    let mut parser = grammar::Parser::new(&tokens, trimmed, &kw_list);
+    let tokens = lexer::tokenize(trimmed);
+    let mut parser = grammar::Parser::new(&tokens, trimmed);
     let expr = parser.parse_expression()?;
 
     match expr {
