@@ -8,12 +8,13 @@
 
 > Translates natural-language time expressions into formatted datetimes.
 
-```bash
-td "next friday at 3pm" --now 2025-01-15T10:30:00Z -t UTC
-# 2025-01-17T15:00:00
+```console
+$ td "next friday at 15:00" --now 2025-01-15T10:30:00Z -t UTC
+2025-01-17T15:00:00
 
-td "2 days ago" -f "%Y-%m-%d" --now 2025-01-15T10:30:00Z -t UTC
-# 2025-01-13
+$ td "2 days ago" -f "%Y-%m-%d" --now 2025-01-15T10:30:00Z -t UTC
+2025-01-13
+
 ```
 
 ## Install
@@ -39,31 +40,32 @@ td completions fish > ~/.config/fish/completions/td.fish
 
 ## Quick Start
 
-```bash
-td "tomorrow 15:00" --now 2025-01-15T10:30:00Z -t UTC
-# 2025-01-16T15:00:00
+```console
+$ td "tomorrow 15:00" --now 2025-01-15T10:30:00Z -t UTC
+2025-01-16T15:00:00
 
-td "in 2 hours" -f "%H:%M" --now 2025-01-15T10:30:00Z -t UTC
-# 12:30
+$ td "in 2 hours" -f "%H:%M" --now 2025-01-15T10:30:00Z -t UTC
+12:30
 
-td @1735689600 -f "%Y-%m-%d" -t UTC
-# 2025-01-01
+$ td @1735689600 -f "%Y-%m-%d" -t UTC
+2025-01-01
 
-td "now + 3h" --now 2025-01-15T10:30:00Z -t UTC
-# 2025-01-15T13:30:00
+$ td "now + 3h" --now 2025-01-15T10:30:00Z -t UTC
+2025-01-15T13:30:00
 
-td eod --now 2025-01-15T10:30:00Z -t UTC
-# 2025-01-15T23:59:59
+$ td eod --now 2025-01-15T10:30:00Z -t UTC
+2025-01-15T23:59:59
 
-td "today" --json -n --now 2025-01-15T00:00:00Z -t UTC
-# {"epoch":1736899200,"format":"%Y-%m-%dT%H:%M:%S","input":"today","output":"2025-01-15T00:00:00","timezone":"UTC"}
+$ td "today" --json --now 2025-01-15T00:00:00Z -t UTC
+{"epoch":1736899200,"format":"%Y-%m-%dT%H:%M:%S","input":"today","output":"2025-01-15T00:00:00","timezone":"UTC"}
+
 ```
 
 ## Features
 
 | Feature | Example | Documentation |
 |---------|---------|---------------|
-| Natural language | `td "next friday at 3pm"` | [Expression Reference](docs/EXPRESSIONS.md) |
+| Natural language | `td "next friday at 15:00"` | [Expression Reference](docs/EXPRESSIONS.md) |
 | Date arithmetic | `td "tomorrow + 3 hours"` | [Expression Reference](docs/EXPRESSIONS.md) |
 | Format control | `td "now" -f "%Y-%m-%d"` | [Format Specifiers](docs/FORMAT-SPECIFIERS.md) |
 | Timezone conversion | `td tz "3pm" --to UTC` | [Subcommands](docs/SUBCOMMANDS.md) |
