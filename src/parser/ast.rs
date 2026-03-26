@@ -3,7 +3,7 @@
 //! The AST separates syntax (what the user typed) from semantics (what datetime
 //! it resolves to). The resolver in `resolver.rs` maps these nodes to `jiff::Zoned`.
 
-use crate::parser::token::{EpochPrecision, TemporalUnit};
+use crate::parser::token::{BoundaryKind, EpochPrecision, TemporalUnit};
 
 /// Top-level AST node representing a parsed date expression.
 #[derive(Debug, Clone, PartialEq)]
@@ -31,6 +31,9 @@ pub enum DateExpr {
     Arithmetic(Box<DateExpr>, ArithOp, Vec<DurationComponent>),
     /// "last week", "this month", "Q3 2025" -- range expressions
     Range(RangeExpr),
+
+    /// TaskWarrior boundary keyword (D-11): `eod`, `sow`, etc.
+    Boundary(BoundaryKind),
 }
 
 /// Named relative date variants.
@@ -65,6 +68,8 @@ pub struct DurationComponent {
 pub enum TimeExpr {
     HourMinute(i8, i8),
     HourMinuteSecond(i8, i8, i8),
+    /// Hour-only time specification for range granularity (e.g., "today 18h")
+    HourOnly(i8),
 }
 
 /// Absolute date components.
@@ -141,6 +146,19 @@ mod tests {
         };
         assert_eq!(ev.raw, 1735689600);
         assert_eq!(ev.precision, EpochPrecision::Seconds);
+    }
+
+    #[test]
+    fn phase8_boundary_expr() {
+        let expr = DateExpr::Boundary(BoundaryKind::Sod);
+        assert!(matches!(expr, DateExpr::Boundary(BoundaryKind::Sod)));
+    }
+
+    #[test]
+    fn hour_only_time_expr() {
+        let t = TimeExpr::HourOnly(18);
+        assert!(matches!(t, TimeExpr::HourOnly(18)));
+        assert_ne!(TimeExpr::HourOnly(18), TimeExpr::HourMinute(18, 0));
     }
 
     #[test]

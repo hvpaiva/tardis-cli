@@ -34,6 +34,9 @@ pub(crate) fn resolve(expr: &DateExpr, now: &Zoned) -> Result<Zoned, ParseError>
         DateExpr::Range(..) => Err(ParseError::resolution(
             "range expressions produce (start, end) pairs; use parse_range() instead".to_string(),
         )),
+        DateExpr::Boundary(..) => Err(ParseError::resolution(
+            "boundary expressions are not yet supported by the resolver".to_string(),
+        )),
     }
 }
 
@@ -391,6 +394,7 @@ fn apply_time(date: civil::Date, time: &TimeExpr) -> civil::DateTime {
     match time {
         TimeExpr::HourMinute(h, m) => date.at(*h, *m, 0, 0),
         TimeExpr::HourMinuteSecond(h, m, s) => date.at(*h, *m, *s, 0),
+        TimeExpr::HourOnly(h) => date.at(*h, 0, 0, 0),
     }
 }
 

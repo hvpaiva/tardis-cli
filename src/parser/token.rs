@@ -35,6 +35,52 @@ pub enum EpochPrecision {
     Nanoseconds,
 }
 
+/// TaskWarrior-style boundary keywords (D-11).
+/// Current period (so/eo = start-of / end-of):
+///   Sod, Eod, Sow, Eow, Soww, Eoww, Som, Eom, Soq, Eoq, Soy, Eoy
+/// Previous period (sop/eop = start-of-previous / end-of-previous):
+///   Sopd, Eopd, Sopw, Eopw, Sopm, Eopm, Sopq, Eopq, Sopy, Eopy
+/// Next period (son/eon = start-of-next / end-of-next):
+///   Sond, Eond, Sonw, Eonw, Sonm, Eonm, Sonq, Eonq, Sony, Eony
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BoundaryKind {
+    // Current period (12 variants: includes soww, eoww, soq, eoq)
+    Sod,
+    Eod,
+    Sow,
+    Eow,
+    Soww,
+    Eoww,
+    Som,
+    Eom,
+    Soq,
+    Eoq,
+    Soy,
+    Eoy,
+    // Previous period (10 variants)
+    Sopd,
+    Eopd,
+    Sopw,
+    Eopw,
+    Sopm,
+    Eopm,
+    Sopq,
+    Eopq,
+    Sopy,
+    Eopy,
+    // Next period (10 variants)
+    Sond,
+    Eond,
+    Sonw,
+    Eonw,
+    Sonm,
+    Eonm,
+    Sonq,
+    Eonq,
+    Sony,
+    Eony,
+}
+
 /// Lexer token types.
 ///
 /// Keywords are simple enum variants (zero heap allocation per D-04 perf constraint).
@@ -93,6 +139,9 @@ pub enum Token {
     // Quarter indicator (Q1-Q4)
     Quarter(i8),
 
+    /// TaskWarrior boundary keyword (D-11, D-12)
+    Boundary(BoundaryKind),
+
     // Epoch suffix (@NNNms, @NNNus, @NNNns, @NNNs)
     EpochSuffix(EpochPrecision),
 
@@ -119,6 +168,24 @@ mod tests {
         assert_eq!(t, Token::Now);
         let t2 = Token::Unit(TemporalUnit::Day);
         assert_eq!(t2, Token::Unit(TemporalUnit::Day));
+    }
+
+    #[test]
+    fn boundary_kind_equality() {
+        assert_eq!(BoundaryKind::Sod, BoundaryKind::Sod);
+        assert_ne!(BoundaryKind::Sod, BoundaryKind::Eod);
+    }
+
+    #[test]
+    fn boundary_token_construction() {
+        assert_eq!(
+            Token::Boundary(BoundaryKind::Eod),
+            Token::Boundary(BoundaryKind::Eod)
+        );
+        assert_ne!(
+            Token::Boundary(BoundaryKind::Eod),
+            Token::Boundary(BoundaryKind::Sod)
+        );
     }
 
     #[test]
