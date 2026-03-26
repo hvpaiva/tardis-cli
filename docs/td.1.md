@@ -14,7 +14,7 @@ td - translate natural-language date expressions into formatted output
 
 # DESCRIPTION
 
-**td** (TARDIS -- Translates And Renders Dates Into Strings) converts
+**td** (TARDIS -- Time And Relative Date Input Simplifier) converts
 human-readable date and time expressions into machine-usable output.  It
 accepts natural-language phrases such as "tomorrow", "next friday at 3pm",
 or "2 days ago" and renders them in configurable formats.
