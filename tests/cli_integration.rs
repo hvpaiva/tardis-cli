@@ -3105,3 +3105,197 @@ fn test_epoch_negative_still_works() {
         .success()
         .stdout(predicate::str::starts_with("1969-12-31"));
 }
+
+// ============================================================
+// td diff --output mode tests (D-01, 10-02)
+// ============================================================
+
+#[test]
+fn diff_output_human() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "diff",
+            "2025-01-01",
+            "2025-03-15",
+            "--output",
+            "human",
+            "--now",
+            "2025-01-01T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Human output should NOT contain "seconds" as a standalone value line
+    assert!(
+        !stdout.contains("seconds"),
+        "human mode should not contain 'seconds' line, got: {stdout}"
+    );
+    // Should not contain ISO 8601 duration starting with P on its own line
+    assert!(
+        !stdout.lines().any(|l| l.starts_with('P')),
+        "human mode should not contain ISO line, got: {stdout}"
+    );
+    // Should contain human-readable text (e.g. "month" or "day")
+    assert!(
+        stdout.contains("month") || stdout.contains("day") || stdout.contains("year"),
+        "human mode should contain readable duration words, got: {stdout}"
+    );
+}
+
+#[test]
+fn diff_output_seconds() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "diff",
+            "2025-01-01",
+            "2025-03-15",
+            "--output",
+            "seconds",
+            "--now",
+            "2025-01-01T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    // Should be a bare integer (digits only, possibly with leading minus)
+    assert!(
+        stdout.trim().parse::<i64>().is_ok(),
+        "seconds mode should output a bare integer, got: {stdout}"
+    );
+}
+
+#[test]
+fn diff_output_iso() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "diff",
+            "2025-01-01",
+            "2025-03-15",
+            "--output",
+            "iso",
+            "--now",
+            "2025-01-01T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    // ISO 8601 duration starts with P
+    assert!(
+        stdout.starts_with('P'),
+        "iso mode should start with 'P', got: {stdout}"
+    );
+    // Should NOT contain multiple lines (only the ISO duration)
+    assert!(
+        !stdout.contains('\n'),
+        "iso mode should be single line, got: {stdout}"
+    );
+}
+
+#[test]
+fn diff_output_default_is_human() {
+    let tmp = TempDir::new().unwrap();
+
+    // Without --output flag, default should behave like --output human
+    let output_default = td_cmd(&tmp)
+        .args([
+            "diff",
+            "2025-01-01",
+            "2025-03-15",
+            "--now",
+            "2025-01-01T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .output()
+        .unwrap();
+
+    let output_human = td_cmd(&tmp)
+        .args([
+            "diff",
+            "2025-01-01",
+            "2025-03-15",
+            "--output",
+            "human",
+            "--now",
+            "2025-01-01T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .output()
+        .unwrap();
+
+    let default_stdout = String::from_utf8_lossy(&output_default.stdout);
+    let human_stdout = String::from_utf8_lossy(&output_human.stdout);
+    assert_eq!(
+        default_stdout, human_stdout,
+        "default and human modes should produce identical output"
+    );
+}
+
+#[test]
+fn json_piped_is_compact() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "now",
+            "--json",
+            "--now",
+            "2025-01-01T12:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    // When piped (assert_cmd captures stdout, which is not a TTY),
+    // JSON should be compact: single line with no indentation
+    assert!(
+        !stdout.contains('\n'),
+        "piped JSON should be single line, got: {stdout}"
+    );
+    // Validate it's actual JSON
+    let parsed: serde_json::Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("piped JSON should be valid: {e}, got: {stdout}"));
+    assert!(parsed.is_object(), "JSON should be an object");
+}
+
+#[test]
+fn diff_json_piped_is_compact() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = td_cmd(&tmp)
+        .args([
+            "diff",
+            "2025-01-01",
+            "2025-03-15",
+            "--json",
+            "--now",
+            "2025-01-01T00:00:00Z",
+            "-t",
+            "UTC",
+        ])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    // When piped, diff JSON should be compact single line
+    assert!(
+        !stdout.contains('\n'),
+        "piped diff JSON should be single line, got: {stdout}"
+    );
+    let parsed: serde_json::Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("piped diff JSON should be valid: {e}, got: {stdout}"));
+    assert!(parsed.is_object(), "diff JSON should be an object");
+}
