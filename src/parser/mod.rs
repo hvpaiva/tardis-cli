@@ -85,7 +85,7 @@ pub fn parse_range_with_granularity(
 
 /// Parse a range expression into a `(start, end)` pair of [`jiff::Zoned`] datetimes.
 ///
-/// Range expressions like `"last week"`, `"this month"`, `"Q3 2025"` produce
+/// Period expressions like `"last week"`, `"this month"`, `"next year"`, `"Q3 2025"` produce
 /// two datetimes: the start (inclusive) and end (inclusive, 23:59:59.999999999).
 ///
 /// Returns an error if the input is not a range expression. Use [`parse`] for

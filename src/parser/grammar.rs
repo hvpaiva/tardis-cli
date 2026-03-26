@@ -86,10 +86,9 @@ impl<'a> Parser<'a> {
             let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
         }
-        if let Some(expr) = self.try_time_only()? {
-            let expr = self.try_arithmetic_tail(expr)?;
-            return self.with_optional_trailing(expr);
-        }
+        // P5 (time-only) removed: standalone time expressions like "15:00", "3pm",
+        // "15h" are rejected. Time requires day context (e.g., "tomorrow 15:00").
+        // This is consistent with other units: "1d", "3 hours" are also not valid alone.
         if let Some(expr) = self.try_bare_weekday()? {
             let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
@@ -611,37 +610,9 @@ impl<'a> Parser<'a> {
 
     // ── P5: Time only ──────────────────────────────────────────
 
-    /// `Number Colon Number [Colon Number] [Am|Pm]` or `Number Am|Pm` as the entire expression.
-    fn try_time_only(&mut self) -> Result<Option<DateExpr>, ParseError> {
-        let saved = self.save();
-
-        // HH:MM[:SS] [am/pm]
-        if let Some(time) = self.try_time_pattern() {
-            if self.at_end() {
-                return Ok(Some(DateExpr::TimeOnly(time)));
-            }
-        }
-
-        // Bare Number Am/Pm (e.g., "3pm")
-        self.restore(saved);
-        if self.match_token(&Token::Number(0)) {
-            let hour = self.last_number() as i8;
-            if self.match_token(&Token::Am) {
-                let time = self.apply_meridiem(TimeExpr::HourMinute(hour, 0), false);
-                if self.at_end() {
-                    return Ok(Some(DateExpr::TimeOnly(time)));
-                }
-            } else if self.match_token(&Token::Pm) {
-                let time = self.apply_meridiem(TimeExpr::HourMinute(hour, 0), true);
-                if self.at_end() {
-                    return Ok(Some(DateExpr::TimeOnly(time)));
-                }
-            }
-        }
-
-        self.restore(saved);
-        Ok(None)
-    }
+    // try_time_only removed: standalone time expressions ("15:00", "3pm", "15h")
+    // are no longer valid. Time requires day context (e.g., "tomorrow 15:00").
+    // This is consistent: "1d", "3 hours" standalone are also errors.
 
     // ── P6: Bare weekday ───────────────────────────────────────
 
@@ -774,12 +745,13 @@ impl<'a> Parser<'a> {
                         self.advance();
                         match dir {
                             Direction::Last => {
-                                // "last week/month/year" -> single date (today - 1 unit)
-                                // Consistent with "yesterday" = today - 1 day
-                                return Ok(Some(DateExpr::Offset(
-                                    Direction::Past,
-                                    vec![DurationComponent { count: 1, unit }],
-                                )));
+                                let range = match unit {
+                                    TemporalUnit::Week => RangeExpr::LastWeek,
+                                    TemporalUnit::Month => RangeExpr::LastMonth,
+                                    TemporalUnit::Year => RangeExpr::LastYear,
+                                    _ => unreachable!(),
+                                };
+                                return Ok(Some(DateExpr::Range(range)));
                             }
                             Direction::This => {
                                 let range = match unit {
@@ -838,27 +810,38 @@ impl<'a> Parser<'a> {
             return Some(time);
         }
 
-        // New: Number Unit(Hour) -> HourOnly (D-10, gap #6/#7/#8)
-        // "today 18h" = "today 18:00", "today at 18 hours" = same
+        // Number Unit(Hour) [Number] -> HourOnly or HourMinute
+        // "today 18h" = "today 18:00", "today 15h30" = "today 15:30"
         self.restore(saved);
         let _ = self.match_token(&Token::At); // re-consume optional "at"
         if self.match_token(&Token::Number(0)) {
             let hour = self.last_number() as i8;
             if self.match_token(&Token::Unit(TemporalUnit::Hour)) {
+                // Check for trailing minutes: "15h30" -> HourMinute(15, 30)
+                let saved_after_h = self.save();
+                if self.match_token(&Token::Number(0)) {
+                    let minute = self.last_number() as i8;
+                    // Only consume if not followed by a unit (otherwise it's a duration like "1h 30m")
+                    if !self.peek_is_unit() {
+                        return Some(TimeExpr::HourMinute(hour, minute));
+                    }
+                    self.restore(saved_after_h);
+                }
                 return Some(TimeExpr::HourOnly(hour));
             }
         }
 
-        // Bare Number Am/Pm -> HourMinute (e.g., "3pm" -> HourMinute(15, 0))
+        // Bare Number Am/Pm -> HourOnly (e.g., "3pm" -> HourOnly(15))
+        // No explicit minutes → hour granularity, same as "15h"
         self.restore(saved);
         let _ = self.match_token(&Token::At); // re-consume optional "at"
         if self.match_token(&Token::Number(0)) {
             let hour = self.last_number() as i8;
             if self.match_token(&Token::Am) {
-                return Some(self.apply_meridiem(TimeExpr::HourMinute(hour, 0), false));
+                return Some(self.apply_meridiem(TimeExpr::HourOnly(hour), false));
             }
             if self.match_token(&Token::Pm) {
-                return Some(self.apply_meridiem(TimeExpr::HourMinute(hour, 0), true));
+                return Some(self.apply_meridiem(TimeExpr::HourOnly(hour), true));
             }
         }
 
@@ -1265,14 +1248,14 @@ mod tests {
     }
 
     #[test]
-    fn time_only() {
+    fn standalone_time_is_error() {
+        // Standalone time expressions are rejected (no implicit "today")
         let tokens = vec![
             st(Token::Number(15)),
             st(Token::Colon),
             st(Token::Number(30)),
         ];
-        let result = parse_tokens(&tokens).unwrap();
-        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(15, 30)));
+        assert!(parse_tokens(&tokens).is_err());
     }
 
     #[test]
@@ -1566,54 +1549,27 @@ mod tests {
     // ── Phase 3: Range expression grammar tests ──────────────
 
     #[test]
-    fn last_week_offset() {
-        // "last week" -> Offset(Past, 1 week) -- single date, not range
+    fn last_week_range() {
+        // "last week" -> Range(LastWeek) -- period start, consistent with this/next
         let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Week))];
         let result = parse_tokens(&tokens).unwrap();
-        assert_eq!(
-            result,
-            DateExpr::Offset(
-                Direction::Past,
-                vec![DurationComponent {
-                    count: 1,
-                    unit: TemporalUnit::Week,
-                }],
-            )
-        );
+        assert_eq!(result, DateExpr::Range(RangeExpr::LastWeek));
     }
 
     #[test]
-    fn last_month_offset() {
-        // "last month" -> Offset(Past, 1 month) -- single date, not range
+    fn last_month_range() {
+        // "last month" -> Range(LastMonth) -- period start, consistent with this/next
         let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Month))];
         let result = parse_tokens(&tokens).unwrap();
-        assert_eq!(
-            result,
-            DateExpr::Offset(
-                Direction::Past,
-                vec![DurationComponent {
-                    count: 1,
-                    unit: TemporalUnit::Month,
-                }],
-            )
-        );
+        assert_eq!(result, DateExpr::Range(RangeExpr::LastMonth));
     }
 
     #[test]
-    fn last_year_offset() {
-        // "last year" -> Offset(Past, 1 year) -- single date, not range
+    fn last_year_range() {
+        // "last year" -> Range(LastYear) -- period start, consistent with this/next
         let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Year))];
         let result = parse_tokens(&tokens).unwrap();
-        assert_eq!(
-            result,
-            DateExpr::Offset(
-                Direction::Past,
-                vec![DurationComponent {
-                    count: 1,
-                    unit: TemporalUnit::Year,
-                }],
-            )
-        );
+        assert_eq!(result, DateExpr::Range(RangeExpr::LastYear));
     }
 
     #[test]
@@ -1868,20 +1824,20 @@ mod tests {
     fn test_time_suffix_nh() {
         // "today 18h" -> Relative(Today, Some(HourOnly(18)))
         let result = parse_expr("today 18h").unwrap();
-        assert_eq!(
+        assert!(matches!(
             result,
             DateExpr::Relative(RelativeDate::Today, Some(TimeExpr::HourOnly(18)))
-        );
+        ));
     }
 
     #[test]
     fn test_time_suffix_at_nh() {
         // "today at 18h" -> Relative(Today, Some(HourOnly(18)))
         let result = parse_expr("today at 18h").unwrap();
-        assert_eq!(
+        assert!(matches!(
             result,
             DateExpr::Relative(RelativeDate::Today, Some(TimeExpr::HourOnly(18)))
-        );
+        ));
     }
 
     #[test]
@@ -1904,77 +1860,151 @@ mod tests {
     // ── AM/PM tests ─────────────────────────────────────────────
 
     #[test]
-    fn test_bare_3pm() {
-        // "3pm" -> TimeOnly(HourMinute(15, 0))
-        let result = parse_expr("3pm").unwrap();
-        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(15, 0)));
+    fn standalone_3pm_is_error() {
+        assert!(parse_expr("3pm").is_err());
     }
 
     #[test]
-    fn test_bare_3am() {
-        // "3am" -> TimeOnly(HourMinute(3, 0))
-        let result = parse_expr("3am").unwrap();
-        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(3, 0)));
+    fn standalone_3am_is_error() {
+        assert!(parse_expr("3am").is_err());
     }
 
     #[test]
-    fn test_3_30pm() {
-        // "3:30pm" -> TimeOnly(HourMinute(15, 30))
-        let result = parse_expr("3:30pm").unwrap();
-        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(15, 30)));
+    fn standalone_3_30pm_is_error() {
+        assert!(parse_expr("3:30pm").is_err());
     }
 
     #[test]
-    fn test_3_30_45pm() {
-        // "3:30:45pm" -> TimeOnly(HourMinuteSecond(15, 30, 45))
-        let result = parse_expr("3:30:45pm").unwrap();
+    fn standalone_12am_is_error() {
+        assert!(parse_expr("12am").is_err());
+    }
+
+    #[test]
+    fn standalone_12pm_is_error() {
+        assert!(parse_expr("12pm").is_err());
+    }
+
+    #[test]
+    fn standalone_15_30_is_error() {
+        assert!(parse_expr("15:30").is_err());
+    }
+
+    #[test]
+    fn standalone_15h_is_error() {
+        assert!(parse_expr("15h").is_err());
+    }
+
+    #[test]
+    fn standalone_15h30_is_error() {
+        assert!(parse_expr("15h30").is_err());
+    }
+
+    // ── Notation equivalence: all time styles produce the same result ──
+
+    #[test]
+    fn notation_equivalence_hour_only() {
+        // "tomorrow 15h" = "tomorrow 3pm" = "tomorrow 3 pm" → HourOnly(15)
+        // "tomorrow 15:00" → HourMinute(15, 0) — different granularity, intentional
+        let a = parse_expr("tomorrow 15h").unwrap();
+        let b = parse_expr("tomorrow 3pm").unwrap();
+        let c = parse_expr("tomorrow 3 pm").unwrap();
+        assert_eq!(a, b);
+        assert_eq!(b, c);
+        // Verify it's HourOnly, not HourMinute
         assert_eq!(
-            result,
-            DateExpr::TimeOnly(TimeExpr::HourMinuteSecond(15, 30, 45))
+            a,
+            DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourOnly(15)))
         );
     }
 
     #[test]
-    fn test_12am_midnight() {
-        // "12am" -> TimeOnly(HourMinute(0, 0))
-        let result = parse_expr("12am").unwrap();
-        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(0, 0)));
+    fn notation_equivalence_hour_minute() {
+        // "tomorrow 15h30" = "tomorrow 15:30" = "tomorrow 3:30pm" → HourMinute(15, 30)
+        let a = parse_expr("tomorrow 15h30").unwrap();
+        let b = parse_expr("tomorrow 15:30").unwrap();
+        let c = parse_expr("tomorrow 3:30pm").unwrap();
+        assert_eq!(a, b);
+        assert_eq!(b, c);
+        assert_eq!(
+            a,
+            DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourMinute(15, 30)))
+        );
     }
 
     #[test]
-    fn test_12pm_noon() {
-        // "12pm" -> TimeOnly(HourMinute(12, 0))
-        let result = parse_expr("12pm").unwrap();
-        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(12, 0)));
+    fn notation_equivalence_explicit_zero_minute() {
+        // "tomorrow 15:00" = "tomorrow 3:00pm" → HourMinute(15, 0)
+        // These explicitly specify minute=0, so HourMinute not HourOnly
+        let a = parse_expr("tomorrow 15:00").unwrap();
+        let b = parse_expr("tomorrow 3:00pm").unwrap();
+        assert_eq!(a, b);
+        assert_eq!(
+            a,
+            DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourMinute(15, 0)))
+        );
     }
 
     #[test]
-    fn test_11_59pm() {
-        // "11:59pm" -> TimeOnly(HourMinute(23, 59))
-        let result = parse_expr("11:59pm").unwrap();
-        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(23, 59)));
+    fn notation_equivalence_midnight() {
+        // "tomorrow 0h" = "tomorrow 12am" → HourOnly(0)
+        let a = parse_expr("tomorrow 0h").unwrap();
+        let b = parse_expr("tomorrow 12am").unwrap();
+        assert_eq!(a, b);
+        assert_eq!(
+            a,
+            DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourOnly(0)))
+        );
     }
 
     #[test]
-    fn test_3_space_pm() {
-        // "3 pm" -> TimeOnly(HourMinute(15, 0))
-        let result = parse_expr("3 pm").unwrap();
-        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(15, 0)));
+    fn notation_equivalence_noon() {
+        // "tomorrow 12h" = "tomorrow 12pm" → HourOnly(12)
+        let a = parse_expr("tomorrow 12h").unwrap();
+        let b = parse_expr("tomorrow 12pm").unwrap();
+        assert_eq!(a, b);
+        assert_eq!(
+            a,
+            DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourOnly(12)))
+        );
+    }
+
+    #[test]
+    fn notation_equivalence_with_at() {
+        // "tomorrow at 15h" = "tomorrow at 3pm" → HourOnly(15)
+        let a = parse_expr("tomorrow at 15h").unwrap();
+        let b = parse_expr("tomorrow at 3pm").unwrap();
+        assert_eq!(a, b);
+        assert_eq!(
+            a,
+            DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourOnly(15)))
+        );
+    }
+
+    #[test]
+    fn notation_equivalence_day_ref() {
+        // "next friday 15h30" = "next friday 15:30" = "next friday 3:30pm" → HourMinute(15, 30)
+        let a = parse_expr("next friday 15h30").unwrap();
+        let b = parse_expr("next friday 15:30").unwrap();
+        let c = parse_expr("next friday 3:30pm").unwrap();
+        assert_eq!(a, b);
+        assert_eq!(b, c);
     }
 
     #[test]
     fn test_tomorrow_at_3pm() {
-        // "tomorrow at 3pm" -> Relative(Tomorrow, Some(HourMinute(15, 0)))
+        // "tomorrow at 3pm" -> Relative(Tomorrow, Some(HourOnly(15)))
+        // Bare pm = no explicit minutes → HourOnly
         let result = parse_expr("tomorrow at 3pm").unwrap();
         assert_eq!(
             result,
-            DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourMinute(15, 0)))
+            DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourOnly(15)))
         );
     }
 
     #[test]
     fn test_next_friday_at_3_30pm() {
         // "next friday at 3:30pm" -> DayRef(Next, Friday, Some(HourMinute(15, 30)))
+        // Explicit minutes → HourMinute
         let result = parse_expr("next friday at 3:30pm").unwrap();
         assert_eq!(
             result,
@@ -1988,11 +2018,11 @@ mod tests {
 
     #[test]
     fn test_today_3pm() {
-        // "today 3pm" -> Relative(Today, Some(HourMinute(15, 0)))
+        // "today 3pm" -> Relative(Today, Some(HourOnly(15)))
         let result = parse_expr("today 3pm").unwrap();
         assert_eq!(
             result,
-            DateExpr::Relative(RelativeDate::Today, Some(TimeExpr::HourMinute(15, 0)))
+            DateExpr::Relative(RelativeDate::Today, Some(TimeExpr::HourOnly(15)))
         );
     }
 

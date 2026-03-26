@@ -1527,19 +1527,20 @@ mod tests {
     // ── Phase 3: End-to-end range tests ──────────────────────
 
     #[test]
-    fn parse_last_week_returns_single_date_e2e() {
-        // "last week" now resolves as Offset(Past, 1 week) = single date, not range
+    fn parse_last_week_returns_period_start_e2e() {
+        // "last week" resolves as Range(LastWeek) = start of previous week
         let now = make_wednesday(); // Wed 2025-06-18 12:00:00
         let result = crate::parser::parse("last week", &now).unwrap();
-        assert_eq!(format_zoned(&result), "2025-06-11T12:00:00"); // 18 - 7 = 11, time preserved
+        assert_eq!(format_zoned(&result), "2025-06-09T00:00:00"); // Monday of previous week
     }
 
     #[test]
-    fn parse_range_last_week_not_a_range_e2e() {
-        // "last week" is no longer a range expression
+    fn parse_range_last_week_produces_range_e2e() {
+        // "last week" is a valid range expression
         let now = make_wednesday();
-        let result = crate::parser::parse_range("last week", &now);
-        assert!(result.is_err());
+        let (start, end) = crate::parser::parse_range("last week", &now).unwrap();
+        assert_eq!(format_zoned(&start), "2025-06-09T00:00:00"); // Monday
+        assert_eq!(format_zoned(&end), "2025-06-15T23:59:59"); // Sunday
     }
 
     #[test]

@@ -29,7 +29,7 @@ pub enum DateExpr {
     // Phase 3: Arithmetic and range expressions
     /// "tomorrow + 3 hours" -- compound arithmetic
     Arithmetic(Box<DateExpr>, ArithOp, Vec<DurationComponent>),
-    /// "last week", "this month", "Q3 2025" -- range expressions
+    /// "last week", "this month", "next year", "Q3 2025" -- period expressions
     Range(RangeExpr),
 
     /// TaskWarrior boundary keyword (D-11): `eod`, `sow`, etc.
@@ -99,16 +99,12 @@ pub enum ArithOp {
 /// Range expression types for date range queries.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RangeExpr {
-    // Deprecated: "last week/month/year" now resolves as Offset, not Range.
-    // Kept for backward compatibility of the public #[non_exhaustive]-style enum.
     LastWeek,
     ThisWeek,
     NextWeek,
-    // Deprecated: "last month" now resolves as Offset, not Range.
     LastMonth,
     ThisMonth,
     NextMonth,
-    // Deprecated: "last year" now resolves as Offset, not Range.
     LastYear,
     ThisYear,
     NextYear,
