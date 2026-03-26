@@ -40,10 +40,10 @@ pub const INPUT_HELP: &str = cstr!(
 <bold>A natural-language expression</bold> like <underline>"next Friday at 9:30"</underline>.
 If omitted and STDIN is a pipe, reads from it. If omitted in a terminal, defaults to <bold>"now"</bold>.
 
-Supports <bold>@&lt;epoch&gt;</bold> syntax for Unix timestamps (e.g. <bold>@1719244800</bold>).
+Supports <bold>@<<epoch>></bold> syntax for Unix timestamps (e.g. <bold>@1719244800</bold>).
 Smart precision: seconds, milliseconds, microseconds, and nanoseconds auto-detected.
 
-Supports arithmetic (<bold>"tomorrow + 3 hours"</bold>) and range expressions (<bold>"last week"</bold>).
+Supports arithmetic (<bold>"tomorrow + 3 hours"</bold>), periods (<bold>"this week"</bold>), and boundaries (<bold>"eod"</bold>, <bold>"sow"</bold>).
 "#
 );
 
@@ -57,7 +57,7 @@ preset defined in the config file.
 Special values: <bold>"epoch"</bold> or <bold>"unix"</bold> output a Unix timestamp (seconds).
 
 Reference:
-<underline>https://docs.rs/jiff/latest/jiff/fmt/strtime/index.html</underline>
+<underline>https://github.com/hvpaiva/tardis-cli/blob/main/docs/FORMAT-SPECIFIERS.md</underline>
 
 If not provided, tries to read from <bold><blue>TARDIS_FORMAT</blue></bold> and
 falls back to the default format defined in the config file.
