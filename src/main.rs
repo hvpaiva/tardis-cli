@@ -313,6 +313,21 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
         // Try RFC 3339/ISO 8601 first (handles "2025-03-24T12:00:00Z" and similar)
         if let Ok(ts) = args.input.parse::<jiff::Timestamp>() {
             ts.to_zoned(tz.clone())
+        } else if let Ok(epoch) = args.input.trim().parse::<i64>() {
+            // Bare integer → epoch timestamp with auto-detected precision.
+            // Epoch precision thresholds match grammar.rs detect_epoch_precision
+            let abs = epoch.unsigned_abs();
+            let ts = if abs < 1_000_000_000_000 {
+                jiff::Timestamp::from_second(epoch)
+            } else if abs < 1_000_000_000_000_000 {
+                jiff::Timestamp::from_millisecond(epoch)
+            } else if abs < 1_000_000_000_000_000_000 {
+                jiff::Timestamp::from_microsecond(epoch)
+            } else {
+                jiff::Timestamp::from_nanosecond(i128::from(epoch))
+            }
+            .map_err(|e| user_input_error!(InvalidDateFormat, "invalid epoch: {}", e))?;
+            ts.to_zoned(tz.clone())
         } else {
             parser::parse(&args.input, &now)
                 .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?

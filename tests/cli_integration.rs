@@ -1153,6 +1153,39 @@ fn test_convert_json() {
         .stdout(predicate::str::contains("\"to_format\""));
 }
 
+#[test]
+fn test_convert_bare_epoch_seconds() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["convert", "1750003200", "--to", "iso8601", "-t", "UTC"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-06-15"));
+}
+
+#[test]
+fn test_convert_bare_epoch_milliseconds() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["convert", "1735689600000", "--to", "iso8601", "-t", "UTC"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2025-01-01"));
+}
+
+#[test]
+fn test_convert_bare_epoch_negative() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args(["convert", "--to", "iso8601", "-t", "UTC", "--", "-86400"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("1969-12-31"));
+}
+
 // ============================================================
 // td tz integration tests (SUBCMD-03, D-03)
 // ============================================================
@@ -1826,7 +1859,6 @@ fn test_arithmetic_no_space_yesterday_plus_1w() {
         .success()
         .stdout(predicate::str::contains("2025-06-21"));
 }
-
 
 // Ensure "in N unit" still works (direction-based offset)
 #[test]
