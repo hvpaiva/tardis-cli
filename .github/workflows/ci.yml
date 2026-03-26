@@ -86,6 +86,30 @@ jobs:
           SKIP_RELEASE_GUARD: ${{ contains(github.event.pull_request.labels.*.name, 'release-override') && '1' || '' }}
         run: ./scripts/guard-release-files.sh --pr "$BASE_REF"
 
+  man-pages:
+    name: Man Pages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install pandoc
+        run: sudo apt-get install -y pandoc
+
+      - name: Generate man pages
+        run: |
+          mkdir -p docs/man-check
+          for src in docs/td*.1.md; do
+            name=$(basename "$src" .md)
+            pandoc "$src" -s -t man -o "docs/man-check/$name"
+          done
+
+      - name: Compare with committed snapshots
+        run: |
+          diff -r docs/man docs/man-check || {
+            echo "::error::Man page snapshots are out of date. Run 'just man' and commit the results."
+            exit 1
+          }
+
   msrv:
     name: MSRV (1.85)
     runs-on: ubuntu-latest
