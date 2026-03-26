@@ -137,14 +137,14 @@ Start an expression with `+` or `-` to apply a duration to the implicit
 from interpreting `-` as a flag.
 
 ```console
-$ td -- "-1d" --now "2025-01-15T10:30:00Z" -t UTC
+$ td --now "2025-01-15T10:30:00Z" -t UTC -- "-1d"
 2025-01-14T10:30:00
 
 ```
 
-**Note:** `+` prefix expressions conflict with shell argument parsing
-when combined with other flags. Use the arithmetic form instead:
-`td "now + 3h"`.
+**Note:** Place flags before `--` so they are still parsed. The `+`
+prefix expressions conflict with shell argument parsing when combined
+with other flags. Use the arithmetic form instead: `td "now + 3h"`.
 
 ## Absolute Dates
 

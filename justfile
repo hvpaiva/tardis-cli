@@ -71,3 +71,12 @@ sbom:
 # Check semver compatibility
 semver-check:
     cargo semver-checks check-release
+
+# Generate man pages from markdown via pandoc
+man:
+    @mkdir -p docs/man
+    @for src in docs/td*.1.md; do \
+        name=$(basename "$src" .md); \
+        pandoc "$src" -s -t man -o "docs/man/$name"; \
+        echo "Generated docs/man/$name"; \
+    done

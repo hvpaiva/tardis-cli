@@ -56,12 +56,11 @@ iso   = "%Y-%m-%dT%H:%M:%S%:z"
 time  = "%H:%M:%S"
 ```
 
-Usage:
+Usage (after adding the presets above to your config):
 
-```console
-$ td now --now "2025-01-15T10:30:00Z" -t UTC -f br
-15/01/2025
-
+```bash
+td now --now "2025-01-15T10:30:00Z" -t UTC -f br
+# 15/01/2025
 ```
 
 See the [Format Specifiers](FORMAT-SPECIFIERS.md) reference for all
@@ -94,10 +93,9 @@ Manage the configuration file without editing it manually.
 
 Print the absolute path to the configuration file.
 
-```console
-$ td config path
-/home/user/.config/tardis/config.toml
-
+```bash
+td config path
+# /home/user/.config/tardis/config.toml
 ```
 
 ### `td config show`
