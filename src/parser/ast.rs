@@ -6,6 +6,7 @@
 use crate::parser::token::{BoundaryKind, EpochPrecision, TemporalUnit};
 
 /// Top-level AST node representing a parsed date expression.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum DateExpr {
     // Phase 2: Fully implemented
@@ -37,6 +38,7 @@ pub enum DateExpr {
 }
 
 /// Named relative date variants.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RelativeDate {
     Today,
@@ -47,6 +49,7 @@ pub enum RelativeDate {
 }
 
 /// Direction for day references and duration offsets.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     Next,
@@ -64,6 +67,7 @@ pub struct DurationComponent {
 }
 
 /// Time expression (hours:minutes or hours:minutes:seconds).
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TimeExpr {
     HourMinute(i8, i8),
@@ -90,6 +94,7 @@ pub struct EpochValue {
 }
 
 /// Arithmetic operation for compound date expressions.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ArithOp {
     Add,
@@ -97,6 +102,7 @@ pub enum ArithOp {
 }
 
 /// Range expression types for date range queries.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum RangeExpr {
     LastWeek,

@@ -15,6 +15,7 @@ pub struct SpannedToken {
 }
 
 /// Temporal duration unit (PARS-06: all seven standard units).
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TemporalUnit {
     Year,
@@ -27,6 +28,7 @@ pub enum TemporalUnit {
 }
 
 /// Epoch timestamp precision levels (EPOCH-01, EPOCH-02).
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EpochPrecision {
     Seconds,
@@ -42,6 +44,7 @@ pub enum EpochPrecision {
 ///   Sopd, Eopd, Sopw, Eopw, Sopm, Eopm, Sopq, Eopq, Sopy, Eopy
 /// Next period (son/eon = start-of-next / end-of-next):
 ///   Sond, Eond, Sonw, Eonw, Sonm, Eonm, Sonq, Eonq, Sony, Eony
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoundaryKind {
     // Current period (12 variants: includes soww, eoww, soq, eoq)
@@ -85,6 +88,7 @@ pub enum BoundaryKind {
 ///
 /// Keywords are simple enum variants (zero heap allocation per D-04 perf constraint).
 /// Only `Word(String)` carries owned data (for unrecognized words in error messages).
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // Relative keywords
