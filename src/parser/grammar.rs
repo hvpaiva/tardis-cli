@@ -621,23 +621,23 @@ impl<'a> Parser<'a> {
                     let saved_colon = self.save();
                     if self.match_token(&Token::Number(0)) {
                         let hours = self.last_number();
-                        if self.match_token(&Token::Colon) {
-                            if self.match_token(&Token::Number(0)) {
-                                let minutes = self.last_number();
-                                let comps = vec![
-                                    DurationComponent {
-                                        count: hours,
-                                        unit: TemporalUnit::Hour,
-                                    },
-                                    DurationComponent {
-                                        count: minutes,
-                                        unit: TemporalUnit::Minute,
-                                    },
-                                ];
-                                result =
-                                    DateExpr::Arithmetic(Box::new(result), ArithOp::Add, comps);
-                                continue;
-                            }
+                        if self.match_token(&Token::Colon)
+                            && self.match_token(&Token::Number(0))
+                        {
+                            let minutes = self.last_number();
+                            let comps = vec![
+                                DurationComponent {
+                                    count: hours,
+                                    unit: TemporalUnit::Hour,
+                                },
+                                DurationComponent {
+                                    count: minutes,
+                                    unit: TemporalUnit::Minute,
+                                },
+                            ];
+                            result =
+                                DateExpr::Arithmetic(Box::new(result), ArithOp::Add, comps);
+                            continue;
                         }
                     }
                     self.restore(saved_colon);
@@ -657,23 +657,23 @@ impl<'a> Parser<'a> {
                     let saved_colon = self.save();
                     if self.match_token(&Token::Number(0)) {
                         let hours = self.last_number();
-                        if self.match_token(&Token::Colon) {
-                            if self.match_token(&Token::Number(0)) {
-                                let minutes = self.last_number();
-                                let comps = vec![
-                                    DurationComponent {
-                                        count: hours,
-                                        unit: TemporalUnit::Hour,
-                                    },
-                                    DurationComponent {
-                                        count: minutes,
-                                        unit: TemporalUnit::Minute,
-                                    },
-                                ];
-                                result =
-                                    DateExpr::Arithmetic(Box::new(result), ArithOp::Sub, comps);
-                                continue;
-                            }
+                        if self.match_token(&Token::Colon)
+                            && self.match_token(&Token::Number(0))
+                        {
+                            let minutes = self.last_number();
+                            let comps = vec![
+                                DurationComponent {
+                                    count: hours,
+                                    unit: TemporalUnit::Hour,
+                                },
+                                DurationComponent {
+                                    count: minutes,
+                                    unit: TemporalUnit::Minute,
+                                },
+                            ];
+                            result =
+                                DateExpr::Arithmetic(Box::new(result), ArithOp::Sub, comps);
+                            continue;
                         }
                     }
                     self.restore(saved_colon);

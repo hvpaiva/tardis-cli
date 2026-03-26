@@ -16,7 +16,7 @@ use jiff::{Span, Zoned, civil};
 use crate::parser::{
     ast::*,
     error::ParseError,
-    token::{EpochPrecision, TemporalUnit},
+    token::{BoundaryKind, EpochPrecision, TemporalUnit},
 };
 
 /// Resolve an AST node to a concrete `jiff::Zoned` datetime.
@@ -34,9 +34,7 @@ pub(crate) fn resolve(expr: &DateExpr, now: &Zoned) -> Result<Zoned, ParseError>
         DateExpr::Range(..) => Err(ParseError::resolution(
             "range expressions produce (start, end) pairs; use parse_range() instead".to_string(),
         )),
-        DateExpr::Boundary(..) => Err(ParseError::resolution(
-            "boundary expressions are not yet supported by the resolver".to_string(),
-        )),
+        DateExpr::Boundary(kind) => resolve_boundary(kind, now),
     }
 }
 
@@ -276,6 +274,245 @@ pub(crate) fn resolve_range(range: &RangeExpr, now: &Zoned) -> Result<(Zoned, Zo
         RangeExpr::Quarter(year, q) => {
             let actual_year = if *year == 0 { today.year() } else { *year };
             quarter_range(actual_year, *q, &tz)
+        }
+    }
+}
+
+/// Resolve a TaskWarrior boundary keyword to a concrete datetime (D-11).
+///
+/// Boundaries are instants (specific moments in time):
+/// - Start-of-period: 00:00:00.000000000
+/// - End-of-period: 23:59:59.999999999
+///
+/// Week starts on Monday (ISO 8601).
+/// Work week is Monday-Friday (soww/eoww).
+/// Quarter boundaries: Q1=Jan-Mar, Q2=Apr-Jun, Q3=Jul-Sep, Q4=Oct-Dec.
+fn resolve_boundary(kind: &BoundaryKind, now: &Zoned) -> Result<Zoned, ParseError> {
+    let tz = now.time_zone().clone();
+    let today = now.date();
+    let current_wd = today.weekday().to_monday_zero_offset() as i64;
+
+    match kind {
+        // -- Current period --
+        BoundaryKind::Sod => zoned_midnight(today, &tz),
+        BoundaryKind::Eod => zoned_end_of_day(today, &tz),
+        BoundaryKind::Sow => {
+            let monday = today
+                .checked_sub(Span::new().days(current_wd))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            zoned_midnight(monday, &tz)
+        }
+        BoundaryKind::Eow => {
+            let monday = today
+                .checked_sub(Span::new().days(current_wd))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            let sunday = monday
+                .checked_add(Span::new().days(6))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            zoned_end_of_day(sunday, &tz)
+        }
+        BoundaryKind::Soww => {
+            // Work week start = Monday
+            let monday = today
+                .checked_sub(Span::new().days(current_wd))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            zoned_midnight(monday, &tz)
+        }
+        BoundaryKind::Eoww => {
+            // Work week end = Friday 23:59:59
+            let monday = today
+                .checked_sub(Span::new().days(current_wd))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            let friday = monday
+                .checked_add(Span::new().days(4))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            zoned_end_of_day(friday, &tz)
+        }
+        BoundaryKind::Som => {
+            let first = civil::date(today.year(), today.month(), 1);
+            zoned_midnight(first, &tz)
+        }
+        BoundaryKind::Eom => {
+            let first = civil::date(today.year(), today.month(), 1);
+            let last_day = first.days_in_month();
+            let last = civil::date(today.year(), today.month(), last_day);
+            zoned_end_of_day(last, &tz)
+        }
+        BoundaryKind::Soq => {
+            let q = (today.month() - 1) / 3 + 1;
+            let start_month = (q - 1) * 3 + 1;
+            let first = civil::date(today.year(), start_month, 1);
+            zoned_midnight(first, &tz)
+        }
+        BoundaryKind::Eoq => {
+            let q = (today.month() - 1) / 3 + 1;
+            let end_month = q * 3;
+            let end_date = civil::date(today.year(), end_month, 1);
+            let last_day = end_date.days_in_month();
+            let last = civil::date(today.year(), end_month, last_day);
+            zoned_end_of_day(last, &tz)
+        }
+        BoundaryKind::Soy => {
+            let first = civil::date(today.year(), 1, 1);
+            zoned_midnight(first, &tz)
+        }
+        BoundaryKind::Eoy => {
+            let last = civil::date(today.year(), 12, 31);
+            zoned_end_of_day(last, &tz)
+        }
+
+        // -- Previous period --
+        BoundaryKind::Sopd => {
+            let yesterday = today
+                .checked_sub(Span::new().days(1))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            zoned_midnight(yesterday, &tz)
+        }
+        BoundaryKind::Eopd => {
+            let yesterday = today
+                .checked_sub(Span::new().days(1))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            zoned_end_of_day(yesterday, &tz)
+        }
+        BoundaryKind::Sopw => {
+            let this_monday = today
+                .checked_sub(Span::new().days(current_wd))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            let last_monday = this_monday
+                .checked_sub(Span::new().weeks(1))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            zoned_midnight(last_monday, &tz)
+        }
+        BoundaryKind::Eopw => {
+            let this_monday = today
+                .checked_sub(Span::new().days(current_wd))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            let last_sunday = this_monday
+                .checked_sub(Span::new().days(1))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            zoned_end_of_day(last_sunday, &tz)
+        }
+        BoundaryKind::Sopm => {
+            let (year, month) = prev_month(today.year(), today.month());
+            let first = civil::date(year, month, 1);
+            zoned_midnight(first, &tz)
+        }
+        BoundaryKind::Eopm => {
+            let (year, month) = prev_month(today.year(), today.month());
+            let first = civil::date(year, month, 1);
+            let last_day = first.days_in_month();
+            let last = civil::date(year, month, last_day);
+            zoned_end_of_day(last, &tz)
+        }
+        BoundaryKind::Sopq => {
+            let q = (today.month() - 1) / 3 + 1;
+            let (year, prev_q) = if q == 1 {
+                (today.year() - 1, 4i8)
+            } else {
+                (today.year(), q - 1)
+            };
+            let start_month = (prev_q - 1) * 3 + 1;
+            let first = civil::date(year, start_month, 1);
+            zoned_midnight(first, &tz)
+        }
+        BoundaryKind::Eopq => {
+            let q = (today.month() - 1) / 3 + 1;
+            let (year, prev_q) = if q == 1 {
+                (today.year() - 1, 4i8)
+            } else {
+                (today.year(), q - 1)
+            };
+            let end_month = prev_q * 3;
+            let end_date = civil::date(year, end_month, 1);
+            let last_day = end_date.days_in_month();
+            let last = civil::date(year, end_month, last_day);
+            zoned_end_of_day(last, &tz)
+        }
+        BoundaryKind::Sopy => {
+            let first = civil::date(today.year() - 1, 1, 1);
+            zoned_midnight(first, &tz)
+        }
+        BoundaryKind::Eopy => {
+            let last = civil::date(today.year() - 1, 12, 31);
+            zoned_end_of_day(last, &tz)
+        }
+
+        // -- Next period --
+        BoundaryKind::Sond => {
+            let tomorrow = today
+                .checked_add(Span::new().days(1))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            zoned_midnight(tomorrow, &tz)
+        }
+        BoundaryKind::Eond => {
+            let tomorrow = today
+                .checked_add(Span::new().days(1))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            zoned_end_of_day(tomorrow, &tz)
+        }
+        BoundaryKind::Sonw => {
+            let this_monday = today
+                .checked_sub(Span::new().days(current_wd))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            let next_monday = this_monday
+                .checked_add(Span::new().weeks(1))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            zoned_midnight(next_monday, &tz)
+        }
+        BoundaryKind::Eonw => {
+            let this_monday = today
+                .checked_sub(Span::new().days(current_wd))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            let next_sunday = this_monday
+                .checked_add(Span::new().weeks(1))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?
+                .checked_add(Span::new().days(6))
+                .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
+            zoned_end_of_day(next_sunday, &tz)
+        }
+        BoundaryKind::Sonm => {
+            let (year, month) = next_month(today.year(), today.month());
+            let first = civil::date(year, month, 1);
+            zoned_midnight(first, &tz)
+        }
+        BoundaryKind::Eonm => {
+            let (year, month) = next_month(today.year(), today.month());
+            let first = civil::date(year, month, 1);
+            let last_day = first.days_in_month();
+            let last = civil::date(year, month, last_day);
+            zoned_end_of_day(last, &tz)
+        }
+        BoundaryKind::Sonq => {
+            let q = (today.month() - 1) / 3 + 1;
+            let (year, next_q) = if q == 4 {
+                (today.year() + 1, 1i8)
+            } else {
+                (today.year(), q + 1)
+            };
+            let start_month = (next_q - 1) * 3 + 1;
+            let first = civil::date(year, start_month, 1);
+            zoned_midnight(first, &tz)
+        }
+        BoundaryKind::Eonq => {
+            let q = (today.month() - 1) / 3 + 1;
+            let (year, next_q) = if q == 4 {
+                (today.year() + 1, 1i8)
+            } else {
+                (today.year(), q + 1)
+            };
+            let end_month = next_q * 3;
+            let end_date = civil::date(year, end_month, 1);
+            let last_day = end_date.days_in_month();
+            let last = civil::date(year, end_month, last_day);
+            zoned_end_of_day(last, &tz)
+        }
+        BoundaryKind::Sony => {
+            let first = civil::date(today.year() + 1, 1, 1);
+            zoned_midnight(first, &tz)
+        }
+        BoundaryKind::Eony => {
+            let last = civil::date(today.year() + 1, 12, 31);
+            zoned_end_of_day(last, &tz)
         }
     }
 }
@@ -1201,5 +1438,254 @@ mod tests {
         let result = crate::parser::parse_range("tomorrow", &now, &en_kw());
         assert!(result.is_err());
         assert!(result.unwrap_err().format_message().contains("not a range"));
+    }
+
+    // ── Phase 8: Boundary resolution tests ──────────────────────
+
+    // Use Wednesday 2025-06-18 (Mon=0..Sun=6, Wed=2) for deterministic week math
+    fn boundary_now() -> Zoned {
+        let dt = civil::date(2025, 6, 18).at(14, 30, 0, 0);
+        utc().to_ambiguous_zoned(dt).compatible().unwrap()
+    }
+
+    #[test]
+    fn resolve_boundary_sod() {
+        let now = boundary_now();
+        let result = resolve(&DateExpr::Boundary(BoundaryKind::Sod), &now).unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-18T00:00:00");
+    }
+
+    #[test]
+    fn resolve_boundary_eod() {
+        let now = boundary_now();
+        let result = resolve(&DateExpr::Boundary(BoundaryKind::Eod), &now).unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-18T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_sow() {
+        // Wednesday -> this Monday = June 16
+        let now = boundary_now();
+        let result = resolve(&DateExpr::Boundary(BoundaryKind::Sow), &now).unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-16T00:00:00");
+    }
+
+    #[test]
+    fn resolve_boundary_eow() {
+        // Wednesday -> this Sunday = June 22
+        let now = boundary_now();
+        let result = resolve(&DateExpr::Boundary(BoundaryKind::Eow), &now).unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-22T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_soww_eoww() {
+        let now = boundary_now();
+        // Work week start = Monday June 16
+        let soww = resolve(&DateExpr::Boundary(BoundaryKind::Soww), &now).unwrap();
+        assert_eq!(format_zoned(&soww), "2025-06-16T00:00:00");
+        // Work week end = Friday June 20
+        let eoww = resolve(&DateExpr::Boundary(BoundaryKind::Eoww), &now).unwrap();
+        assert_eq!(format_zoned(&eoww), "2025-06-20T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_som_eom() {
+        let now = boundary_now(); // June 2025
+        let som = resolve(&DateExpr::Boundary(BoundaryKind::Som), &now).unwrap();
+        assert_eq!(format_zoned(&som), "2025-06-01T00:00:00");
+        let eom = resolve(&DateExpr::Boundary(BoundaryKind::Eom), &now).unwrap();
+        assert_eq!(format_zoned(&eom), "2025-06-30T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_soq_eoq() {
+        // June is Q2 (Apr-Jun)
+        let now = boundary_now();
+        let soq = resolve(&DateExpr::Boundary(BoundaryKind::Soq), &now).unwrap();
+        assert_eq!(format_zoned(&soq), "2025-04-01T00:00:00");
+        let eoq = resolve(&DateExpr::Boundary(BoundaryKind::Eoq), &now).unwrap();
+        assert_eq!(format_zoned(&eoq), "2025-06-30T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_soy_eoy() {
+        let now = boundary_now();
+        let soy = resolve(&DateExpr::Boundary(BoundaryKind::Soy), &now).unwrap();
+        assert_eq!(format_zoned(&soy), "2025-01-01T00:00:00");
+        let eoy = resolve(&DateExpr::Boundary(BoundaryKind::Eoy), &now).unwrap();
+        assert_eq!(format_zoned(&eoy), "2025-12-31T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_sopd_eopd() {
+        let now = boundary_now(); // June 18
+        let sopd = resolve(&DateExpr::Boundary(BoundaryKind::Sopd), &now).unwrap();
+        assert_eq!(format_zoned(&sopd), "2025-06-17T00:00:00");
+        let eopd = resolve(&DateExpr::Boundary(BoundaryKind::Eopd), &now).unwrap();
+        assert_eq!(format_zoned(&eopd), "2025-06-17T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_sonw_eonw() {
+        // Next week: Monday June 23 to Sunday June 29
+        let now = boundary_now();
+        let sonw = resolve(&DateExpr::Boundary(BoundaryKind::Sonw), &now).unwrap();
+        assert_eq!(format_zoned(&sonw), "2025-06-23T00:00:00");
+        let eonw = resolve(&DateExpr::Boundary(BoundaryKind::Eonw), &now).unwrap();
+        assert_eq!(format_zoned(&eonw), "2025-06-29T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_sopw_eopw() {
+        // Previous week: Monday June 9 to Sunday June 15
+        let now = boundary_now();
+        let sopw = resolve(&DateExpr::Boundary(BoundaryKind::Sopw), &now).unwrap();
+        assert_eq!(format_zoned(&sopw), "2025-06-09T00:00:00");
+        let eopw = resolve(&DateExpr::Boundary(BoundaryKind::Eopw), &now).unwrap();
+        assert_eq!(format_zoned(&eopw), "2025-06-15T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_sopm_eopm() {
+        // Previous month: May 2025
+        let now = boundary_now();
+        let sopm = resolve(&DateExpr::Boundary(BoundaryKind::Sopm), &now).unwrap();
+        assert_eq!(format_zoned(&sopm), "2025-05-01T00:00:00");
+        let eopm = resolve(&DateExpr::Boundary(BoundaryKind::Eopm), &now).unwrap();
+        assert_eq!(format_zoned(&eopm), "2025-05-31T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_sonm_eonm() {
+        // Next month: July 2025
+        let now = boundary_now();
+        let sonm = resolve(&DateExpr::Boundary(BoundaryKind::Sonm), &now).unwrap();
+        assert_eq!(format_zoned(&sonm), "2025-07-01T00:00:00");
+        let eonm = resolve(&DateExpr::Boundary(BoundaryKind::Eonm), &now).unwrap();
+        assert_eq!(format_zoned(&eonm), "2025-07-31T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_sopq_eopq() {
+        // June is Q2, previous quarter is Q1 (Jan-Mar)
+        let now = boundary_now();
+        let sopq = resolve(&DateExpr::Boundary(BoundaryKind::Sopq), &now).unwrap();
+        assert_eq!(format_zoned(&sopq), "2025-01-01T00:00:00");
+        let eopq = resolve(&DateExpr::Boundary(BoundaryKind::Eopq), &now).unwrap();
+        assert_eq!(format_zoned(&eopq), "2025-03-31T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_sonq_eonq() {
+        // June is Q2, next quarter is Q3 (Jul-Sep)
+        let now = boundary_now();
+        let sonq = resolve(&DateExpr::Boundary(BoundaryKind::Sonq), &now).unwrap();
+        assert_eq!(format_zoned(&sonq), "2025-07-01T00:00:00");
+        let eonq = resolve(&DateExpr::Boundary(BoundaryKind::Eonq), &now).unwrap();
+        assert_eq!(format_zoned(&eonq), "2025-09-30T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_sopy_eopy() {
+        // Previous year: 2024
+        let now = boundary_now();
+        let sopy = resolve(&DateExpr::Boundary(BoundaryKind::Sopy), &now).unwrap();
+        assert_eq!(format_zoned(&sopy), "2024-01-01T00:00:00");
+        let eopy = resolve(&DateExpr::Boundary(BoundaryKind::Eopy), &now).unwrap();
+        assert_eq!(format_zoned(&eopy), "2024-12-31T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_sony_eony() {
+        // Next year: 2026
+        let now = boundary_now();
+        let sony = resolve(&DateExpr::Boundary(BoundaryKind::Sony), &now).unwrap();
+        assert_eq!(format_zoned(&sony), "2026-01-01T00:00:00");
+        let eony = resolve(&DateExpr::Boundary(BoundaryKind::Eony), &now).unwrap();
+        assert_eq!(format_zoned(&eony), "2026-12-31T23:59:59");
+    }
+
+    #[test]
+    fn resolve_boundary_sond_eond() {
+        // Tomorrow: June 19
+        let now = boundary_now();
+        let sond = resolve(&DateExpr::Boundary(BoundaryKind::Sond), &now).unwrap();
+        assert_eq!(format_zoned(&sond), "2025-06-19T00:00:00");
+        let eond = resolve(&DateExpr::Boundary(BoundaryKind::Eond), &now).unwrap();
+        assert_eq!(format_zoned(&eond), "2025-06-19T23:59:59");
+    }
+
+    #[test]
+    fn resolve_hour_only_time() {
+        // "today 18h" -> today at 18:00:00
+        let now = boundary_now();
+        let result = resolve(
+            &DateExpr::Relative(RelativeDate::Today, Some(TimeExpr::HourOnly(18))),
+            &now,
+        )
+        .unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-18T18:00:00");
+    }
+
+    // ── Phase 8: End-to-end boundary + new expression tests ──────
+
+    #[test]
+    fn parse_eod_e2e() {
+        let now = boundary_now();
+        let result = crate::parser::parse("eod", &now, &en_kw()).unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-18T23:59:59");
+    }
+
+    #[test]
+    fn parse_sod_e2e() {
+        let now = boundary_now();
+        let result = crate::parser::parse("sod", &now, &en_kw()).unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-18T00:00:00");
+    }
+
+    #[test]
+    fn parse_eod_plus_1h_e2e() {
+        let now = boundary_now();
+        let result = crate::parser::parse("eod + 1h", &now, &en_kw()).unwrap();
+        // eod = 23:59:59.999999999, + 1 hour = next day 00:59:59.999999999
+        let formatted = result.strftime("%Y-%m-%dT%H:%M").to_string();
+        assert_eq!(formatted, "2025-06-19T00:59");
+    }
+
+    #[test]
+    fn parse_plus_3h_e2e() {
+        let now = boundary_now(); // 14:30
+        let result = crate::parser::parse("+3h", &now, &en_kw()).unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-18T17:30:00");
+    }
+
+    #[test]
+    fn parse_minus_1d_e2e() {
+        let now = boundary_now(); // June 18
+        let result = crate::parser::parse("-1d", &now, &en_kw()).unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-17T14:30:00");
+    }
+
+    #[test]
+    fn parse_today_18h_e2e() {
+        let now = boundary_now();
+        let result = crate::parser::parse("today 18h", &now, &en_kw()).unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-18T18:00:00");
+    }
+
+    #[test]
+    fn parse_now_plus_13h30_e2e() {
+        let now = boundary_now(); // 14:30
+        let result = crate::parser::parse("now+13h30", &now, &en_kw()).unwrap();
+        // 14:30 + 13h30m = 28:00 = next day 04:00
+        assert_eq!(format_zoned(&result), "2025-06-19T04:00:00");
+    }
+
+    #[test]
+    fn parse_now_plus_colon_duration_e2e() {
+        let now = boundary_now(); // 14:30
+        let result = crate::parser::parse("now+13:30", &now, &en_kw()).unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-19T04:00:00");
     }
 }
