@@ -75,9 +75,9 @@ singular, plural, and abbreviated forms.
 | `in N <unit>`        | Future    | N units from now                |
 | `N <unit> ago`       | Past      | N units before now              |
 | `a <unit> ago`       | Past      | One unit before now             |
-| `last week`          | Past      | One week before now             |
-| `last month`         | Past      | One month before now            |
-| `last year`          | Past      | One year before now             |
+| `last week`          | Past      | Start of previous week (Monday 00:00) |
+| `last month`         | Past      | Start of previous month (1st 00:00)   |
+| `last year`          | Past      | Start of previous year (Jan 1 00:00)  |
 | `next year`          | Future    | Start of next year (range)      |
 
 **Accepted unit forms:**
@@ -103,7 +103,7 @@ $ td "a week ago" --now "2025-01-15T10:30:00Z" -t UTC
 2025-01-08T10:30:00
 
 $ td "last month" --now "2025-01-15T10:30:00Z" -t UTC
-2024-12-15T10:30:00
+2024-12-01T00:00:00
 
 ```
 
@@ -180,13 +180,30 @@ $ td "next monday 9:30" --now "2025-01-15T10:30:00Z" -t UTC
 
 ## Time Suffixes
 
-A bare time expression (without a date) resolves against the current day.
+Time expressions require a date context. All three notations are equivalent
+and can follow any date keyword or `at`:
+
+- `15:30` — colon notation (HH:MM)
+- `15h30` — hour notation (Nh[MM])
+- `3:30pm` — 12-hour clock with AM/PM
 
 ```console
-$ td "15:30" --now "2025-01-15T10:30:00Z" -t UTC
-2025-01-15T15:30:00
+$ td "tomorrow 15:30" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-16T15:30:00
 
-$ td "9:00" --now "2025-01-15T10:30:00Z" -t UTC
+$ td "tomorrow 15h30" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-16T15:30:00
+
+$ td "tomorrow 3:30pm" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-16T15:30:00
+
+$ td "today at 9:00" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-15T09:00:00
+
+$ td "today 9h" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-15T09:00:00
+
+$ td "today 9am" --now "2025-01-15T10:30:00Z" -t UTC
 2025-01-15T09:00:00
 
 ```
@@ -195,20 +212,20 @@ $ td "9:00" --now "2025-01-15T10:30:00Z" -t UTC
 
 Use 12-hour clock notation with `am` or `pm`. Supports bare hours (`3pm`),
 hours with minutes (`3:30pm`), and full `HH:MM:SS` (`3:30:45pm`). A space
-before `am`/`pm` is optional. Can be combined with any date expression.
+before `am`/`pm` is optional. Requires a date context.
 
 ```console
-$ td "3pm" --now "2025-01-15T10:30:00Z" -t UTC
-2025-01-15T15:00:00
+$ td "tomorrow at 3pm" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-16T15:00:00
 
-$ td "3:30pm" --now "2025-01-15T10:30:00Z" -t UTC
-2025-01-15T15:30:00
+$ td "tomorrow at 3:30pm" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-16T15:30:00
 
-$ td "12am" --now "2025-01-15T10:30:00Z" -t UTC
-2025-01-15T00:00:00
+$ td "tomorrow 12am" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-16T00:00:00
 
-$ td "12pm" --now "2025-01-15T10:30:00Z" -t UTC
-2025-01-15T12:00:00
+$ td "tomorrow 12pm" --now "2025-01-15T10:30:00Z" -t UTC
+2025-01-16T12:00:00
 
 $ td "next friday at 3pm" --now "2025-01-15T10:30:00Z" -t UTC
 2025-01-17T15:00:00
@@ -305,9 +322,10 @@ $ td range "next year" --now "2025-01-15T10:30:00Z" -t UTC
 
 ```
 
-**Note:** `last week`, `last month`, and `last year` resolve to a
-single date (one unit in the past), consistent with `yesterday`
-semantics. They do not produce ranges.
+**Note:** `last week`, `last month`, and `last year` resolve to the
+start of the previous period (Monday 00:00 for weeks, 1st 00:00 for
+months, Jan 1 00:00 for years) — consistent with `this` and `next`.
+For relative offsets, use `-1w`, `-1mo`, or `1 week ago`.
 
 ## Boundary Keywords (TaskWarrior-Style)
 

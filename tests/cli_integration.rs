@@ -1391,63 +1391,63 @@ fn test_skip_errors_all_valid() {
 // ============================================================
 
 #[test]
-fn test_last_week_returns_single_date() {
-    // "last week" should output a single date (today - 7 days), not a range
+fn test_last_week_returns_period_start() {
+    // "last week" returns start of previous week (Monday 00:00)
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
         .args([
             "last week",
             "-f",
-            "%Y-%m-%d",
+            "%Y-%m-%dT%H:%M:%S",
             "-t",
             "UTC",
             "--now",
-            "2025-01-15T00:00:00Z",
+            "2025-01-15T14:30:00Z",
         ])
         .assert()
         .success()
-        .stdout("2025-01-08\n"); // 15 - 7 = 8
+        .stdout("2025-01-06T00:00:00\n"); // Monday of previous week
 }
 
 #[test]
-fn test_last_month_returns_single_date() {
-    // "last month" should output a single date (today - 1 month)
+fn test_last_month_returns_period_start() {
+    // "last month" returns 1st of previous month at 00:00
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
         .args([
             "last month",
             "-f",
-            "%Y-%m-%d",
+            "%Y-%m-%dT%H:%M:%S",
             "-t",
             "UTC",
             "--now",
-            "2025-03-15T00:00:00Z",
+            "2025-03-15T14:30:00Z",
         ])
         .assert()
         .success()
-        .stdout("2025-02-15\n"); // March 15 - 1 month = Feb 15
+        .stdout("2025-02-01T00:00:00\n"); // Feb 1st 00:00
 }
 
 #[test]
-fn test_last_year_returns_single_date() {
-    // "last year" should output a single date (today - 1 year)
+fn test_last_year_returns_period_start() {
+    // "last year" returns Jan 1st of previous year at 00:00
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
         .args([
             "last year",
             "-f",
-            "%Y-%m-%d",
+            "%Y-%m-%dT%H:%M:%S",
             "-t",
             "UTC",
             "--now",
-            "2025-06-15T00:00:00Z",
+            "2025-06-15T14:30:00Z",
         ])
         .assert()
         .success()
-        .stdout("2024-06-15\n"); // 2025 - 1 year = 2024
+        .stdout("2024-01-01T00:00:00\n"); // Jan 1 2024 00:00
 }
 
 // Per D-01/D-02: default command now returns single line (start of period).
@@ -3406,43 +3406,40 @@ fn verbose_range() {
 // ── AM/PM integration tests ─────────────────────────────────────
 
 #[test]
-fn am_pm_basic() {
+fn standalone_time_rejected_3pm() {
+    // Standalone time without day context is rejected
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args(["3pm", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("2025-01-15T15:00:00"));
+        .failure();
 }
 
 #[test]
-fn am_pm_with_minutes() {
+fn standalone_time_rejected_3_30pm() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args(["3:30pm", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("2025-01-15T15:30:00"));
+        .failure();
 }
 
 #[test]
-fn am_pm_midnight() {
+fn standalone_time_rejected_12am() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args(["12am", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("2025-01-15T00:00:00"));
+        .failure();
 }
 
 #[test]
-fn am_pm_noon() {
+fn standalone_time_rejected_12pm() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args(["12pm", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("2025-01-15T12:00:00"));
+        .failure();
 }
 
 #[test]
@@ -3478,43 +3475,57 @@ fn am_pm_tomorrow_3pm() {
 }
 
 #[test]
-fn am_pm_with_seconds() {
+fn standalone_time_rejected_3_30_45pm() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args(["3:30:45pm", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("2025-01-15T15:30:45"));
+        .failure();
 }
 
 #[test]
-fn am_pm_11_59pm() {
+fn standalone_time_rejected_11_59pm() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args(["11:59pm", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("2025-01-15T23:59:00"));
+        .failure();
 }
 
 #[test]
-fn am_pm_3am() {
+fn standalone_time_rejected_3am() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args(["3am", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("2025-01-15T03:00:00"));
+        .failure();
 }
 
 #[test]
-fn am_pm_with_space() {
+fn standalone_time_rejected_3_space_pm() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args(["3 pm", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("2025-01-15T15:00:00"));
+        .failure();
+}
+
+#[test]
+fn standalone_time_rejected_15_00() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["15:00", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn standalone_time_rejected_15h() {
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["15h", "--now", "2025-01-15T10:30:00Z", "-t", "UTC"])
+        .assert()
+        .failure();
 }
 
 // ── Same time integration tests ─────────────────────────────────
