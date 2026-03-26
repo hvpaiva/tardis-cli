@@ -39,9 +39,6 @@ td info "2025-07-04" -t UTC --now "2025-01-01T12:00:00Z"
 #   Week         W27, 2025
 #   Quarter      Q3
 #   ...
-
-td -L pt "amanha as 10:00" --now "2025-01-01T12:00:00Z" -t UTC
-# 2025-01-02T10:00:00+00:00
 ```
 
 ---
@@ -81,7 +78,7 @@ td --version
 | Epoch input | `@1735689600` with smart precision (s/ms/us/ns) |
 | Arithmetic | `"tomorrow + 3 hours"`, `"next friday - 30 minutes"` |
 | Range expressions | `"last week"`, `"this month"`, `"Q3 2025"` |
-| Locale support | English (en) and Portuguese (pt) |
+| Language | English |
 | Format presets | Named formats in config (e.g. `br` -> `%d/%m/%Y`) |
 | Timezone conversion | Any IANA timezone via `--timezone` or `td tz` |
 | JSON output | `--json` for scripting with `jq` |
@@ -293,32 +290,6 @@ td completions powershell
 
 ---
 
-## Locale support
-
-TARDIS supports natural-language input in multiple locales. Use `--locale` / `-L` to select a locale, or let it auto-detect from `LANG` / `LC_TIME`.
-
-**Supported locales:** `en` (English), `pt` (Portuguese/Brazilian)
-
-### Portuguese examples
-
-```bash
-td -L pt "amanha" --now "2025-01-01T12:00:00Z" -t UTC -f "%Y-%m-%d"
-# 2025-01-02
-
-td -L pt "proxima sexta" --now "2025-01-01T12:00:00Z" -t UTC -f "%Y-%m-%d"
-# 2025-01-03
-
-td -L pt "daqui a 3 dias" --now "2025-01-01T12:00:00Z" -t UTC -f "%Y-%m-%d"
-# 2025-01-04
-
-td -L pt "ontem as 15:00" --now "2025-01-01T12:00:00Z" -t UTC
-# 2024-12-31T15:00:00+00:00
-```
-
-Locale precedence: `--locale` flag > config `locale` field > `LANG`/`LC_TIME` env > English fallback.
-
----
-
 ## Verbose mode
 
 Use `-v` / `--verbose` to print diagnostics to stderr. Tags are grep-friendly.
@@ -327,10 +298,9 @@ Use `-v` / `--verbose` to print diagnostics to stderr. Tags are grep-friendly.
 td "tomorrow" -v --now "2025-01-01T12:00:00Z" -t UTC -f "%Y-%m-%d"
 # stderr:
 #   [config] path=/home/user/.config/tardis/config.toml
-#   [config] format=%Y-%m-%d timezone=UTC locale=auto
+#   [config] format=%Y-%m-%d timezone=UTC
 #   [parse]  input="tomorrow"
 #   [parse]  effective_format=%Y-%m-%d timezone=UTC
-#   [parse]  locale=en
 #   [resolve] output="2025-01-02" epoch=1735776000
 #   [timing] 0.142ms
 # stdout:
@@ -355,7 +325,6 @@ td "tomorrow" -v 2>&1 1>/dev/null | grep '\[timing\]'
 | `--now <DATETIME>` | | Override "now" (RFC 3339 format) for deterministic output |
 | `--json` | `-j` | Output as JSON object |
 | `--no-newline` | `-n` | Suppress trailing newline |
-| `--locale <CODE>` | `-L` | Locale for parsing (`en`, `pt`). Auto-detected if omitted |
 | `--verbose` | `-v` | Print diagnostics to stderr |
 | `--skip-errors` | | In batch mode, skip unparseable lines instead of aborting |
 | `--version` | `-V` | Print version |
@@ -389,9 +358,6 @@ format = "%Y-%m-%dT%H:%M:%S"
 
 # Default timezone (IANA name). Empty = system local.
 timezone = ""
-
-# Locale for parsing. Auto-detected if omitted.
-# locale = "en"
 
 [formats]
 # Named presets usable with --format
@@ -470,7 +436,6 @@ td "Q3 2025" -f "%Y-%m-%d" -t UTC --json | jq -r '[.start, .end] | @csv'
 |----------|---------|
 | `TARDIS_FORMAT` | Default format when `--format` is omitted |
 | `TARDIS_TIMEZONE` | Default timezone when `--timezone` is omitted |
-| `TARDIS_LOCALE` | Default locale when `--locale` is omitted |
 | `XDG_CONFIG_HOME` | Override config directory base path |
 | `EDITOR` | Editor used by `td config edit` (default: `vi`) |
 | `NO_COLOR` | Disable colored output in `td info` |
@@ -511,7 +476,7 @@ fn main() -> tardis_cli::Result<()> {
 }
 ```
 
-**Public modules:** `cli`, `config`, `core`, `errors`, `locale`, `parser`
+**Public modules:** `cli`, `config`, `core`, `errors`, `parser`
 
 See [docs.rs/tardis-cli](https://docs.rs/tardis-cli) for the full API reference.
 
@@ -524,7 +489,7 @@ See [docs.rs/tardis-cli](https://docs.rs/tardis-cli) for the full API reference.
 | Natural language input | Yes | No | No | Yes |
 | Arithmetic expressions | Yes | Limited (`-d "+3 days"`) | Yes | No |
 | Range expressions | Yes | No | No | No |
-| Locale-aware parsing | Yes (en, pt) | No | No | Limited |
+| Natural-language parsing | Yes | No | No | Limited |
 | Named format presets | Yes | No | No | No |
 | Smart epoch detection | Yes (s/ms/us/ns) | No | No | No |
 | JSON output | Yes | No | No | No |
