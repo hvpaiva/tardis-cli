@@ -13,11 +13,13 @@ categories = ["command-line-utilities", "date-and-time"]
 exclude = [".github/", "examples/", "scripts/", "assets/tardis.png"]
 include = [
   "src/**",
+  "build.rs",
   "assets/config_template.toml",
   "Cargo.toml",
   "README.md",
   "LICENCE*",
 ]
+build = "build.rs"
 
 [[bin]]
 name = "td"
@@ -36,8 +38,8 @@ thiserror = "2.0.18"
 toml = "1.1.0"
 color-print = "0.3.7"
 clap_complete = "4.6.0"
-clap_mangen = "0.2.33"
 serde_json = "1.0"
+colored_json = "5.0.0"
 
 [dev-dependencies]
 assert_cmd = "2.2.0"
@@ -48,6 +50,12 @@ predicates = "3.1.4"
 pretty_assertions = "1.4.1"
 serial_test = "3.4.0"
 tempfile = "3.27.0"
+trycmd = "1.2.0"
+
+[build-dependencies]
+clap = { version = "4.6.0", features = ["derive"] }
+clap_complete = "4.6.0"
+color-print = "0.3.7"
 
 [profile.release]
 lto = true

@@ -617,47 +617,6 @@ fn completions_powershell() {
         .success();
 }
 
-// --- Man page generation ---
-
-#[test]
-fn generate_man_page() {
-    let tmp = TempDir::new().unwrap();
-
-    let output = td_cmd(&tmp).arg("--generate-man").output().unwrap();
-
-    let stdout = String::from_utf8(output.stdout).unwrap();
-
-    // Basic roff structure
-    assert!(output.status.success(), "man page generation failed");
-    assert!(stdout.contains(".SH NAME"), "missing NAME section");
-
-    // Reference quality sections (D-04)
-    assert!(stdout.contains(".SH EXAMPLES"), "missing EXAMPLES section");
-    assert!(
-        stdout.contains(".SH ENVIRONMENT"),
-        "missing ENVIRONMENT section"
-    );
-    assert!(stdout.contains(".SH FILES"), "missing FILES section");
-    assert!(
-        stdout.contains("EXIT STATUS") || stdout.contains("EXIT_STATUS"),
-        "missing EXIT STATUS section"
-    );
-
-    // Content verification
-    assert!(
-        stdout.contains("TARDIS_FORMAT"),
-        "ENVIRONMENT should mention TARDIS_FORMAT"
-    );
-    assert!(
-        stdout.contains("TARDIS_TIMEZONE"),
-        "ENVIRONMENT should mention TARDIS_TIMEZONE"
-    );
-    assert!(
-        stdout.contains("config.toml"),
-        "FILES should mention config.toml"
-    );
-}
-
 // --- --version and --help smoke tests ---
 
 #[test]

@@ -47,12 +47,6 @@ fn run() -> Result<()> {
     // Parse raw CLI first to check for subcommands.
     let cli = <Cli as clap::Parser>::parse();
 
-    // Hidden flag: generate man page and exit.
-    if cli.generate_man {
-        generate_man_page()?;
-        return Ok(());
-    }
-
     if let Some(subcmd) = cli.subcmd {
         return handle_subcmd(subcmd);
     }
@@ -513,89 +507,6 @@ fn handle_config(action: ConfigAction) -> Result<()> {
         }
         _ => unreachable!(),
     }
-    Ok(())
-}
-
-fn generate_man_page() -> Result<()> {
-    use clap::CommandFactory;
-    use std::io::Write;
-    use tardis_cli::errors::SystemError;
-
-    let cmd = Cli::command();
-    let man = clap_mangen::Man::new(cmd)
-        .title("TD")
-        .section("1")
-        .manual("TARDIS Manual");
-
-    let mut buf: Vec<u8> = Vec::new();
-    man.render(&mut buf).map_err(SystemError::from)?;
-
-    // Append custom sections for reference-quality man page (D-04)
-
-    // EXAMPLES section
-    buf.extend_from_slice(b".SH EXAMPLES\n");
-    buf.extend_from_slice(b".TP\n\\fBBasic usage:\\fR\n");
-    buf.extend_from_slice(
-        b"td \"tomorrow\"\n.br\ntd \"next friday at 3pm\"\n.br\ntd \"in 2 hours\"\n",
-    );
-    buf.extend_from_slice(b".TP\n\\fBWith format:\\fR\n");
-    buf.extend_from_slice(b"td \"today\" \\-f \"%Y\\-%m\\-%d\"\n.br\ntd \"now\" \\-f epoch\n");
-    buf.extend_from_slice(b".TP\n\\fBWith timezone:\\fR\n");
-    buf.extend_from_slice(
-        b"td \"now\" \\-t \"America/Sao_Paulo\"\n.br\ntd \"now\" \\-t UTC \\-f \"%Y\\-%m\\-%dT%H:%M:%S%:z\"\n",
-    );
-    buf.extend_from_slice(b".TP\n\\fBEpoch input:\\fR\n");
-    buf.extend_from_slice(b"td @1735689600\n.br\ntd @1735689600 \\-f \"%Y\\-%m\\-%d\" \\-t UTC\n");
-    buf.extend_from_slice(b".TP\n\\fBJSON output:\\fR\n");
-    buf.extend_from_slice(b"td \"tomorrow\" \\-\\-json\n");
-    buf.extend_from_slice(b".TP\n\\fBBatch mode (pipe multiple lines):\\fR\n");
-    buf.extend_from_slice(
-        b"echo \\-e \"today\\\\ntomorrow\" | td \\-f \"%Y\\-%m\\-%d\" \\-t UTC\n",
-    );
-    buf.extend_from_slice(b".TP\n\\fBDeterministic output (for scripts):\\fR\n");
-    buf.extend_from_slice(
-        b"td \"next monday\" \\-\\-now 2025\\-01\\-01T00:00:00Z \\-f \"%Y\\-%m\\-%d\"\n",
-    );
-
-    // ENVIRONMENT section
-    buf.extend_from_slice(b".SH ENVIRONMENT\n");
-    buf.extend_from_slice(b".TP\n\\fBTARDIS_FORMAT\\fR\n");
-    buf.extend_from_slice(
-        b"Default output format or preset name. Overridden by \\fB\\-\\-format\\fR.\n",
-    );
-    buf.extend_from_slice(b".TP\n\\fBTARDIS_TIMEZONE\\fR\n");
-    buf.extend_from_slice(
-        b"Default IANA time zone (e.g. America/Sao_Paulo). Overridden by \\fB\\-\\-timezone\\fR.\n",
-    );
-    buf.extend_from_slice(b".TP\n\\fBXDG_CONFIG_HOME\\fR\n");
-    buf.extend_from_slice(
-        b"Override the base configuration directory. Default: ~/.config on Linux.\n",
-    );
-    buf.extend_from_slice(b".TP\n\\fBEDITOR\\fR\n");
-    buf.extend_from_slice(b"Editor used by \\fBtd config edit\\fR. Default: vi.\n");
-
-    // FILES section
-    buf.extend_from_slice(b".SH FILES\n");
-    buf.extend_from_slice(b".TP\n\\fB$XDG_CONFIG_HOME/tardis/config.toml\\fR\n");
-    buf.extend_from_slice(
-        b"User configuration file. Created automatically on first run with commented defaults.\n",
-    );
-    buf.extend_from_slice(
-        b"Fields: \\fBformat\\fR (default output format), \\fBtimezone\\fR (default IANA timezone), \\fB[formats]\\fR (named preset table).\n",
-    );
-
-    // EXIT STATUS section
-    buf.extend_from_slice(b".SH \"EXIT STATUS\"\n");
-    buf.extend_from_slice(b".TP\n\\fB0\\fR\nSuccess.\n");
-    buf.extend_from_slice(
-        b".TP\n\\fB64\\fR\nUsage error (bad input, unsupported format, invalid timezone).\n",
-    );
-    buf.extend_from_slice(b".TP\n\\fB74\\fR\nI/O error.\n");
-    buf.extend_from_slice(b".TP\n\\fB78\\fR\nConfiguration error.\n");
-
-    std::io::stdout()
-        .write_all(&buf)
-        .map_err(SystemError::from)?;
     Ok(())
 }
 
