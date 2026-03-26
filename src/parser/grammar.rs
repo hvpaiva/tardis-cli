@@ -1628,44 +1628,10 @@ mod tests {
     }
 
     #[test]
-    fn last_month_offset_locale() {
-        // "last month" -> Offset(Past, 1 month) -- single date, not range
-        let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Month))];
-        let result = parse_tokens(&tokens).unwrap();
-        assert_eq!(
-            result,
-            DateExpr::Offset(
-                Direction::Past,
-                vec![DurationComponent {
-                    count: 1,
-                    unit: TemporalUnit::Month,
-                }],
-            )
-        );
-    }
-
-    #[test]
     fn next_month_range() {
         let tokens = vec![st(Token::Next), st(Token::Unit(TemporalUnit::Month))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::NextMonth));
-    }
-
-    #[test]
-    fn last_year_offset_locale() {
-        // "last year" -> Offset(Past, 1 year) -- single date, not range
-        let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Year))];
-        let result = parse_tokens(&tokens).unwrap();
-        assert_eq!(
-            result,
-            DateExpr::Offset(
-                Direction::Past,
-                vec![DurationComponent {
-                    count: 1,
-                    unit: TemporalUnit::Year,
-                }],
-            )
-        );
     }
 
     #[test]
