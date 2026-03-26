@@ -746,7 +746,6 @@ fn apply_time(date: civil::Date, time: &TimeExpr) -> civil::DateTime {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
-    use crate::locale::{LocaleKeywords, en::EN_LOCALE};
     use jiff::{civil::Weekday, tz::TimeZone};
 
     fn utc() -> TimeZone {
@@ -760,10 +759,6 @@ mod tests {
 
     fn format_zoned(z: &Zoned) -> String {
         z.strftime("%Y-%m-%dT%H:%M:%S").to_string()
-    }
-
-    fn en_kw() -> LocaleKeywords {
-        LocaleKeywords::from_locale(&EN_LOCALE)
     }
 
     #[test]
@@ -1251,105 +1246,105 @@ mod tests {
     #[test]
     fn parse_now_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("now", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("now", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-15T12:00:00");
     }
 
     #[test]
     fn parse_tomorrow_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("tomorrow", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("tomorrow", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-16T00:00:00");
     }
 
     #[test]
     fn parse_in_3_days_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("in 3 days", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("in 3 days", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-18T12:00:00");
     }
 
     #[test]
     fn parse_epoch_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("@1735689600", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("@1735689600", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-01-01T00:00:00");
     }
 
     #[test]
     fn parse_empty_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-15T12:00:00");
     }
 
     #[test]
     fn parse_error_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("???", &now, &en_kw());
+        let result = crate::parser::parse("???", &now);
         assert!(result.is_err());
     }
 
     #[test]
     fn parse_whitespace_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("   ", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("   ", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-15T12:00:00");
     }
 
     #[test]
     fn parse_next_friday_17_00_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("next friday 17:00", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("next friday 17:00", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-20T17:00:00");
     }
 
     #[test]
     fn parse_a_week_ago_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("a week ago", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("a week ago", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-08T12:00:00");
     }
 
     #[test]
     fn parse_an_hour_ago_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("an hour ago", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("an hour ago", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-15T11:00:00");
     }
 
     #[test]
     fn parse_iso_date_with_time_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("2022-11-07 13:25:30", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("2022-11-07 13:25:30", &now).unwrap();
         assert_eq!(format_zoned(&result), "2022-11-07T13:25:30");
     }
 
     #[test]
     fn parse_today_18_30_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("today 18:30", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("today 18:30", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-15T18:30:00");
     }
 
     #[test]
     fn parse_this_sunday_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("this sunday", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("this sunday", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-15T00:00:00");
     }
 
     #[test]
     fn parse_next_sunday_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("next sunday", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("next sunday", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-22T00:00:00");
     }
 
     #[test]
     fn parse_last_sunday_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("last sunday", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("last sunday", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-08T00:00:00");
     }
 
@@ -1469,7 +1464,7 @@ mod tests {
     #[test]
     fn parse_tomorrow_plus_3_hours_e2e() {
         let now = make_now(); // 2025-06-15T12:00:00 UTC
-        let result = crate::parser::parse("tomorrow + 3 hours", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("tomorrow + 3 hours", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-16T03:00:00");
     }
 
@@ -1477,21 +1472,21 @@ mod tests {
     fn parse_now_plus_1_day_plus_3_hours_minus_30_minutes_e2e() {
         let now = make_now();
         let result =
-            crate::parser::parse("now + 1 day + 3 hours - 30 minutes", &now, &en_kw()).unwrap();
+            crate::parser::parse("now + 1 day + 3 hours - 30 minutes", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-16T14:30:00");
     }
 
     #[test]
     fn parse_3_hours_after_tomorrow_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("3 hours after tomorrow", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("3 hours after tomorrow", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-16T03:00:00");
     }
 
     #[test]
     fn parse_2_days_before_next_friday_e2e() {
         let now = make_now(); // Sunday 2025-06-15
-        let result = crate::parser::parse("2 days before next friday", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("2 days before next friday", &now).unwrap();
         // next friday = June 20, - 2 days = June 18
         assert_eq!(format_zoned(&result), "2025-06-18T00:00:00");
     }
@@ -1499,15 +1494,15 @@ mod tests {
     #[test]
     fn parse_next_friday_minus_1_week_e2e() {
         let now = make_now();
-        let result = crate::parser::parse("next friday - 1 week", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("next friday - 1 week", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-13T00:00:00");
     }
 
     #[test]
     fn parse_verbal_and_infix_same_result() {
         let now = make_now();
-        let verbal = crate::parser::parse("3 hours after tomorrow", &now, &en_kw()).unwrap();
-        let infix = crate::parser::parse("tomorrow + 3 hours", &now, &en_kw()).unwrap();
+        let verbal = crate::parser::parse("3 hours after tomorrow", &now).unwrap();
+        let infix = crate::parser::parse("tomorrow + 3 hours", &now).unwrap();
         assert_eq!(format_zoned(&verbal), format_zoned(&infix));
     }
 
@@ -1517,7 +1512,7 @@ mod tests {
     fn parse_last_week_returns_single_date_e2e() {
         // "last week" now resolves as Offset(Past, 1 week) = single date, not range
         let now = make_wednesday(); // Wed 2025-06-18 12:00:00
-        let result = crate::parser::parse("last week", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("last week", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-11T12:00:00"); // 18 - 7 = 11, time preserved
     }
 
@@ -1525,14 +1520,14 @@ mod tests {
     fn parse_range_last_week_not_a_range_e2e() {
         // "last week" is no longer a range expression
         let now = make_wednesday();
-        let result = crate::parser::parse_range("last week", &now, &en_kw());
+        let result = crate::parser::parse_range("last week", &now);
         assert!(result.is_err());
     }
 
     #[test]
     fn parse_range_this_month_e2e() {
         let now = make_wednesday();
-        let (start, end) = crate::parser::parse_range("this month", &now, &en_kw()).unwrap();
+        let (start, end) = crate::parser::parse_range("this month", &now).unwrap();
         assert_eq!(format_zoned(&start), "2025-06-01T00:00:00");
         assert_eq!(format_zoned(&end), "2025-06-30T23:59:59");
     }
@@ -1540,7 +1535,7 @@ mod tests {
     #[test]
     fn parse_range_q3_2025_e2e() {
         let now = make_wednesday();
-        let (start, end) = crate::parser::parse_range("Q3 2025", &now, &en_kw()).unwrap();
+        let (start, end) = crate::parser::parse_range("Q3 2025", &now).unwrap();
         assert_eq!(format_zoned(&start), "2025-07-01T00:00:00");
         assert_eq!(format_zoned(&end), "2025-09-30T23:59:59");
     }
@@ -1548,7 +1543,7 @@ mod tests {
     #[test]
     fn parse_range_not_a_range_errors() {
         let now = make_now();
-        let result = crate::parser::parse_range("tomorrow", &now, &en_kw());
+        let result = crate::parser::parse_range("tomorrow", &now);
         assert!(result.is_err());
         assert!(result.unwrap_err().format_message().contains("not a range"));
     }
@@ -1746,21 +1741,21 @@ mod tests {
     #[test]
     fn parse_eod_e2e() {
         let now = boundary_now();
-        let result = crate::parser::parse("eod", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("eod", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-18T23:59:59");
     }
 
     #[test]
     fn parse_sod_e2e() {
         let now = boundary_now();
-        let result = crate::parser::parse("sod", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("sod", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-18T00:00:00");
     }
 
     #[test]
     fn parse_eod_plus_1h_e2e() {
         let now = boundary_now();
-        let result = crate::parser::parse("eod + 1h", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("eod + 1h", &now).unwrap();
         // eod = 23:59:59.999999999, + 1 hour = next day 00:59:59.999999999
         let formatted = result.strftime("%Y-%m-%dT%H:%M").to_string();
         assert_eq!(formatted, "2025-06-19T00:59");
@@ -1769,28 +1764,28 @@ mod tests {
     #[test]
     fn parse_plus_3h_e2e() {
         let now = boundary_now(); // 14:30
-        let result = crate::parser::parse("+3h", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("+3h", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-18T17:30:00");
     }
 
     #[test]
     fn parse_minus_1d_e2e() {
         let now = boundary_now(); // June 18
-        let result = crate::parser::parse("-1d", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("-1d", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-17T14:30:00");
     }
 
     #[test]
     fn parse_today_18h_e2e() {
         let now = boundary_now();
-        let result = crate::parser::parse("today 18h", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("today 18h", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-18T18:00:00");
     }
 
     #[test]
     fn parse_now_plus_13h30_e2e() {
         let now = boundary_now(); // 14:30
-        let result = crate::parser::parse("now+13h30", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("now+13h30", &now).unwrap();
         // 14:30 + 13h30m = 28:00 = next day 04:00
         assert_eq!(format_zoned(&result), "2025-06-19T04:00:00");
     }
@@ -1798,7 +1793,7 @@ mod tests {
     #[test]
     fn parse_now_plus_colon_duration_e2e() {
         let now = boundary_now(); // 14:30
-        let result = crate::parser::parse("now+13:30", &now, &en_kw()).unwrap();
+        let result = crate::parser::parse("now+13:30", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-19T04:00:00");
     }
 

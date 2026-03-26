@@ -140,14 +140,6 @@ pub struct Cli {
     #[arg(short = 'n', long = "no-newline")]
     pub no_newline: bool,
 
-    /// Locale for input parsing (e.g. en, pt). Auto-detected if omitted.
-    #[arg(
-        short = 'L',
-        long,
-        help = "Locale for input parsing (e.g. en, pt). Auto-detected if omitted."
-    )]
-    pub locale: Option<String>,
-
     /// Print verbose diagnostics to stderr (config, parse steps, timing).
     #[arg(short = 'v', long)]
     pub verbose: bool,
@@ -330,7 +322,6 @@ pub struct Command {
     pub input: String,
     pub format: Option<String>,
     pub timezone: Option<String>,
-    pub locale: Option<String>,
     pub now: Option<Timestamp>,
     pub json: bool,
     pub no_newline: bool,
@@ -346,7 +337,6 @@ impl Command {
             input,
             format: self.format.clone(),
             timezone: self.timezone.clone(),
-            locale: self.locale.clone(),
             now: self.now,
             json: self.json,
             no_newline: self.no_newline,
@@ -416,7 +406,6 @@ impl Command {
             input,
             format: cli.format,
             timezone: cli.timezone,
-            locale: cli.locale,
             now,
             json: cli.json,
             no_newline: cli.no_newline,

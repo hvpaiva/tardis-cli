@@ -27,9 +27,6 @@ pub struct Config {
     pub format: String,
     /// Time-zone identifier (IANA name, e.g. `"America/Sao_Paulo"`).
     pub timezone: String,
-    /// Locale for natural-language parsing (e.g. `"en"`, `"pt"`). Optional.
-    #[serde(default)]
-    pub locale: Option<String>,
     /// User-defined named formats.
     pub formats: Option<HashMap<String, String>>,
 }
@@ -45,7 +42,7 @@ impl Config {
         let mut cfg: Config = toml::from_str(&contents)
             .map_err(|e| system_error!(Config, "failed to parse config: {}", e))?;
 
-        // Env var overlay (D-08): TARDIS_FORMAT, TARDIS_TIMEZONE, TARDIS_LOCALE
+        // Env var overlay (D-08): TARDIS_FORMAT, TARDIS_TIMEZONE
         if let Ok(val) = env::var("TARDIS_FORMAT") {
             if !val.is_empty() {
                 cfg.format = val;
@@ -56,12 +53,6 @@ impl Config {
                 cfg.timezone = val;
             }
         }
-        if let Ok(val) = env::var("TARDIS_LOCALE") {
-            if !val.is_empty() {
-                cfg.locale = Some(val);
-            }
-        }
-
         Ok(cfg)
     }
 
@@ -245,7 +236,7 @@ short = "%H:%M"
         let cfg = Config {
             format: "%Y".into(),
             timezone: "UTC".into(),
-            locale: None,
+
             formats: Some(
                 [
                     ("iso".to_string(), "%Y-%m-%d".to_string()),
@@ -266,7 +257,7 @@ short = "%H:%M"
         let cfg = Config {
             format: "%Y".into(),
             timezone: "UTC".into(),
-            locale: None,
+
             formats: None,
         };
         assert!(cfg.presets().is_empty());

@@ -1,28 +1,260 @@
 //! Lexer (tokenizer) for the TARDIS natural-language date parser.
 //!
 //! Scans input character-by-character, producing a `Vec<SpannedToken>` with
-//! byte-accurate span tracking. Keywords are matched via locale-driven
-//! `LocaleKeywords` lookup. UTF-8 multi-byte characters are handled for
-//! accented words (e.g., "amanha" in Portuguese).
+//! byte-accurate span tracking. Keywords are matched via an inline
+//! `match_keyword()` function. UTF-8 multi-byte characters are handled
+//! correctly in word scanning.
 //!
 //! Only `Token::Word(String)` carries owned data
 //! (for unrecognized words used in error messages and typo suggestions).
 
-use crate::locale::{self, LocaleKeywords};
-use crate::parser::token::{ByteSpan, EpochPrecision, SpannedToken, Token};
+use crate::parser::token::{BoundaryKind, ByteSpan, EpochPrecision, SpannedToken, TemporalUnit, Token};
+
+/// Complete keyword table for the suggestion engine and iteration.
+///
+/// Every entry corresponds to a match arm in [`match_keyword()`]. The two
+/// sources (match + array) are kept in sync manually -- adding a keyword
+/// in one and not the other is a logic error caught by the
+/// `keyword_list_count` test.
+pub(crate) const KEYWORD_LIST: &[(&str, Token)] = &[
+    // Relative keywords
+    ("now", Token::Now),
+    ("today", Token::Today),
+    ("tomorrow", Token::Tomorrow),
+    ("yesterday", Token::Yesterday),
+    ("overmorrow", Token::Overmorrow),
+    // Direction modifiers
+    ("next", Token::Next),
+    ("last", Token::Last),
+    ("this", Token::This),
+    ("in", Token::In),
+    ("ago", Token::Ago),
+    ("from", Token::From),
+    // Verbal arithmetic keywords
+    ("after", Token::After),
+    ("before", Token::Before),
+    // Articles
+    ("a", Token::A),
+    ("an", Token::An),
+    // Connectors
+    ("at", Token::At),
+    ("and", Token::And),
+    // Weekdays (full)
+    ("monday", Token::Weekday(jiff::civil::Weekday::Monday)),
+    ("tuesday", Token::Weekday(jiff::civil::Weekday::Tuesday)),
+    ("wednesday", Token::Weekday(jiff::civil::Weekday::Wednesday)),
+    ("thursday", Token::Weekday(jiff::civil::Weekday::Thursday)),
+    ("friday", Token::Weekday(jiff::civil::Weekday::Friday)),
+    ("saturday", Token::Weekday(jiff::civil::Weekday::Saturday)),
+    ("sunday", Token::Weekday(jiff::civil::Weekday::Sunday)),
+    // Weekdays (abbreviated)
+    ("mon", Token::Weekday(jiff::civil::Weekday::Monday)),
+    ("tue", Token::Weekday(jiff::civil::Weekday::Tuesday)),
+    ("wed", Token::Weekday(jiff::civil::Weekday::Wednesday)),
+    ("thu", Token::Weekday(jiff::civil::Weekday::Thursday)),
+    ("fri", Token::Weekday(jiff::civil::Weekday::Friday)),
+    ("sat", Token::Weekday(jiff::civil::Weekday::Saturday)),
+    ("sun", Token::Weekday(jiff::civil::Weekday::Sunday)),
+    // Months (full)
+    ("january", Token::Month(1)),
+    ("february", Token::Month(2)),
+    ("march", Token::Month(3)),
+    ("april", Token::Month(4)),
+    ("may", Token::Month(5)),
+    ("june", Token::Month(6)),
+    ("july", Token::Month(7)),
+    ("august", Token::Month(8)),
+    ("september", Token::Month(9)),
+    ("october", Token::Month(10)),
+    ("november", Token::Month(11)),
+    ("december", Token::Month(12)),
+    // Months (abbreviated)
+    ("jan", Token::Month(1)),
+    ("feb", Token::Month(2)),
+    ("mar", Token::Month(3)),
+    ("apr", Token::Month(4)),
+    ("jun", Token::Month(6)),
+    ("jul", Token::Month(7)),
+    ("aug", Token::Month(8)),
+    ("sep", Token::Month(9)),
+    ("oct", Token::Month(10)),
+    ("nov", Token::Month(11)),
+    ("dec", Token::Month(12)),
+    // Temporal units (singular + plural + abbreviations)
+    ("year", Token::Unit(TemporalUnit::Year)),
+    ("years", Token::Unit(TemporalUnit::Year)),
+    ("month", Token::Unit(TemporalUnit::Month)),
+    ("months", Token::Unit(TemporalUnit::Month)),
+    ("week", Token::Unit(TemporalUnit::Week)),
+    ("weeks", Token::Unit(TemporalUnit::Week)),
+    ("day", Token::Unit(TemporalUnit::Day)),
+    ("days", Token::Unit(TemporalUnit::Day)),
+    ("hour", Token::Unit(TemporalUnit::Hour)),
+    ("hours", Token::Unit(TemporalUnit::Hour)),
+    ("minute", Token::Unit(TemporalUnit::Minute)),
+    ("minutes", Token::Unit(TemporalUnit::Minute)),
+    ("min", Token::Unit(TemporalUnit::Minute)),
+    ("mins", Token::Unit(TemporalUnit::Minute)),
+    ("second", Token::Unit(TemporalUnit::Second)),
+    ("seconds", Token::Unit(TemporalUnit::Second)),
+    ("sec", Token::Unit(TemporalUnit::Second)),
+    ("secs", Token::Unit(TemporalUnit::Second)),
+    // Abbreviated duration units
+    ("h", Token::Unit(TemporalUnit::Hour)),
+    ("hr", Token::Unit(TemporalUnit::Hour)),
+    ("hrs", Token::Unit(TemporalUnit::Hour)),
+    ("d", Token::Unit(TemporalUnit::Day)),
+    ("w", Token::Unit(TemporalUnit::Week)),
+    ("wk", Token::Unit(TemporalUnit::Week)),
+    ("wks", Token::Unit(TemporalUnit::Week)),
+    ("y", Token::Unit(TemporalUnit::Year)),
+    ("yr", Token::Unit(TemporalUnit::Year)),
+    ("yrs", Token::Unit(TemporalUnit::Year)),
+    ("mo", Token::Unit(TemporalUnit::Month)),
+    ("mos", Token::Unit(TemporalUnit::Month)),
+    // TaskWarrior boundary keywords -- current period (12)
+    ("sod", Token::Boundary(BoundaryKind::Sod)),
+    ("eod", Token::Boundary(BoundaryKind::Eod)),
+    ("sow", Token::Boundary(BoundaryKind::Sow)),
+    ("eow", Token::Boundary(BoundaryKind::Eow)),
+    ("soww", Token::Boundary(BoundaryKind::Soww)),
+    ("eoww", Token::Boundary(BoundaryKind::Eoww)),
+    ("som", Token::Boundary(BoundaryKind::Som)),
+    ("eom", Token::Boundary(BoundaryKind::Eom)),
+    ("soq", Token::Boundary(BoundaryKind::Soq)),
+    ("eoq", Token::Boundary(BoundaryKind::Eoq)),
+    ("soy", Token::Boundary(BoundaryKind::Soy)),
+    ("eoy", Token::Boundary(BoundaryKind::Eoy)),
+    // TaskWarrior boundary keywords -- previous period (10)
+    ("sopd", Token::Boundary(BoundaryKind::Sopd)),
+    ("eopd", Token::Boundary(BoundaryKind::Eopd)),
+    ("sopw", Token::Boundary(BoundaryKind::Sopw)),
+    ("eopw", Token::Boundary(BoundaryKind::Eopw)),
+    ("sopm", Token::Boundary(BoundaryKind::Sopm)),
+    ("eopm", Token::Boundary(BoundaryKind::Eopm)),
+    ("sopq", Token::Boundary(BoundaryKind::Sopq)),
+    ("eopq", Token::Boundary(BoundaryKind::Eopq)),
+    ("sopy", Token::Boundary(BoundaryKind::Sopy)),
+    ("eopy", Token::Boundary(BoundaryKind::Eopy)),
+    // TaskWarrior boundary keywords -- next period (10)
+    ("sond", Token::Boundary(BoundaryKind::Sond)),
+    ("eond", Token::Boundary(BoundaryKind::Eond)),
+    ("sonw", Token::Boundary(BoundaryKind::Sonw)),
+    ("eonw", Token::Boundary(BoundaryKind::Eonw)),
+    ("sonm", Token::Boundary(BoundaryKind::Sonm)),
+    ("eonm", Token::Boundary(BoundaryKind::Eonm)),
+    ("sonq", Token::Boundary(BoundaryKind::Sonq)),
+    ("eonq", Token::Boundary(BoundaryKind::Eonq)),
+    ("sony", Token::Boundary(BoundaryKind::Sony)),
+    ("eony", Token::Boundary(BoundaryKind::Eony)),
+];
+
+/// Match a lowercased word against the known keyword table.
+///
+/// Returns `Some(Token)` for a recognized keyword, `None` otherwise.
+/// The match arms are grouped by semantic category and use `|` for synonyms.
+fn match_keyword(word: &str) -> Option<Token> {
+    match word {
+        // Relative keywords
+        "now" => Some(Token::Now),
+        "today" => Some(Token::Today),
+        "tomorrow" => Some(Token::Tomorrow),
+        "yesterday" => Some(Token::Yesterday),
+        "overmorrow" => Some(Token::Overmorrow),
+        // Direction modifiers
+        "next" => Some(Token::Next),
+        "last" => Some(Token::Last),
+        "this" => Some(Token::This),
+        "in" => Some(Token::In),
+        "ago" => Some(Token::Ago),
+        "from" => Some(Token::From),
+        // Verbal arithmetic
+        "after" => Some(Token::After),
+        "before" => Some(Token::Before),
+        // Articles
+        "a" => Some(Token::A),
+        "an" => Some(Token::An),
+        // Connectors
+        "at" => Some(Token::At),
+        "and" => Some(Token::And),
+        // Weekdays (full + abbreviated)
+        "monday" | "mon" => Some(Token::Weekday(jiff::civil::Weekday::Monday)),
+        "tuesday" | "tue" => Some(Token::Weekday(jiff::civil::Weekday::Tuesday)),
+        "wednesday" | "wed" => Some(Token::Weekday(jiff::civil::Weekday::Wednesday)),
+        "thursday" | "thu" => Some(Token::Weekday(jiff::civil::Weekday::Thursday)),
+        "friday" | "fri" => Some(Token::Weekday(jiff::civil::Weekday::Friday)),
+        "saturday" | "sat" => Some(Token::Weekday(jiff::civil::Weekday::Saturday)),
+        "sunday" | "sun" => Some(Token::Weekday(jiff::civil::Weekday::Sunday)),
+        // Months (full + abbreviated)
+        "january" | "jan" => Some(Token::Month(1)),
+        "february" | "feb" => Some(Token::Month(2)),
+        "march" | "mar" => Some(Token::Month(3)),
+        "april" | "apr" => Some(Token::Month(4)),
+        "may" => Some(Token::Month(5)),
+        "june" | "jun" => Some(Token::Month(6)),
+        "july" | "jul" => Some(Token::Month(7)),
+        "august" | "aug" => Some(Token::Month(8)),
+        "september" | "sep" => Some(Token::Month(9)),
+        "october" | "oct" => Some(Token::Month(10)),
+        "november" | "nov" => Some(Token::Month(11)),
+        "december" | "dec" => Some(Token::Month(12)),
+        // Temporal units (singular + plural + abbreviations)
+        "year" | "years" | "y" | "yr" | "yrs" => Some(Token::Unit(TemporalUnit::Year)),
+        "month" | "months" | "mo" | "mos" => Some(Token::Unit(TemporalUnit::Month)),
+        "week" | "weeks" | "w" | "wk" | "wks" => Some(Token::Unit(TemporalUnit::Week)),
+        "day" | "days" | "d" => Some(Token::Unit(TemporalUnit::Day)),
+        "hour" | "hours" | "h" | "hr" | "hrs" => Some(Token::Unit(TemporalUnit::Hour)),
+        "minute" | "minutes" | "min" | "mins" => Some(Token::Unit(TemporalUnit::Minute)),
+        "second" | "seconds" | "sec" | "secs" => Some(Token::Unit(TemporalUnit::Second)),
+        // TaskWarrior boundary keywords -- current period
+        "sod" => Some(Token::Boundary(BoundaryKind::Sod)),
+        "eod" => Some(Token::Boundary(BoundaryKind::Eod)),
+        "sow" => Some(Token::Boundary(BoundaryKind::Sow)),
+        "eow" => Some(Token::Boundary(BoundaryKind::Eow)),
+        "soww" => Some(Token::Boundary(BoundaryKind::Soww)),
+        "eoww" => Some(Token::Boundary(BoundaryKind::Eoww)),
+        "som" => Some(Token::Boundary(BoundaryKind::Som)),
+        "eom" => Some(Token::Boundary(BoundaryKind::Eom)),
+        "soq" => Some(Token::Boundary(BoundaryKind::Soq)),
+        "eoq" => Some(Token::Boundary(BoundaryKind::Eoq)),
+        "soy" => Some(Token::Boundary(BoundaryKind::Soy)),
+        "eoy" => Some(Token::Boundary(BoundaryKind::Eoy)),
+        // TaskWarrior boundary keywords -- previous period
+        "sopd" => Some(Token::Boundary(BoundaryKind::Sopd)),
+        "eopd" => Some(Token::Boundary(BoundaryKind::Eopd)),
+        "sopw" => Some(Token::Boundary(BoundaryKind::Sopw)),
+        "eopw" => Some(Token::Boundary(BoundaryKind::Eopw)),
+        "sopm" => Some(Token::Boundary(BoundaryKind::Sopm)),
+        "eopm" => Some(Token::Boundary(BoundaryKind::Eopm)),
+        "sopq" => Some(Token::Boundary(BoundaryKind::Sopq)),
+        "eopq" => Some(Token::Boundary(BoundaryKind::Eopq)),
+        "sopy" => Some(Token::Boundary(BoundaryKind::Sopy)),
+        "eopy" => Some(Token::Boundary(BoundaryKind::Eopy)),
+        // TaskWarrior boundary keywords -- next period
+        "sond" => Some(Token::Boundary(BoundaryKind::Sond)),
+        "eond" => Some(Token::Boundary(BoundaryKind::Eond)),
+        "sonw" => Some(Token::Boundary(BoundaryKind::Sonw)),
+        "eonw" => Some(Token::Boundary(BoundaryKind::Eonw)),
+        "sonm" => Some(Token::Boundary(BoundaryKind::Sonm)),
+        "eonm" => Some(Token::Boundary(BoundaryKind::Eonm)),
+        "sonq" => Some(Token::Boundary(BoundaryKind::Sonq)),
+        "eonq" => Some(Token::Boundary(BoundaryKind::Eonq)),
+        "sony" => Some(Token::Boundary(BoundaryKind::Sony)),
+        "eony" => Some(Token::Boundary(BoundaryKind::Eony)),
+        _ => None,
+    }
+}
 
 /// Tokenize the input string into a sequence of spanned tokens.
 ///
 /// - Whitespace is consumed but not emitted.
 /// - Commas are consumed but not emitted (optional separators in compound durations).
-/// - Keywords are matched via the locale-driven `locale_keywords` table.
+/// - Keywords are matched via [`match_keyword()`].
 /// - Unrecognized alpha words are captured as `Token::Word` with original casing.
 /// - Epoch suffixes (`ms`, `us`, `ns`, `s`) are detected immediately after numbers
 ///   when not separated by whitespace and not followed by more alpha chars.
 /// - UTF-8 multi-byte alphabetic characters are handled in word scanning.
-/// - After initial tokenization, a multi-word merge pass combines locale-specific
-///   multi-word patterns into single tokens.
-pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<SpannedToken> {
+pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
     let bytes = input.as_bytes();
     let len = bytes.len();
     let mut pos: usize = 0;
@@ -195,14 +427,7 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
 
             // Special handling for Q+digit patterns (Q1, Q2, Q3, Q4)
             let original = &input[start..pos];
-            // Normalize for keyword lookup: lowercase + strip diacritics
-            let normalized: String = original
-                .chars()
-                .map(|c| {
-                    let lower = c.to_lowercase().next().unwrap_or(c);
-                    locale::strip_diacritics(lower)
-                })
-                .collect();
+            let normalized = original.to_ascii_lowercase();
 
             if normalized == "q" && pos < len && bytes[pos].is_ascii_digit() {
                 let digit_start = pos;
@@ -221,7 +446,10 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
                 pos = digit_start;
             }
 
-            let kind = locale_keywords.lookup(&normalized, original);
+            let kind = match match_keyword(&normalized) {
+                Some(token) => token,
+                None => Token::Word(original.to_string()),
+            };
             tokens.push(SpannedToken {
                 kind,
                 span: ByteSpan { start, end: pos },
@@ -238,75 +466,7 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
         });
     }
 
-    // Multi-word token merge pass (for locale-specific patterns)
-    merge_multi_word_patterns(&mut tokens, locale_keywords, input);
-
     tokens
-}
-
-/// Post-processing pass: scan for known multi-word sequences from the locale
-/// and replace them with single tokens. Handles PT patterns like
-/// "daqui a" -> Token::In, "depois de amanha" -> Token::Overmorrow, etc.
-///
-/// Matching uses the original input text (via byte spans) rather than
-/// token kinds, because the same word can be recognized as different
-/// keyword tokens across locales (e.g., "amanha" -> Token::Tomorrow in PT,
-/// but the multi-word pattern "depois de amanha" needs to match on the
-/// raw text "amanha", not the token kind "Tomorrow").
-fn merge_multi_word_patterns(
-    tokens: &mut Vec<SpannedToken>,
-    locale_keywords: &LocaleKeywords,
-    input: &str,
-) {
-    let patterns = locale_keywords.multi_word_patterns();
-    if patterns.is_empty() {
-        return;
-    }
-
-    let mut i = 0;
-    while i < tokens.len() {
-        let mut matched = false;
-        for &(words, ref target_token) in patterns {
-            if i + words.len() > tokens.len() {
-                continue;
-            }
-            // Check if the next N tokens match the multi-word pattern
-            // by comparing normalized text from the original input
-            let all_match = words.iter().enumerate().all(|(j, &expected)| {
-                let span = &tokens[i + j].span;
-                let original = &input[span.start..span.end];
-                let normalized: String = original
-                    .chars()
-                    .map(|c| {
-                        let lower = c.to_lowercase().next().unwrap_or(c);
-                        locale::strip_diacritics(lower)
-                    })
-                    .collect();
-                normalized == expected
-            });
-
-            if all_match {
-                // Merge: replace first token, remove the rest
-                let start_span = tokens[i].span.start;
-                let end_span = tokens[i + words.len() - 1].span.end;
-                tokens[i] = SpannedToken {
-                    kind: target_token.clone(),
-                    span: ByteSpan {
-                        start: start_span,
-                        end: end_span,
-                    },
-                };
-                for _ in 1..words.len() {
-                    tokens.remove(i + 1);
-                }
-                matched = true;
-                break;
-            }
-        }
-        if !matched {
-            i += 1;
-        }
-    }
 }
 
 /// Try to consume an epoch suffix immediately after a number token.
@@ -374,19 +534,40 @@ fn match_quarter(lower: &str) -> Option<Token> {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
-    use crate::locale::en::EN_LOCALE;
     use jiff::civil::Weekday;
-
-    /// Helper to build EN locale keywords for tests.
-    fn en_kw() -> LocaleKeywords {
-        LocaleKeywords::from_locale(&EN_LOCALE)
-    }
 
     /// Helper to extract just the token kinds from a tokenize result.
     fn kinds(input: &str) -> Vec<Token> {
-        let kw = en_kw();
-        tokenize(input, &kw).into_iter().map(|st| st.kind).collect()
+        tokenize(input).into_iter().map(|st| st.kind).collect()
     }
+
+    // ── match_keyword tests ───────────────────────────────────────
+
+    #[test]
+    fn match_keyword_known() {
+        assert_eq!(match_keyword("tomorrow"), Some(Token::Tomorrow));
+        assert_eq!(
+            match_keyword("eod"),
+            Some(Token::Boundary(BoundaryKind::Eod))
+        );
+        assert_eq!(
+            match_keyword("mon"),
+            Some(Token::Weekday(jiff::civil::Weekday::Monday))
+        );
+    }
+
+    #[test]
+    fn match_keyword_unknown() {
+        assert_eq!(match_keyword("xyzzy"), None);
+        assert_eq!(match_keyword("thursdya"), None);
+    }
+
+    #[test]
+    fn keyword_list_count() {
+        assert_eq!(KEYWORD_LIST.len(), 116);
+    }
+
+    // ── Basic tokenize tests ──────────────────────────────────────
 
     #[test]
     fn simple_keyword_now() {
@@ -521,8 +702,7 @@ mod tests {
 
     #[test]
     fn spans_are_correct() {
-        let kw = en_kw();
-        let tokens = tokenize("next friday", &kw);
+        let tokens = tokenize("next friday");
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 4 });
         assert_eq!(tokens[1].span, ByteSpan { start: 5, end: 11 });
@@ -758,8 +938,7 @@ mod tests {
 
     #[test]
     fn span_tracking_multiword() {
-        let kw = en_kw();
-        let tokens = tokenize("3 hours ago", &kw);
+        let tokens = tokenize("3 hours ago");
         assert_eq!(tokens.len(), 3);
         assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 1 });
         assert_eq!(tokens[1].span, ByteSpan { start: 2, end: 7 });
@@ -768,8 +947,7 @@ mod tests {
 
     #[test]
     fn span_tracking_iso_date() {
-        let kw = en_kw();
-        let tokens = tokenize("2025-01-15", &kw);
+        let tokens = tokenize("2025-01-15");
         assert_eq!(tokens.len(), 5);
         assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 4 }); // 2025
         assert_eq!(tokens[1].span, ByteSpan { start: 4, end: 5 }); // -
@@ -781,8 +959,7 @@ mod tests {
     #[test]
     fn negative_number_at_start_emits_dash_and_number() {
         // After D-07 fix: "-42" at start emits Dash+Number, not Number(-42)
-        let kw = en_kw();
-        let tokens = tokenize("-42", &kw);
+        let tokens = tokenize("-42");
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].kind, Token::Dash);
         assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 1 });
@@ -792,8 +969,7 @@ mod tests {
 
     #[test]
     fn epoch_suffix_span() {
-        let kw = en_kw();
-        let tokens = tokenize("100ms", &kw);
+        let tokens = tokenize("100ms");
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].kind, Token::Number(100));
         assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 3 });
@@ -909,10 +1085,9 @@ mod tests {
     #[test]
     fn utf8_accented_word_scans_as_single_token() {
         // "amanha" with tilde should scan as one word token
-        let kw = en_kw();
-        let tokens = tokenize("amanh\u{00e3}", &kw);
+        let tokens = tokenize("amanh\u{00e3}");
         assert_eq!(tokens.len(), 1);
-        // EN locale doesn't know "amanha", so it becomes a Word
+        // EN keywords don't include accented words, so it becomes a Word
         match &tokens[0].kind {
             Token::Word(w) => assert_eq!(w, "amanh\u{00e3}"),
             _ => panic!("expected Word token for unrecognized accented word"),
@@ -922,8 +1097,7 @@ mod tests {
     #[test]
     fn utf8_span_tracking_correct() {
         // "amanha" = 6 bytes: a(1) m(1) a(1) n(1) h(1) a-tilde(2 bytes: 0xC3 0xA3)
-        let kw = en_kw();
-        let tokens = tokenize("amanh\u{00e3}", &kw);
+        let tokens = tokenize("amanh\u{00e3}");
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 7 }); // 7 bytes total
     }
@@ -941,138 +1115,7 @@ mod tests {
         );
     }
 
-    use crate::parser::token::TemporalUnit;
-
-    // ── PT locale lexer tests ──────────────────────────────────
-
-    use crate::locale::pt::PT_LOCALE;
-
-    fn pt_kw() -> LocaleKeywords {
-        LocaleKeywords::from_locale(&PT_LOCALE)
-    }
-
-    fn pt_kinds(input: &str) -> Vec<Token> {
-        let kw = pt_kw();
-        tokenize(input, &kw).into_iter().map(|st| st.kind).collect()
-    }
-
-    #[test]
-    fn pt_tokenize_amanha_no_accent() {
-        assert_eq!(pt_kinds("amanha"), vec![Token::Tomorrow]);
-    }
-
-    #[test]
-    fn pt_tokenize_amanha_with_accent() {
-        // "amanha" (with tilde) should also map to Tomorrow via accent stripping
-        assert_eq!(pt_kinds("amanh\u{00e3}"), vec![Token::Tomorrow]);
-    }
-
-    #[test]
-    fn pt_tokenize_daqui_a_3_dias_multi_word_merge() {
-        assert_eq!(
-            pt_kinds("daqui a 3 dias"),
-            vec![Token::In, Token::Number(3), Token::Unit(TemporalUnit::Day)]
-        );
-    }
-
-    #[test]
-    fn pt_tokenize_ha_2_horas() {
-        assert_eq!(
-            pt_kinds("ha 2 horas"),
-            vec![
-                Token::Ago,
-                Token::Number(2),
-                Token::Unit(TemporalUnit::Hour)
-            ]
-        );
-    }
-
-    #[test]
-    fn pt_tokenize_depois_de_amanha_multi_word_merge() {
-        assert_eq!(pt_kinds("depois de amanha"), vec![Token::Overmorrow]);
-    }
-
-    #[test]
-    fn pt_tokenize_proxima_sexta() {
-        assert_eq!(
-            pt_kinds("proxima sexta"),
-            vec![Token::Next, Token::Weekday(jiff::civil::Weekday::Friday)]
-        );
-    }
-
-    #[test]
-    fn pt_tokenize_anteontem() {
-        assert_eq!(pt_kinds("anteontem"), vec![Token::Ereyesterday]);
-    }
-
-    #[test]
-    fn pt_tokenize_antes_de_ontem_multi_word_merge() {
-        assert_eq!(pt_kinds("antes de ontem"), vec![Token::Ereyesterday]);
-    }
-
-    #[test]
-    fn pt_tokenize_accented_proxima() {
-        // "proxima" with accent on o should normalize to "proxima"
-        assert_eq!(
-            pt_kinds("pr\u{00f3}xima sexta"),
-            vec![Token::Next, Token::Weekday(jiff::civil::Weekday::Friday)]
-        );
-    }
-
-    #[test]
-    fn pt_tokenize_accented_sabado() {
-        assert_eq!(
-            pt_kinds("s\u{00e1}bado"),
-            vec![Token::Weekday(jiff::civil::Weekday::Saturday)]
-        );
-    }
-
-    #[test]
-    fn pt_tokenize_accented_marco() {
-        // "marco" (with cedilla/accent) -> March
-        assert_eq!(pt_kinds("mar\u{00e7}o"), vec![Token::Month(3)]);
-    }
-
-    #[test]
-    fn pt_span_tracking_amanha_with_accent() {
-        let kw = pt_kw();
-        // "amanha" = a(1) m(1) a(1) n(1) h(1) a-tilde(2 bytes) = 7 bytes
-        let tokens = tokenize("amanh\u{00e3}", &kw);
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].kind, Token::Tomorrow);
-        assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 7 });
-    }
-
-    #[test]
-    fn pt_tokenize_em_5_minutos() {
-        assert_eq!(
-            pt_kinds("em 5 minutos"),
-            vec![
-                Token::In,
-                Token::Number(5),
-                Token::Unit(TemporalUnit::Minute)
-            ]
-        );
-    }
-
-    #[test]
-    fn pt_tokenize_3_dias_atras() {
-        assert_eq!(
-            pt_kinds("3 dias atras"),
-            vec![Token::Number(3), Token::Unit(TemporalUnit::Day), Token::Ago]
-        );
-    }
-
-    #[test]
-    fn pt_depois_de_amanha_before_depois_de() {
-        // Verify longest match: "depois de amanha" should merge to Overmorrow,
-        // not "depois de" -> After + leftover "amanha"
-        assert_eq!(pt_kinds("depois de amanha"), vec![Token::Overmorrow]);
-    }
-
     // ── Phase 8: Sign-position fix and boundary keyword tests ──
-
-    use crate::parser::token::BoundaryKind;
 
     #[test]
     fn test_plus_at_start_emits_operator() {
