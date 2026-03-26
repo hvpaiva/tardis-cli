@@ -70,6 +70,8 @@ pub enum TimeExpr {
     HourMinuteSecond(i8, i8, i8),
     /// Hour-only time specification for range granularity (e.g., "today 18h")
     HourOnly(i8),
+    /// "at same time" -- preserve current time from `now` reference.
+    SameTime,
 }
 
 /// Absolute date components.

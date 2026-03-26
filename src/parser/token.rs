@@ -111,6 +111,10 @@ pub enum Token {
     At,
     And,
 
+    // AM/PM meridiem indicators
+    Am,
+    Pm,
+
     // Temporal units
     Unit(TemporalUnit),
 

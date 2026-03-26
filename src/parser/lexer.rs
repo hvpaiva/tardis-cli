@@ -41,6 +41,9 @@ pub(crate) const KEYWORD_LIST: &[(&str, Token)] = &[
     // Connectors
     ("at", Token::At),
     ("and", Token::And),
+    // AM/PM meridiem indicators
+    ("am", Token::Am),
+    ("pm", Token::Pm),
     // Weekdays (full)
     ("monday", Token::Weekday(jiff::civil::Weekday::Monday)),
     ("tuesday", Token::Weekday(jiff::civil::Weekday::Tuesday)),
@@ -179,6 +182,9 @@ fn match_keyword(word: &str) -> Option<Token> {
         // Connectors
         "at" => Some(Token::At),
         "and" => Some(Token::And),
+        // AM/PM meridiem indicators
+        "am" => Some(Token::Am),
+        "pm" => Some(Token::Pm),
         // Weekdays (full + abbreviated)
         "monday" | "mon" => Some(Token::Weekday(jiff::civil::Weekday::Monday)),
         "tuesday" | "tue" => Some(Token::Weekday(jiff::civil::Weekday::Tuesday)),
@@ -566,7 +572,7 @@ mod tests {
 
     #[test]
     fn keyword_list_count() {
-        assert_eq!(KEYWORD_LIST.len(), 116);
+        assert_eq!(KEYWORD_LIST.len(), 118);
     }
 
     // ── Basic tokenize tests ──────────────────────────────────────

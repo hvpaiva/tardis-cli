@@ -177,6 +177,42 @@ impl<'a> Parser<'a> {
         matches!(self.peek(), Some(Token::Unit(_)))
     }
 
+    /// Match a `Token::Word(w)` where the word equals the given target (case-insensitive).
+    fn match_word(&mut self, target: &str) -> bool {
+        if let Some(Token::Word(w)) = self.peek() {
+            if w.eq_ignore_ascii_case(target) {
+                self.pos += 1;
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Apply 12-hour AM/PM conversion to a time expression.
+    ///
+    /// Rules:
+    /// - 12am -> hour 0 (midnight)
+    /// - 1am-11am -> hour 1-11 (no change)
+    /// - 12pm -> hour 12 (noon)
+    /// - 1pm-11pm -> hour 13-23
+    fn apply_meridiem(&self, time: TimeExpr, is_pm: bool) -> TimeExpr {
+        let convert = |h: i8| -> i8 {
+            if is_pm {
+                if h == 12 { 12 } else { h + 12 }
+            } else if h == 12 {
+                0
+            } else {
+                h
+            }
+        };
+        match time {
+            TimeExpr::HourMinute(h, m) => TimeExpr::HourMinute(convert(h), m),
+            TimeExpr::HourMinuteSecond(h, m, s) => TimeExpr::HourMinuteSecond(convert(h), m, s),
+            TimeExpr::HourOnly(h) => TimeExpr::HourOnly(convert(h)),
+            TimeExpr::SameTime => TimeExpr::SameTime,
+        }
+    }
+
     /// Extract the `i64` value from the previously consumed `Number` token.
     fn last_number(&self) -> i64 {
         match &self.tokens[self.pos - 1].kind {
@@ -575,14 +611,31 @@ impl<'a> Parser<'a> {
 
     // ── P5: Time only ──────────────────────────────────────────
 
-    /// `Number Colon Number [Colon Number]` as the entire expression.
+    /// `Number Colon Number [Colon Number] [Am|Pm]` or `Number Am|Pm` as the entire expression.
     fn try_time_only(&mut self) -> Result<Option<DateExpr>, ParseError> {
         let saved = self.save();
 
+        // HH:MM[:SS] [am/pm]
         if let Some(time) = self.try_time_pattern() {
-            // Only valid if this is the entire expression
             if self.at_end() {
                 return Ok(Some(DateExpr::TimeOnly(time)));
+            }
+        }
+
+        // Bare Number Am/Pm (e.g., "3pm")
+        self.restore(saved);
+        if self.match_token(&Token::Number(0)) {
+            let hour = self.last_number() as i8;
+            if self.match_token(&Token::Am) {
+                let time = self.apply_meridiem(TimeExpr::HourMinute(hour, 0), false);
+                if self.at_end() {
+                    return Ok(Some(DateExpr::TimeOnly(time)));
+                }
+            } else if self.match_token(&Token::Pm) {
+                let time = self.apply_meridiem(TimeExpr::HourMinute(hour, 0), true);
+                if self.at_end() {
+                    return Ok(Some(DateExpr::TimeOnly(time)));
+                }
             }
         }
 
@@ -774,6 +827,8 @@ impl<'a> Parser<'a> {
     // ── Time suffix helper ─────────────────────────────────────
 
     /// `[At] Number Colon Number [Colon Number]` or `[At] Number Unit(Hour)` (D-10).
+    /// Also handles AM/PM: `[At] Number [Colon Number [Colon Number]] Am/Pm`
+    /// Also handles "at same time" -> SameTime.
     fn try_time_suffix(&mut self) -> Option<TimeExpr> {
         let saved = self.save();
         // Optional leading "at"
@@ -794,11 +849,30 @@ impl<'a> Parser<'a> {
             }
         }
 
+        // Bare Number Am/Pm -> HourMinute (e.g., "3pm" -> HourMinute(15, 0))
+        self.restore(saved);
+        let _ = self.match_token(&Token::At); // re-consume optional "at"
+        if self.match_token(&Token::Number(0)) {
+            let hour = self.last_number() as i8;
+            if self.match_token(&Token::Am) {
+                return Some(self.apply_meridiem(TimeExpr::HourMinute(hour, 0), false));
+            }
+            if self.match_token(&Token::Pm) {
+                return Some(self.apply_meridiem(TimeExpr::HourMinute(hour, 0), true));
+            }
+        }
+
+        // "at same time" -> SameTime
+        self.restore(saved);
+        if self.match_token(&Token::At) && self.match_word("same") && self.match_word("time") {
+            return Some(TimeExpr::SameTime);
+        }
+
         self.restore(saved);
         None
     }
 
-    /// `Number Colon Number [Colon Number]`
+    /// `Number Colon Number [Colon Number] [Am|Pm]`
     fn try_time_pattern(&mut self) -> Option<TimeExpr> {
         let saved = self.save();
 
@@ -823,12 +897,29 @@ impl<'a> Parser<'a> {
         if self.match_token(&Token::Colon) {
             if self.match_token(&Token::Number(0)) {
                 let second = self.last_number() as i8;
-                return Some(TimeExpr::HourMinuteSecond(hour, minute, second));
+                let time = TimeExpr::HourMinuteSecond(hour, minute, second);
+                // Check for trailing AM/PM on HH:MM:SS
+                if self.match_token(&Token::Am) {
+                    return Some(self.apply_meridiem(time, false));
+                }
+                if self.match_token(&Token::Pm) {
+                    return Some(self.apply_meridiem(time, true));
+                }
+                return Some(time);
             }
             self.restore(saved_after_hm);
         }
 
-        Some(TimeExpr::HourMinute(hour, minute))
+        let time = TimeExpr::HourMinute(hour, minute);
+        // Check for trailing AM/PM on HH:MM
+        if self.match_token(&Token::Am) {
+            return Some(self.apply_meridiem(time, false));
+        }
+        if self.match_token(&Token::Pm) {
+            return Some(self.apply_meridiem(time, true));
+        }
+
+        Some(time)
     }
 
     // ── Error production ───────────────────────────────────────
@@ -1807,6 +1898,133 @@ mod tests {
         assert!(
             result.is_err(),
             "'+1' without unit should error, got: {result:?}"
+        );
+    }
+
+    // ── AM/PM tests ─────────────────────────────────────────────
+
+    #[test]
+    fn test_bare_3pm() {
+        // "3pm" -> TimeOnly(HourMinute(15, 0))
+        let result = parse_expr("3pm").unwrap();
+        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(15, 0)));
+    }
+
+    #[test]
+    fn test_bare_3am() {
+        // "3am" -> TimeOnly(HourMinute(3, 0))
+        let result = parse_expr("3am").unwrap();
+        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(3, 0)));
+    }
+
+    #[test]
+    fn test_3_30pm() {
+        // "3:30pm" -> TimeOnly(HourMinute(15, 30))
+        let result = parse_expr("3:30pm").unwrap();
+        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(15, 30)));
+    }
+
+    #[test]
+    fn test_3_30_45pm() {
+        // "3:30:45pm" -> TimeOnly(HourMinuteSecond(15, 30, 45))
+        let result = parse_expr("3:30:45pm").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::TimeOnly(TimeExpr::HourMinuteSecond(15, 30, 45))
+        );
+    }
+
+    #[test]
+    fn test_12am_midnight() {
+        // "12am" -> TimeOnly(HourMinute(0, 0))
+        let result = parse_expr("12am").unwrap();
+        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(0, 0)));
+    }
+
+    #[test]
+    fn test_12pm_noon() {
+        // "12pm" -> TimeOnly(HourMinute(12, 0))
+        let result = parse_expr("12pm").unwrap();
+        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(12, 0)));
+    }
+
+    #[test]
+    fn test_11_59pm() {
+        // "11:59pm" -> TimeOnly(HourMinute(23, 59))
+        let result = parse_expr("11:59pm").unwrap();
+        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(23, 59)));
+    }
+
+    #[test]
+    fn test_3_space_pm() {
+        // "3 pm" -> TimeOnly(HourMinute(15, 0))
+        let result = parse_expr("3 pm").unwrap();
+        assert_eq!(result, DateExpr::TimeOnly(TimeExpr::HourMinute(15, 0)));
+    }
+
+    #[test]
+    fn test_tomorrow_at_3pm() {
+        // "tomorrow at 3pm" -> Relative(Tomorrow, Some(HourMinute(15, 0)))
+        let result = parse_expr("tomorrow at 3pm").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourMinute(15, 0)))
+        );
+    }
+
+    #[test]
+    fn test_next_friday_at_3_30pm() {
+        // "next friday at 3:30pm" -> DayRef(Next, Friday, Some(HourMinute(15, 30)))
+        let result = parse_expr("next friday at 3:30pm").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::DayRef(
+                Direction::Next,
+                Weekday::Friday,
+                Some(TimeExpr::HourMinute(15, 30)),
+            )
+        );
+    }
+
+    #[test]
+    fn test_today_3pm() {
+        // "today 3pm" -> Relative(Today, Some(HourMinute(15, 0)))
+        let result = parse_expr("today 3pm").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Relative(RelativeDate::Today, Some(TimeExpr::HourMinute(15, 0)))
+        );
+    }
+
+    // ── SameTime tests ──────────────────────────────────────────
+
+    #[test]
+    fn test_tomorrow_at_same_time() {
+        // "tomorrow at same time" -> Relative(Tomorrow, Some(SameTime))
+        let result = parse_expr("tomorrow at same time").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::SameTime))
+        );
+    }
+
+    #[test]
+    fn test_next_friday_at_same_time() {
+        // "next friday at same time" -> DayRef(Next, Friday, Some(SameTime))
+        let result = parse_expr("next friday at same time").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::DayRef(Direction::Next, Weekday::Friday, Some(TimeExpr::SameTime),)
+        );
+    }
+
+    #[test]
+    fn test_yesterday_at_same_time() {
+        // "yesterday at same time" -> Relative(Yesterday, Some(SameTime))
+        let result = parse_expr("yesterday at same time").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Relative(RelativeDate::Yesterday, Some(TimeExpr::SameTime))
         );
     }
 }

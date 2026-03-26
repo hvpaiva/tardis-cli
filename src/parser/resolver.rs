@@ -61,7 +61,7 @@ fn resolve_relative(
             .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?,
     };
 
-    let civil_dt = apply_time_or_midnight(target_date, time);
+    let civil_dt = apply_time_or_midnight(target_date, time, now);
     let tz = now.time_zone().clone();
     tz.to_ambiguous_zoned(civil_dt)
         .compatible()
@@ -108,7 +108,7 @@ fn resolve_day_ref(
         .checked_add(Span::new().days(i64::from(delta_days)))
         .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
 
-    let civil_dt = apply_time_or_midnight(target_date, time);
+    let civil_dt = apply_time_or_midnight(target_date, time, now);
     let tz = now.time_zone().clone();
     tz.to_ambiguous_zoned(civil_dt)
         .compatible()
@@ -129,7 +129,7 @@ fn resolve_absolute(
     };
 
     let date = civil::date(year, abs.month, abs.day);
-    let civil_dt = apply_time_or_midnight(date, time);
+    let civil_dt = apply_time_or_midnight(date, time, now);
     let tz = now.time_zone().clone();
     tz.to_ambiguous_zoned(civil_dt)
         .compatible()
@@ -139,7 +139,7 @@ fn resolve_absolute(
 /// Resolve time-only expressions against today's date from `now`.
 fn resolve_time_only(time: &TimeExpr, now: &Zoned) -> Result<Zoned, ParseError> {
     let today = now.date();
-    let civil_dt = apply_time(today, time);
+    let civil_dt = apply_time(today, time, Some(now));
     let tz = now.time_zone().clone();
     tz.to_ambiguous_zoned(civil_dt)
         .compatible()
@@ -378,6 +378,10 @@ fn expand_by_time_granularity(
         }
         Some(TimeExpr::HourMinuteSecond(..)) => {
             // Second granularity = instant
+            Ok((base.clone(), base))
+        }
+        Some(TimeExpr::SameTime) => {
+            // SameTime preserves the exact time from `now` -> instant
             Ok((base.clone(), base))
         }
     }
@@ -724,19 +728,34 @@ fn build_span(comps: &[DurationComponent]) -> Span {
 }
 
 /// Apply a TimeExpr to a date, or use midnight.
-fn apply_time_or_midnight(date: civil::Date, time: &Option<TimeExpr>) -> civil::DateTime {
+/// Accepts a `now` reference so that `SameTime` can extract the current time.
+fn apply_time_or_midnight(
+    date: civil::Date,
+    time: &Option<TimeExpr>,
+    now: &Zoned,
+) -> civil::DateTime {
     match time {
-        Some(t) => apply_time(date, t),
+        Some(t) => apply_time(date, t, Some(now)),
         None => date.at(0, 0, 0, 0),
     }
 }
 
 /// Apply a TimeExpr to a date.
-fn apply_time(date: civil::Date, time: &TimeExpr) -> civil::DateTime {
+/// When `now` is provided and the time is `SameTime`, uses the time from `now`.
+fn apply_time(date: civil::Date, time: &TimeExpr, now: Option<&Zoned>) -> civil::DateTime {
     match time {
         TimeExpr::HourMinute(h, m) => date.at(*h, *m, 0, 0),
         TimeExpr::HourMinuteSecond(h, m, s) => date.at(*h, *m, *s, 0),
         TimeExpr::HourOnly(h) => date.at(*h, 0, 0, 0),
+        TimeExpr::SameTime => {
+            if let Some(now) = now {
+                let t = now.datetime().time();
+                date.at(t.hour(), t.minute(), t.second(), t.subsec_nanosecond())
+            } else {
+                // Fallback: no `now` reference available, use midnight
+                date.at(0, 0, 0, 0)
+            }
+        }
     }
 }
 
@@ -1877,5 +1896,92 @@ mod tests {
             resolve_range_with_granularity(&DateExpr::Boundary(BoundaryKind::Eod), &now).unwrap();
         assert_eq!(start, end);
         assert_eq!(format_zoned(&start), "2025-06-18T23:59:59");
+    }
+
+    // ── SameTime tests ──────────────────────────────────────────
+
+    #[test]
+    fn resolve_tomorrow_at_same_time() {
+        let now = make_now(); // 2025-06-15T12:00:00 UTC
+        let result = resolve(
+            &DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::SameTime)),
+            &now,
+        )
+        .unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-16T12:00:00");
+    }
+
+    #[test]
+    fn resolve_yesterday_at_same_time() {
+        let now = make_now(); // 2025-06-15T12:00:00 UTC
+        let result = resolve(
+            &DateExpr::Relative(RelativeDate::Yesterday, Some(TimeExpr::SameTime)),
+            &now,
+        )
+        .unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-14T12:00:00");
+    }
+
+    #[test]
+    fn resolve_next_friday_at_same_time() {
+        let now = make_now(); // 2025-06-15T12:00:00 (Sunday)
+        let result = resolve(
+            &DateExpr::DayRef(Direction::Next, Weekday::Friday, Some(TimeExpr::SameTime)),
+            &now,
+        )
+        .unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-20T12:00:00");
+    }
+
+    #[test]
+    fn resolve_same_time_preserves_seconds() {
+        // now at 12:34:56
+        let dt = civil::date(2025, 6, 15).at(12, 34, 56, 0);
+        let now = utc().to_ambiguous_zoned(dt).compatible().unwrap();
+        let result = resolve(
+            &DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::SameTime)),
+            &now,
+        )
+        .unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-16T12:34:56");
+    }
+
+    // ── AM/PM resolver tests ────────────────────────────────────
+
+    #[test]
+    fn resolve_3pm_time_only() {
+        let now = make_now();
+        let result = resolve(&DateExpr::TimeOnly(TimeExpr::HourMinute(15, 0)), &now).unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-15T15:00:00");
+    }
+
+    #[test]
+    fn resolve_12am_time_only() {
+        let now = make_now();
+        let result = resolve(&DateExpr::TimeOnly(TimeExpr::HourMinute(0, 0)), &now).unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-15T00:00:00");
+    }
+
+    #[test]
+    fn resolve_tomorrow_at_3pm() {
+        let now = make_now();
+        let result = resolve(
+            &DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourMinute(15, 0))),
+            &now,
+        )
+        .unwrap();
+        assert_eq!(format_zoned(&result), "2025-06-16T15:00:00");
+    }
+
+    #[test]
+    fn range_granularity_same_time_is_instant() {
+        let now = make_now(); // 2025-06-15T12:00:00 UTC
+        let (start, end) = resolve_range_with_granularity(
+            &DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::SameTime)),
+            &now,
+        )
+        .unwrap();
+        assert_eq!(start, end);
+        assert_eq!(format_zoned(&start), "2025-06-16T12:00:00");
     }
 }
