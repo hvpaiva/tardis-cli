@@ -289,6 +289,9 @@ pub struct RangeArgs {
     /// Override "now" reference (RFC 3339)
     #[arg(long)]
     pub now: Option<String>,
+    /// Delimiter between start and end in plain-text output (default: newline).
+    #[arg(short = 'd', long, default_value = "\n")]
+    pub delimiter: String,
     /// Output as JSON
     #[arg(short, long)]
     pub json: bool,

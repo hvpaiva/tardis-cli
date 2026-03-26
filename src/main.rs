@@ -260,10 +260,14 @@ fn handle_range(args: RangeArgs) -> Result<()> {
             "end_epoch": end.timestamp().as_second(),
             "timezone": tz.iana_name().unwrap_or("Unknown"),
             "format": fmt,
+            "delimiter": args.delimiter,
         });
         output_value(&format!("{json}"), args.no_newline);
     } else {
-        output_value(&format!("{start_str}\n{end_str}"), args.no_newline);
+        output_value(
+            &format!("{start_str}{}{end_str}", args.delimiter),
+            args.no_newline,
+        );
     }
     Ok(())
 }
