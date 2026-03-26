@@ -4,7 +4,7 @@
 //! in `src/parser/lexer.rs`. The keyword table here must produce identical
 //! tokens to the old hardcoded match for every keyword (LOCL-02).
 
-use crate::parser::token::{TemporalUnit, Token};
+use crate::parser::token::{BoundaryKind, TemporalUnit, Token};
 
 use super::Locale;
 
@@ -42,7 +42,7 @@ pub static EN_LOCALE: EnglishLocale = EnglishLocale;
 /// IMPORTANT: This table must be kept in sync with Token variants.
 /// Adding a keyword here and not in the Token enum (or vice versa) will
 /// cause a compile error.
-static EN_KEYWORDS: [(&str, Token); 84] = [
+static EN_KEYWORDS: [(&str, Token); 116] = [
     // Relative keywords
     ("now", Token::Now),
     ("today", Token::Today),
@@ -138,6 +138,42 @@ static EN_KEYWORDS: [(&str, Token); 84] = [
     ("yrs", Token::Unit(TemporalUnit::Year)),
     ("mo", Token::Unit(TemporalUnit::Month)),
     ("mos", Token::Unit(TemporalUnit::Month)),
+    // TaskWarrior boundary keywords (D-11, D-12, D-14)
+    // Current period (12)
+    ("sod", Token::Boundary(BoundaryKind::Sod)),
+    ("eod", Token::Boundary(BoundaryKind::Eod)),
+    ("sow", Token::Boundary(BoundaryKind::Sow)),
+    ("eow", Token::Boundary(BoundaryKind::Eow)),
+    ("soww", Token::Boundary(BoundaryKind::Soww)),
+    ("eoww", Token::Boundary(BoundaryKind::Eoww)),
+    ("som", Token::Boundary(BoundaryKind::Som)),
+    ("eom", Token::Boundary(BoundaryKind::Eom)),
+    ("soq", Token::Boundary(BoundaryKind::Soq)),
+    ("eoq", Token::Boundary(BoundaryKind::Eoq)),
+    ("soy", Token::Boundary(BoundaryKind::Soy)),
+    ("eoy", Token::Boundary(BoundaryKind::Eoy)),
+    // Previous period (10)
+    ("sopd", Token::Boundary(BoundaryKind::Sopd)),
+    ("eopd", Token::Boundary(BoundaryKind::Eopd)),
+    ("sopw", Token::Boundary(BoundaryKind::Sopw)),
+    ("eopw", Token::Boundary(BoundaryKind::Eopw)),
+    ("sopm", Token::Boundary(BoundaryKind::Sopm)),
+    ("eopm", Token::Boundary(BoundaryKind::Eopm)),
+    ("sopq", Token::Boundary(BoundaryKind::Sopq)),
+    ("eopq", Token::Boundary(BoundaryKind::Eopq)),
+    ("sopy", Token::Boundary(BoundaryKind::Sopy)),
+    ("eopy", Token::Boundary(BoundaryKind::Eopy)),
+    // Next period (10)
+    ("sond", Token::Boundary(BoundaryKind::Sond)),
+    ("eond", Token::Boundary(BoundaryKind::Eond)),
+    ("sonw", Token::Boundary(BoundaryKind::Sonw)),
+    ("eonw", Token::Boundary(BoundaryKind::Eonw)),
+    ("sonm", Token::Boundary(BoundaryKind::Sonm)),
+    ("eonm", Token::Boundary(BoundaryKind::Eonm)),
+    ("sonq", Token::Boundary(BoundaryKind::Sonq)),
+    ("eonq", Token::Boundary(BoundaryKind::Eonq)),
+    ("sony", Token::Boundary(BoundaryKind::Sony)),
+    ("eony", Token::Boundary(BoundaryKind::Eony)),
 ];
 
 #[cfg(test)]
@@ -327,8 +363,8 @@ mod tests {
 
     #[test]
     fn en_locale_keyword_count() {
-        // 72 original keywords + 12 abbreviated duration units
-        assert_eq!(EN_KEYWORDS.len(), 84);
+        // 72 original keywords + 12 abbreviated duration units + 32 TW boundary keywords
+        assert_eq!(EN_KEYWORDS.len(), 116);
     }
 
     #[test]

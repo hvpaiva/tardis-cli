@@ -8,7 +8,7 @@
 //! Multi-word patterns handle PT constructs like "daqui a" -> In,
 //! "depois de amanha" -> Overmorrow, "antes de ontem" -> Ereyesterday.
 
-use crate::parser::token::{TemporalUnit, Token};
+use crate::parser::token::{BoundaryKind, TemporalUnit, Token};
 
 use super::Locale;
 
@@ -44,7 +44,7 @@ pub static PT_LOCALE: PortugueseLocale = PortugueseLocale;
 ///
 /// IMPORTANT: "ago" maps to Token::Month(8) in PT (agosto abbreviation),
 /// not Token::Ago. PT uses "ha"/"atras" for the ago direction.
-static PT_KEYWORDS: [(&str, Token); 89] = [
+static PT_KEYWORDS: [(&str, Token); 121] = [
     // Relative keywords
     ("agora", Token::Now),
     ("hoje", Token::Today),
@@ -144,9 +144,45 @@ static PT_KEYWORDS: [(&str, Token); 89] = [
     ("hr", Token::Unit(TemporalUnit::Hour)),
     ("hrs", Token::Unit(TemporalUnit::Hour)),
     ("d", Token::Unit(TemporalUnit::Day)),
-    ("sem", Token::Unit(TemporalUnit::Week)),   // abbreviation for "semana"
-    ("sems", Token::Unit(TemporalUnit::Week)),  // plural abbreviation
-    ("a", Token::Unit(TemporalUnit::Year)),     // abbreviation for "ano"
+    ("sem", Token::Unit(TemporalUnit::Week)), // abbreviation for "semana"
+    ("sems", Token::Unit(TemporalUnit::Week)), // plural abbreviation
+    ("a", Token::Unit(TemporalUnit::Year)),   // abbreviation for "ano"
+    // TaskWarrior boundary keywords (D-11, D-12, D-14)
+    // Current period (12)
+    ("sod", Token::Boundary(BoundaryKind::Sod)),
+    ("eod", Token::Boundary(BoundaryKind::Eod)),
+    ("sow", Token::Boundary(BoundaryKind::Sow)),
+    ("eow", Token::Boundary(BoundaryKind::Eow)),
+    ("soww", Token::Boundary(BoundaryKind::Soww)),
+    ("eoww", Token::Boundary(BoundaryKind::Eoww)),
+    ("som", Token::Boundary(BoundaryKind::Som)),
+    ("eom", Token::Boundary(BoundaryKind::Eom)),
+    ("soq", Token::Boundary(BoundaryKind::Soq)),
+    ("eoq", Token::Boundary(BoundaryKind::Eoq)),
+    ("soy", Token::Boundary(BoundaryKind::Soy)),
+    ("eoy", Token::Boundary(BoundaryKind::Eoy)),
+    // Previous period (10)
+    ("sopd", Token::Boundary(BoundaryKind::Sopd)),
+    ("eopd", Token::Boundary(BoundaryKind::Eopd)),
+    ("sopw", Token::Boundary(BoundaryKind::Sopw)),
+    ("eopw", Token::Boundary(BoundaryKind::Eopw)),
+    ("sopm", Token::Boundary(BoundaryKind::Sopm)),
+    ("eopm", Token::Boundary(BoundaryKind::Eopm)),
+    ("sopq", Token::Boundary(BoundaryKind::Sopq)),
+    ("eopq", Token::Boundary(BoundaryKind::Eopq)),
+    ("sopy", Token::Boundary(BoundaryKind::Sopy)),
+    ("eopy", Token::Boundary(BoundaryKind::Eopy)),
+    // Next period (10)
+    ("sond", Token::Boundary(BoundaryKind::Sond)),
+    ("eond", Token::Boundary(BoundaryKind::Eond)),
+    ("sonw", Token::Boundary(BoundaryKind::Sonw)),
+    ("eonw", Token::Boundary(BoundaryKind::Eonw)),
+    ("sonm", Token::Boundary(BoundaryKind::Sonm)),
+    ("eonm", Token::Boundary(BoundaryKind::Eonm)),
+    ("sonq", Token::Boundary(BoundaryKind::Sonq)),
+    ("eonq", Token::Boundary(BoundaryKind::Eonq)),
+    ("sony", Token::Boundary(BoundaryKind::Sony)),
+    ("eony", Token::Boundary(BoundaryKind::Eony)),
 ];
 
 /// Multi-word patterns for Portuguese. Longer patterns first so they are
@@ -405,8 +441,8 @@ mod tests {
 
     #[test]
     fn pt_keyword_count() {
-        // 82 original keywords + 7 abbreviated duration units
-        assert_eq!(PT_KEYWORDS.len(), 89);
+        // 82 original keywords + 7 abbreviated duration units + 32 TW boundary keywords
+        assert_eq!(PT_KEYWORDS.len(), 121);
     }
 
     #[test]

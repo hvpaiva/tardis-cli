@@ -79,13 +79,12 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
                 continue;
             }
             b'+' => {
-                // "+5" is a positive number ONLY at the start of input or after @
-                // (epoch like @+1735689600). In all other positions, emit Plus operator
-                // so "tomorrow+3h" tokenizes as [Tomorrow, Plus, Number(3), Unit(Hour)].
-                let is_sign_position = tokens.is_empty()
-                    || tokens
-                        .last()
-                        .is_some_and(|t| matches!(t.kind, Token::AtSign));
+                // "+" is a positive number sign ONLY after @ (epoch like @+1735689600).
+                // At start of input, emit Plus operator so "+3h" tokenizes as
+                // [Plus, Number(3), Unit(Hour)].
+                let is_sign_position = tokens
+                    .last()
+                    .is_some_and(|t| matches!(t.kind, Token::AtSign));
                 if pos + 1 < len && bytes[pos + 1].is_ascii_digit() && is_sign_position {
                     // Parse as positive number (skip the '+')
                     let start = pos;
@@ -114,14 +113,12 @@ pub(crate) fn tokenize(input: &str, locale_keywords: &LocaleKeywords) -> Vec<Spa
                 continue;
             }
             b'-' => {
-                // "-5" is a negative number ONLY at the start of input or after @
-                // (epoch like @-1735689600). In all other positions, emit Dash so
-                // "tomorrow-3h" tokenizes as [Tomorrow, Dash, Number(3), Unit(Hour)]
-                // and ISO dates "2025-03-24" remain [Number, Dash, Number, Dash, Number].
-                let is_sign_position = tokens.is_empty()
-                    || tokens
-                        .last()
-                        .is_some_and(|t| matches!(t.kind, Token::AtSign));
+                // "-" is a negative number sign ONLY after @ (epoch like @-1735689600).
+                // At start of input, emit Dash so "-3h" tokenizes as
+                // [Dash, Number(3), Unit(Hour)].
+                let is_sign_position = tokens
+                    .last()
+                    .is_some_and(|t| matches!(t.kind, Token::AtSign));
                 if pos + 1 < len && bytes[pos + 1].is_ascii_digit() && is_sign_position {
                     let start = pos;
                     pos += 1; // skip the '-'
@@ -782,12 +779,15 @@ mod tests {
     }
 
     #[test]
-    fn negative_number_span() {
+    fn negative_number_at_start_emits_dash_and_number() {
+        // After D-07 fix: "-42" at start emits Dash+Number, not Number(-42)
         let kw = en_kw();
         let tokens = tokenize("-42", &kw);
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].kind, Token::Number(-42));
-        assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 3 });
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].kind, Token::Dash);
+        assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 1 });
+        assert_eq!(tokens[1].kind, Token::Number(42));
+        assert_eq!(tokens[1].span, ByteSpan { start: 1, end: 3 });
     }
 
     #[test]
@@ -861,9 +861,9 @@ mod tests {
     }
 
     #[test]
-    fn plus_5_still_tokenizes_as_number_pitfall_7() {
-        // Pitfall 7: "+5" at the start should tokenize as Number(5), not Plus+Number
-        assert_eq!(kinds("+5"), vec![Token::Number(5)]);
+    fn plus_5_at_start_emits_operator_and_number() {
+        // After D-07 fix: "+5" at start emits Plus+Number, not Number(5)
+        assert_eq!(kinds("+5"), vec![Token::Plus, Token::Number(5)]);
     }
 
     #[test]
@@ -1068,5 +1068,51 @@ mod tests {
         // Verify longest match: "depois de amanha" should merge to Overmorrow,
         // not "depois de" -> After + leftover "amanha"
         assert_eq!(pt_kinds("depois de amanha"), vec![Token::Overmorrow]);
+    }
+
+    // ── Phase 8: Sign-position fix and boundary keyword tests ──
+
+    use crate::parser::token::BoundaryKind;
+
+    #[test]
+    fn test_plus_at_start_emits_operator() {
+        assert_eq!(
+            kinds("+3h"),
+            vec![
+                Token::Plus,
+                Token::Number(3),
+                Token::Unit(TemporalUnit::Hour)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_dash_at_start_emits_operator() {
+        assert_eq!(
+            kinds("-1d"),
+            vec![
+                Token::Dash,
+                Token::Number(1),
+                Token::Unit(TemporalUnit::Day)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_epoch_plus_still_sign() {
+        assert_eq!(
+            kinds("@+1735689600"),
+            vec![Token::AtSign, Token::Number(1_735_689_600)]
+        );
+    }
+
+    #[test]
+    fn test_epoch_minus_still_sign() {
+        assert_eq!(kinds("@-86400"), vec![Token::AtSign, Token::Number(-86400)]);
+    }
+
+    #[test]
+    fn test_boundary_keyword_tokenizes() {
+        assert_eq!(kinds("eod"), vec![Token::Boundary(BoundaryKind::Eod)]);
     }
 }
