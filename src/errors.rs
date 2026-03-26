@@ -63,7 +63,7 @@ impl Error {
     pub fn exit(self) -> ! {
         match self {
             Error::UserInput(err) => {
-                eprintln!("{}", err);
+                eprintln!("{}", colorize_suggestion(&format!("{err}")));
                 std::process::exit(EX_USAGE);
             }
             Error::System(err) => {
@@ -76,6 +76,31 @@ impl Error {
             }
         }
     }
+}
+
+/// Apply yellow ANSI coloring to the suggested word in "Did you mean '...'?" messages.
+/// Only colorizes when stderr is a terminal and NO_COLOR is not set.
+fn colorize_suggestion(msg: &str) -> String {
+    use std::io::IsTerminal;
+
+    if !std::io::stderr().is_terminal() || std::env::var("NO_COLOR").is_ok() {
+        return msg.to_string();
+    }
+
+    // Find "Did you mean 'word'?" and wrap word in yellow
+    if let Some(start) = msg.find("Did you mean '") {
+        let prefix_end = start + "Did you mean '".len();
+        if let Some(end) = msg[prefix_end..].find("'?") {
+            let word = &msg[prefix_end..prefix_end + end];
+            return format!(
+                "{}Did you mean '\x1b[33m{}\x1b[0m'?{}",
+                &msg[..start],
+                word,
+                &msg[prefix_end + end + 2..],
+            );
+        }
+    }
+    msg.to_string()
 }
 
 impl PartialEq for SystemError {

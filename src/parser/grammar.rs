@@ -1125,8 +1125,7 @@ mod tests {
         }];
         let err = parse_tokens(&tokens).unwrap_err();
         let msg = err.format_message();
-        assert!(msg.contains("Did you mean"), "got: {msg}");
-        assert!(msg.contains("thursday"), "got: {msg}");
+        assert!(msg.contains("Did you mean 'thursday'?"), "got: {msg}");
     }
 
     #[test]

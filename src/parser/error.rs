@@ -4,7 +4,6 @@
 //! optional typo-correction suggestions (D-08).
 
 use std::fmt;
-use std::io::IsTerminal;
 
 use crate::parser::token::ByteSpan;
 
@@ -144,15 +143,9 @@ impl ParseError {
         };
 
         if let Some(suggestion) = &self.suggestion {
-            // D-05: Multi-line format with blank separator.
-            // Yellow coloring applied only to the suggested word.
-            let use_color = std::io::stderr().is_terminal() && std::env::var("NO_COLOR").is_err();
-            let colored_word = if use_color {
-                format!("\x1b[33m{suggestion}\x1b[0m")
-            } else {
-                suggestion.clone()
-            };
-            msg.push_str(&format!("\n\nDid you mean '{colored_word}'?"));
+            // Pure text — no ANSI codes. Coloring is applied at the display
+            // layer (Error::exit) so format_message() remains deterministic.
+            msg.push_str(&format!("\n\nDid you mean '{suggestion}'?"));
         }
 
         msg
@@ -192,9 +185,7 @@ mod tests {
         let err = ParseError::unrecognized("tomorow").with_suggestion("tomorrow".to_string());
         let msg = err.format_message();
         assert!(msg.contains("could not parse 'tomorow'"));
-        // Suggestion may include ANSI color codes around 'tomorrow' depending on terminal
-        assert!(msg.contains("Did you mean"));
-        assert!(msg.contains("tomorrow"));
+        assert!(msg.contains("Did you mean 'tomorrow'?"));
     }
 
     #[test]
@@ -231,9 +222,7 @@ mod tests {
     #[test]
     fn error_with_suggestion() {
         let err = ParseError::unrecognized("thursdya").with_suggestion("thursday".to_string());
-        let msg = err.format_message();
-        assert!(msg.contains("Did you mean"));
-        assert!(msg.contains("thursday"));
+        assert!(err.format_message().contains("Did you mean 'thursday'?"));
     }
 
     #[test]
@@ -253,15 +242,15 @@ mod tests {
     }
 
     #[test]
-    fn suggestion_contains_word_regardless_of_terminal() {
-        // Suggestion always contains the word, with or without ANSI wrapping
+    fn suggestion_is_plain_text_no_ansi() {
+        // format_message() is pure — no ANSI codes, regardless of terminal
         let err = ParseError::unrecognized("tomorow").with_suggestion("tomorrow".to_string());
         let msg = err.format_message();
         assert!(
-            msg.contains("tomorrow"),
-            "suggestion word must appear: {msg:?}"
+            !msg.contains("\x1b["),
+            "format_message() must not contain ANSI codes: {msg:?}"
         );
-        assert!(msg.contains("Did you mean"), "prompt must appear: {msg:?}");
+        assert!(msg.contains("Did you mean 'tomorrow'?"));
     }
 
     #[test]
