@@ -170,12 +170,26 @@ pub enum SubCmd {
     Range(RangeArgs),
 }
 
+/// Output format for diff results.
+#[derive(Debug, Clone, ValueEnum)]
+pub enum DiffOutput {
+    /// Human-readable duration (e.g., "2 months, 14 days")
+    Human,
+    /// Total seconds between dates
+    Seconds,
+    /// ISO 8601 duration format (e.g., P2M14D)
+    Iso,
+}
+
 #[derive(Debug, clap::Args)]
 pub struct DiffArgs {
     /// First date expression
     pub date1: String,
     /// Second date expression
     pub date2: String,
+    /// Select which diff format to output
+    #[arg(short, long, value_enum, default_value = "human")]
+    pub output: DiffOutput,
     /// Output as JSON
     #[arg(short, long)]
     pub json: bool,

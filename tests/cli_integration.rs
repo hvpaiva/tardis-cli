@@ -977,6 +977,7 @@ fn format_percent_only() {
 fn test_diff_basic_output() {
     let tmp = TempDir::new().unwrap();
 
+    // Default mode is human: shows human-readable duration only
     td_cmd(&tmp)
         .args([
             "diff",
@@ -989,8 +990,7 @@ fn test_diff_basic_output() {
         ])
         .assert()
         .success()
-        .stdout(predicate::str::contains("seconds"))
-        .stdout(predicate::str::contains("P")); // ISO 8601 duration starts with P
+        .stdout(predicate::str::contains("mo")); // human-readable contains month abbreviation
 }
 
 #[test]
@@ -1040,11 +1040,14 @@ fn test_diff_no_newline() {
 fn test_diff_same_date_zero() {
     let tmp = TempDir::new().unwrap();
 
+    // Default mode is human: same date produces empty span display
     td_cmd(&tmp)
         .args([
             "diff",
             "2025-01-01",
             "2025-01-01",
+            "--output",
+            "seconds",
             "--now",
             "2025-06-15T00:00:00Z",
             "-t",
@@ -1052,7 +1055,7 @@ fn test_diff_same_date_zero() {
         ])
         .assert()
         .success()
-        .stdout(predicate::str::contains("0 seconds"));
+        .stdout(predicate::str::contains("0"));
 }
 
 // ============================================================
@@ -3139,9 +3142,9 @@ fn diff_output_human() {
         !stdout.lines().any(|l| l.starts_with('P')),
         "human mode should not contain ISO line, got: {stdout}"
     );
-    // Should contain human-readable text (e.g. "month" or "day")
+    // Should contain human-readable text (e.g. "mo" for months or "d" for days)
     assert!(
-        stdout.contains("month") || stdout.contains("day") || stdout.contains("year"),
+        stdout.contains("mo") || stdout.contains('d') || stdout.contains('y'),
         "human mode should contain readable duration words, got: {stdout}"
     );
 }

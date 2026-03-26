@@ -6,8 +6,8 @@ use std::io::{self, IsTerminal};
 use tardis_cli::{
     Result,
     cli::{
-        Cli, Command, ConfigAction, ConvertArgs, DiffArgs, InfoArgs, RangeArgs, ShellType, SubCmd,
-        TzArgs,
+        Cli, Command, ConfigAction, ConvertArgs, DiffArgs, DiffOutput, InfoArgs, RangeArgs,
+        ShellType, SubCmd, TzArgs,
     },
     config::Config,
     core::{self, App},
@@ -135,11 +135,7 @@ fn process_and_print(cmd: &Command, cfg: &Config) -> Result<()> {
             "timezone": app.timezone.iana_name().unwrap_or("Unknown"),
             "format": app.format,
         });
-        if cmd.no_newline {
-            print!("{json}");
-        } else {
-            println!("{json}");
-        }
+        emit_json(&json, cmd.no_newline);
     } else if cmd.no_newline {
         print!("{}", result.formatted);
     } else {
@@ -214,6 +210,26 @@ fn output_value(value: &str, no_newline: bool) {
     }
 }
 
+/// Emit a JSON value to stdout with TTY-aware formatting.
+///
+/// - TTY + NO_COLOR unset: pretty-printed with jq-style syntax colors (D-02)
+/// - Piped / NO_COLOR set: compact single-line JSON (D-03)
+/// - TTY detection is automatic, no extra flags needed (D-04)
+fn emit_json(value: &serde_json::Value, no_newline: bool) {
+    let text = if io::stdout().is_terminal() && std::env::var("NO_COLOR").is_err() {
+        colored_json::to_colored_json_auto(value)
+            .unwrap_or_else(|_| serde_json::to_string_pretty(value).unwrap_or_default())
+    } else {
+        value.to_string()
+    };
+
+    if no_newline {
+        print!("{text}");
+    } else {
+        println!("{text}");
+    }
+}
+
 /// Handle `td range <expression>` -- expand expression to start/end pair (D-04, D-05, D-06).
 fn handle_range(args: RangeArgs) -> Result<()> {
     let tz = resolve_timezone(&args.timezone)?;
@@ -242,7 +258,7 @@ fn handle_range(args: RangeArgs) -> Result<()> {
             "format": fmt,
             "delimiter": args.delimiter,
         });
-        output_value(&format!("{json}"), args.no_newline);
+        emit_json(&json, args.no_newline);
     } else {
         output_value(
             &format!("{start_str}{}{end_str}", args.delimiter),
@@ -276,13 +292,15 @@ fn handle_diff(args: DiffArgs) -> Result<()> {
             "seconds": total_secs,
             "iso8601": format!("{}", span),
         });
-        output_value(&format!("{json}"), args.no_newline);
+        emit_json(&json, args.no_newline);
     } else {
-        // Multi-format output per D-01
-        let human = format!("{:#}", span);
-        let iso = format!("{}", span);
-        let output = format!("{human}\n{total_secs} seconds\n{iso}");
-        output_value(&output, args.no_newline);
+        // Route output based on --output flag (D-01)
+        let text = match args.output {
+            DiffOutput::Human => format!("{:#}", span),
+            DiffOutput::Seconds => total_secs.to_string(),
+            DiffOutput::Iso => format!("{}", span),
+        };
+        output_value(&text, args.no_newline);
     }
     Ok(())
 }
@@ -343,7 +361,7 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
             "from_format": args.from.as_deref().unwrap_or("auto"),
             "to_format": args.to,
         });
-        output_value(&format!("{json}"), args.no_newline);
+        emit_json(&json, args.no_newline);
     } else {
         output_value(&output, args.no_newline);
     }
@@ -373,7 +391,7 @@ fn handle_tz(args: TzArgs) -> Result<()> {
             "original": zoned.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string(),
             "converted": converted.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string(),
         });
-        output_value(&format!("{json}"), args.no_newline);
+        emit_json(&json, args.no_newline);
     } else {
         output_value(
             &converted.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string(),
@@ -417,7 +435,7 @@ fn handle_info(args: InfoArgs) -> Result<()> {
             "unix_epoch": epoch_secs,
             "julian_day": format!("{:.2}", jdn),
         });
-        output_value(&format!("{json}"), args.no_newline);
+        emit_json(&json, args.no_newline);
         return Ok(());
     }
 
