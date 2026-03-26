@@ -9,7 +9,7 @@
 > Translates natural-language time expressions into formatted datetimes.
 
 ```console
-$ td "next friday at 15:00" --now 2025-01-15T10:30:00Z -t UTC
+$ td "next friday at 3pm" --now 2025-01-15T10:30:00Z -t UTC
 2025-01-17T15:00:00
 
 $ td "2 days ago" -f "%Y-%m-%d" --now 2025-01-15T10:30:00Z -t UTC
@@ -65,7 +65,7 @@ $ td "today" --json --now 2025-01-15T00:00:00Z -t UTC
 
 | Feature | Example | Documentation |
 |---------|---------|---------------|
-| Natural language | `td "next friday at 15:00"` | [Expression Reference](docs/EXPRESSIONS.md) |
+| Natural language | `td "next friday at 3pm"` | [Expression Reference](docs/EXPRESSIONS.md) |
 | Date arithmetic | `td "tomorrow + 3 hours"` | [Expression Reference](docs/EXPRESSIONS.md) |
 | Format control | `td "now" -f "%Y-%m-%d"` | [Format Specifiers](docs/FORMAT-SPECIFIERS.md) |
 | Timezone conversion | `td tz "3pm" --to UTC` | [Subcommands](docs/SUBCOMMANDS.md) |
