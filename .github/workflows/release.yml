@@ -23,6 +23,8 @@ jobs:
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-always: false
 
       - name: Check
         run: |
@@ -68,15 +70,22 @@ jobs:
           GLOBAL_TAG: ${{ steps.bump.outputs.global_tag }}
         run: cog changelog --at "$GLOBAL_TAG" -t remote > RELEASE_NOTES.md
 
+      - name: Generate SBOM
+        if: steps.bump.outputs.global_tag != ''
+        run: |
+          cargo install cargo-sbom --locked
+          cargo sbom --output-format=cyclonedx-json-1.4 > tardis-cli.cdx.json
+
       - name: Create GitHub Release
         if: steps.bump.outputs.global_tag != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.bump.outputs.global_tag }}
           body_path: RELEASE_NOTES.md
+          files: tardis-cli.cdx.json
 
-      - name: Clean up release notes
-        run: rm -f RELEASE_NOTES.md
+      - name: Clean up release artifacts
+        run: rm -f RELEASE_NOTES.md tardis-cli.cdx.json
 
       - name: Publish to crates.io
         run: cargo publish
