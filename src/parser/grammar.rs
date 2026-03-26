@@ -57,6 +57,16 @@ impl<'a> Parser<'a> {
             let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
         }
+        // P0.5: Operator-prefixed offset (+3h, -1d) — must come before duration_offset
+        if let Some(expr) = self.try_operator_prefixed_offset()? {
+            let expr = self.try_arithmetic_tail(expr)?;
+            return self.with_optional_trailing(expr);
+        }
+        // TaskWarrior boundary keywords (eod, sow, etc.) — must come before duration_offset
+        if let Some(expr) = self.try_boundary_keyword()? {
+            let expr = self.try_arithmetic_tail(expr)?;
+            return self.with_optional_trailing(expr);
+        }
         if let Some(expr) = self.try_duration_offset()? {
             let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
@@ -165,6 +175,11 @@ impl<'a> Parser<'a> {
         ))
     }
 
+    /// Check if the next token is any Unit variant.
+    fn peek_is_unit(&self) -> bool {
+        matches!(self.peek(), Some(Token::Unit(_)))
+    }
+
     /// Extract the `i64` value from the previously consumed `Number` token.
     fn last_number(&self) -> i64 {
         match &self.tokens[self.pos - 1].kind {
@@ -218,6 +233,46 @@ impl<'a> Parser<'a> {
         };
 
         Ok(Some(DateExpr::Epoch(EpochValue { raw, precision })))
+    }
+
+    // ── P0.5: Operator-prefixed offset ──────────────────────────
+
+    /// P0.5: Operator-prefixed duration offset (D-07).
+    /// `Plus/Dash DurationComponents` -> Offset(Future/Past, comps) with implicit "now".
+    /// Examples: "+3h", "-1d", "+1h30min", "+1d3h"
+    fn try_operator_prefixed_offset(&mut self) -> Result<Option<DateExpr>, ParseError> {
+        let saved = self.save();
+
+        if self.match_token(&Token::Plus) {
+            if let Some(comps) = self.try_duration_components() {
+                return Ok(Some(DateExpr::Offset(Direction::Future, comps)));
+            }
+            self.restore(saved);
+            return Ok(None);
+        }
+
+        if self.match_token(&Token::Dash) {
+            if let Some(comps) = self.try_duration_components() {
+                return Ok(Some(DateExpr::Offset(Direction::Past, comps)));
+            }
+            self.restore(saved);
+            return Ok(None);
+        }
+
+        Ok(None)
+    }
+
+    // ── P0.6: Boundary keyword ────────────────────────────────
+
+    /// TaskWarrior boundary keyword production (D-11, D-12, D-13).
+    /// `Boundary(kind)` -> DateExpr::Boundary(kind)
+    /// Composes with arithmetic tail: "eod + 1h" works.
+    fn try_boundary_keyword(&mut self) -> Result<Option<DateExpr>, ParseError> {
+        if let Some(Token::Boundary(kind)) = self.peek().cloned() {
+            self.advance();
+            return Ok(Some(DateExpr::Boundary(kind)));
+        }
+        Ok(None)
     }
 
     // ── P1: Duration offset ────────────────────────────────────
@@ -286,11 +341,34 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse one or more duration components: `[A|An|Number] Unit [(And|,) [A|An|Number] Unit ...]`
+    ///
+    /// Also handles NhMM inference: "13h30" -> 13 hours + 30 minutes (D-07, gap #1/#2).
     fn try_duration_components(&mut self) -> Option<Vec<DurationComponent>> {
         let mut comps = Vec::new();
 
         if let Some(comp) = self.try_single_duration() {
-            comps.push(comp);
+            // NhMM inference: "13h30" -> 13 hours + 30 minutes
+            if comp.unit == TemporalUnit::Hour {
+                let saved_after_hour = self.save();
+                if self.match_token(&Token::Number(0)) {
+                    let minutes = self.last_number();
+                    if !self.peek_is_unit() {
+                        comps.push(comp);
+                        comps.push(DurationComponent {
+                            count: minutes,
+                            unit: TemporalUnit::Minute,
+                        });
+                        // Continue to compound loop for further components
+                    } else {
+                        self.restore(saved_after_hour);
+                        comps.push(comp);
+                    }
+                } else {
+                    comps.push(comp);
+                }
+            } else {
+                comps.push(comp);
+            }
         } else {
             return None;
         }
@@ -302,6 +380,25 @@ impl<'a> Parser<'a> {
             let _ = self.match_token(&Token::And);
 
             if let Some(comp) = self.try_single_duration() {
+                // NhMM inference in compound loop
+                if comp.unit == TemporalUnit::Hour {
+                    let saved_after_hour = self.save();
+                    if self.match_token(&Token::Number(0)) {
+                        let minutes = self.last_number();
+                        if !self.peek_is_unit() {
+                            comps.push(comp);
+                            comps.push(DurationComponent {
+                                count: minutes,
+                                unit: TemporalUnit::Minute,
+                            });
+                            continue;
+                        } else {
+                            self.restore(saved_after_hour);
+                            comps.push(comp);
+                            continue;
+                        }
+                    }
+                }
                 comps.push(comp);
             } else {
                 self.restore(saved);
@@ -517,29 +614,77 @@ impl<'a> Parser<'a> {
         loop {
             let saved = self.save();
 
-            // Check for Plus or Dash operator
-            let op = if self.match_token(&Token::Plus) {
-                Some(ArithOp::Add)
+            if self.match_token(&Token::Plus) {
+                // Try N:MM compound duration first (gap #3)
+                // "now + 13:30" = now + 13 hours 30 minutes
+                {
+                    let saved_colon = self.save();
+                    if self.match_token(&Token::Number(0)) {
+                        let hours = self.last_number();
+                        if self.match_token(&Token::Colon) {
+                            if self.match_token(&Token::Number(0)) {
+                                let minutes = self.last_number();
+                                let comps = vec![
+                                    DurationComponent {
+                                        count: hours,
+                                        unit: TemporalUnit::Hour,
+                                    },
+                                    DurationComponent {
+                                        count: minutes,
+                                        unit: TemporalUnit::Minute,
+                                    },
+                                ];
+                                result =
+                                    DateExpr::Arithmetic(Box::new(result), ArithOp::Add, comps);
+                                continue;
+                            }
+                        }
+                    }
+                    self.restore(saved_colon);
+                }
+
+                // Then try standard duration components
+                if let Some(comps) = self.try_duration_components() {
+                    result = DateExpr::Arithmetic(Box::new(result), ArithOp::Add, comps);
+                    continue;
+                }
+                // No duration components after operator -- backtrack
+                self.restore(saved);
+                break;
             } else if self.match_token(&Token::Dash) {
-                // Peek ahead: only treat as subtraction if duration components follow.
-                // Otherwise stop (it might be a date separator or something else).
+                // Try N:MM compound duration first (gap #3)
+                {
+                    let saved_colon = self.save();
+                    if self.match_token(&Token::Number(0)) {
+                        let hours = self.last_number();
+                        if self.match_token(&Token::Colon) {
+                            if self.match_token(&Token::Number(0)) {
+                                let minutes = self.last_number();
+                                let comps = vec![
+                                    DurationComponent {
+                                        count: hours,
+                                        unit: TemporalUnit::Hour,
+                                    },
+                                    DurationComponent {
+                                        count: minutes,
+                                        unit: TemporalUnit::Minute,
+                                    },
+                                ];
+                                result =
+                                    DateExpr::Arithmetic(Box::new(result), ArithOp::Sub, comps);
+                                continue;
+                            }
+                        }
+                    }
+                    self.restore(saved_colon);
+                }
+
+                // Then try standard duration components
                 if let Some(comps) = self.try_duration_components() {
                     result = DateExpr::Arithmetic(Box::new(result), ArithOp::Sub, comps);
                     continue;
                 }
                 // Not a duration after dash -- backtrack
-                self.restore(saved);
-                break;
-            } else {
-                None
-            };
-
-            if let Some(op) = op {
-                if let Some(comps) = self.try_duration_components() {
-                    result = DateExpr::Arithmetic(Box::new(result), op, comps);
-                    continue;
-                }
-                // No duration components after operator -- backtrack
                 self.restore(saved);
                 break;
             }
@@ -637,7 +782,7 @@ impl<'a> Parser<'a> {
 
     // ── Time suffix helper ─────────────────────────────────────
 
-    /// `[At] Number Colon Number [Colon Number]`
+    /// `[At] Number Colon Number [Colon Number]` or `[At] Number Unit(Hour)` (D-10).
     fn try_time_suffix(&mut self) -> Option<TimeExpr> {
         let saved = self.save();
         // Optional leading "at"
@@ -645,6 +790,17 @@ impl<'a> Parser<'a> {
 
         if let Some(time) = self.try_time_pattern() {
             return Some(time);
+        }
+
+        // New: Number Unit(Hour) -> HourOnly (D-10, gap #6/#7/#8)
+        // "today 18h" = "today 18:00", "today at 18 hours" = same
+        self.restore(saved);
+        let _ = self.match_token(&Token::At); // re-consume optional "at"
+        if self.match_token(&Token::Number(0)) {
+            let hour = self.last_number() as i8;
+            if self.match_token(&Token::Unit(TemporalUnit::Hour)) {
+                return Some(TimeExpr::HourOnly(hour));
+            }
         }
 
         self.restore(saved);
@@ -1532,5 +1688,177 @@ mod tests {
         let tokens = vec![st(Token::This), st(Token::Unit(TemporalUnit::Year))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::ThisYear));
+    }
+
+    // ── Phase 8: Operator-prefixed offset, boundary, compound, Nh tests ──
+
+    /// Helper: tokenize with EN locale and parse to DateExpr.
+    fn parse_expr(input: &str) -> Result<DateExpr, ParseError> {
+        let locale_ref = &EN_LOCALE;
+        let locale_kw = LocaleKeywords::from_locale(locale_ref);
+        let tokens = crate::parser::lexer::tokenize(input, &locale_kw);
+        let kw_list = locale_kw.all_keywords();
+        let mut parser = Parser::new(&tokens, input, &kw_list);
+        parser.parse_expression()
+    }
+
+    #[test]
+    fn test_operator_prefixed_plus_hours() {
+        let result = parse_expr("+3h").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Offset(
+                Direction::Future,
+                vec![DurationComponent {
+                    count: 3,
+                    unit: TemporalUnit::Hour,
+                }]
+            )
+        );
+    }
+
+    #[test]
+    fn test_operator_prefixed_minus_days() {
+        let result = parse_expr("-1d").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Offset(
+                Direction::Past,
+                vec![DurationComponent {
+                    count: 1,
+                    unit: TemporalUnit::Day,
+                }]
+            )
+        );
+    }
+
+    #[test]
+    fn test_operator_prefixed_compound() {
+        let result = parse_expr("+1h30min").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Offset(
+                Direction::Future,
+                vec![
+                    DurationComponent {
+                        count: 1,
+                        unit: TemporalUnit::Hour,
+                    },
+                    DurationComponent {
+                        count: 30,
+                        unit: TemporalUnit::Minute,
+                    },
+                ]
+            )
+        );
+    }
+
+    #[test]
+    fn test_nhmm_inferred_minutes() {
+        // "now+13h30" -> Arithmetic(Now, Add, [13 Hour, 30 Minute])
+        let result = parse_expr("now+13h30").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Arithmetic(
+                Box::new(DateExpr::Now),
+                ArithOp::Add,
+                vec![
+                    DurationComponent {
+                        count: 13,
+                        unit: TemporalUnit::Hour,
+                    },
+                    DurationComponent {
+                        count: 30,
+                        unit: TemporalUnit::Minute,
+                    },
+                ]
+            )
+        );
+    }
+
+    #[test]
+    fn test_colon_duration_in_arithmetic() {
+        // "now+13:30" -> Arithmetic(Now, Add, [13 Hour, 30 Minute])
+        let result = parse_expr("now+13:30").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Arithmetic(
+                Box::new(DateExpr::Now),
+                ArithOp::Add,
+                vec![
+                    DurationComponent {
+                        count: 13,
+                        unit: TemporalUnit::Hour,
+                    },
+                    DurationComponent {
+                        count: 30,
+                        unit: TemporalUnit::Minute,
+                    },
+                ]
+            )
+        );
+    }
+
+    #[test]
+    fn test_boundary_keyword_eod() {
+        let result = parse_expr("eod").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Boundary(crate::parser::token::BoundaryKind::Eod)
+        );
+    }
+
+    #[test]
+    fn test_boundary_with_arithmetic() {
+        // "eod+1h" -> Arithmetic(Boundary(Eod), Add, [1 Hour])
+        let result = parse_expr("eod+1h").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Arithmetic(
+                Box::new(DateExpr::Boundary(crate::parser::token::BoundaryKind::Eod)),
+                ArithOp::Add,
+                vec![DurationComponent {
+                    count: 1,
+                    unit: TemporalUnit::Hour,
+                }]
+            )
+        );
+    }
+
+    #[test]
+    fn test_time_suffix_nh() {
+        // "today 18h" -> Relative(Today, Some(HourOnly(18)))
+        let result = parse_expr("today 18h").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Relative(RelativeDate::Today, Some(TimeExpr::HourOnly(18)))
+        );
+    }
+
+    #[test]
+    fn test_time_suffix_at_nh() {
+        // "today at 18h" -> Relative(Today, Some(HourOnly(18)))
+        let result = parse_expr("today at 18h").unwrap();
+        assert_eq!(
+            result,
+            DateExpr::Relative(RelativeDate::Today, Some(TimeExpr::HourOnly(18)))
+        );
+    }
+
+    #[test]
+    fn test_bare_duration_still_errors() {
+        // "3h" alone (no operator, no day context) should error
+        let result = parse_expr("3h");
+        assert!(result.is_err(), "bare '3h' without operator should error");
+    }
+
+    #[test]
+    fn test_operator_without_unit_errors() {
+        // "+1" (number without unit after operator) should error
+        let result = parse_expr("+1");
+        assert!(
+            result.is_err(),
+            "'+1' without unit should error, got: {result:?}"
+        );
     }
 }
