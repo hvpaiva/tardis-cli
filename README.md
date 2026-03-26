@@ -6,7 +6,13 @@
 [![codecov](https://codecov.io/gh/hvpaiva/tardis-cli/graph/badge.svg)](https://codecov.io/gh/hvpaiva/tardis-cli)
 ![MSRV](https://img.shields.io/badge/MSRV-1.85-blue)
 
-> Translates natural-language time expressions into formatted datetimes.
+<p align="center">
+  <img src="./assets/tardis.png" alt="TARDIS logo" width="200">
+</p>
+
+> **TARDIS** -- *Time And Relative Date Input Simplifier*.
+> Like the Doctor's ship in *Doctor Who*, it translates human-friendly time
+> expressions into precise datetimes right from your terminal.
 
 ```console
 $ td "next friday at 3pm" --now 2025-01-15T10:30:00Z -t UTC
