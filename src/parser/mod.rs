@@ -42,11 +42,55 @@ pub fn parse(
         return resolver::resolve(&ast::DateExpr::Now, now);
     }
 
+    // Try RFC 3339/ISO 8601 first (handles "2025-03-24T12:00:00Z" etc.)
+    if let Ok(ts) = trimmed.parse::<jiff::Timestamp>() {
+        return Ok(ts.to_zoned(now.time_zone().clone()));
+    }
+
     let tokens = lexer::tokenize(trimmed, locale_keywords);
     let kw_list = locale_keywords.all_keywords();
     let mut parser = grammar::Parser::new(&tokens, trimmed, &kw_list);
     let expr = parser.parse_expression()?;
     resolver::resolve(&expr, now)
+}
+
+/// Parse any expression and resolve it as a range with implicit granularity (D-05).
+///
+/// This is the API used by the `td range` subcommand. Unlike [`parse_range`],
+/// it accepts any expression type (not just Range variants) and applies
+/// granularity expansion based on the smallest unspecified time unit:
+///
+/// - `"tomorrow"` -> day granularity (00:00:00..23:59:59)
+/// - `"tomorrow at 18h"` -> hour granularity (18:00:00..18:59:59)
+/// - `"tomorrow at 18:30"` -> minute granularity (18:30:00..18:30:59)
+/// - `"now"` -> instant (now..now)
+/// - `"this week"` -> week range (Monday..Sunday)
+pub fn parse_range_with_granularity(
+    input: &str,
+    now: &jiff::Zoned,
+    locale_keywords: &LocaleKeywords,
+) -> std::result::Result<(jiff::Zoned, jiff::Zoned), ParseError> {
+    if input.len() > MAX_INPUT_LEN {
+        return Err(ParseError::input_too_long(input.len(), MAX_INPUT_LEN));
+    }
+
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        let z = now.clone();
+        return Ok((z.clone(), z));
+    }
+
+    // Try RFC 3339/ISO 8601 first (instant -> duplicated)
+    if let Ok(ts) = trimmed.parse::<jiff::Timestamp>() {
+        let z = ts.to_zoned(now.time_zone().clone());
+        return Ok((z.clone(), z));
+    }
+
+    let tokens = lexer::tokenize(trimmed, locale_keywords);
+    let kw_list = locale_keywords.all_keywords();
+    let mut parser = grammar::Parser::new(&tokens, trimmed, &kw_list);
+    let expr = parser.parse_expression()?;
+    resolver::resolve_range_with_granularity(&expr, now)
 }
 
 /// Parse a range expression into a `(start, end)` pair of [`jiff::Zoned`] datetimes.

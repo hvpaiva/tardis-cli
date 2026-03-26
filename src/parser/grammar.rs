@@ -621,9 +621,7 @@ impl<'a> Parser<'a> {
                     let saved_colon = self.save();
                     if self.match_token(&Token::Number(0)) {
                         let hours = self.last_number();
-                        if self.match_token(&Token::Colon)
-                            && self.match_token(&Token::Number(0))
-                        {
+                        if self.match_token(&Token::Colon) && self.match_token(&Token::Number(0)) {
                             let minutes = self.last_number();
                             let comps = vec![
                                 DurationComponent {
@@ -635,8 +633,7 @@ impl<'a> Parser<'a> {
                                     unit: TemporalUnit::Minute,
                                 },
                             ];
-                            result =
-                                DateExpr::Arithmetic(Box::new(result), ArithOp::Add, comps);
+                            result = DateExpr::Arithmetic(Box::new(result), ArithOp::Add, comps);
                             continue;
                         }
                     }
@@ -657,9 +654,7 @@ impl<'a> Parser<'a> {
                     let saved_colon = self.save();
                     if self.match_token(&Token::Number(0)) {
                         let hours = self.last_number();
-                        if self.match_token(&Token::Colon)
-                            && self.match_token(&Token::Number(0))
-                        {
+                        if self.match_token(&Token::Colon) && self.match_token(&Token::Number(0)) {
                             let minutes = self.last_number();
                             let comps = vec![
                                 DurationComponent {
@@ -671,8 +666,7 @@ impl<'a> Parser<'a> {
                                     unit: TemporalUnit::Minute,
                                 },
                             ];
-                            result =
-                                DateExpr::Arithmetic(Box::new(result), ArithOp::Sub, comps);
+                            result = DateExpr::Arithmetic(Box::new(result), ArithOp::Sub, comps);
                             continue;
                         }
                     }

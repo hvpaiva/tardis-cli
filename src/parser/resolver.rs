@@ -31,9 +31,7 @@ pub(crate) fn resolve(expr: &DateExpr, now: &Zoned) -> Result<Zoned, ParseError>
         DateExpr::Offset(dir, comps) => resolve_offset(dir, comps, now),
         DateExpr::OffsetFrom(dir, comps, base) => resolve_offset_from(dir, comps, base, now),
         DateExpr::Arithmetic(base, op, comps) => resolve_arithmetic(base, op, comps, now),
-        DateExpr::Range(..) => Err(ParseError::resolution(
-            "range expressions produce (start, end) pairs; use parse_range() instead".to_string(),
-        )),
+        DateExpr::Range(range) => resolve_range_start(range, now),
         DateExpr::Boundary(kind) => resolve_boundary(kind, now),
     }
 }
@@ -274,6 +272,113 @@ pub(crate) fn resolve_range(range: &RangeExpr, now: &Zoned) -> Result<(Zoned, Zo
         RangeExpr::Quarter(year, q) => {
             let actual_year = if *year == 0 { today.year() } else { *year };
             quarter_range(actual_year, *q, &tz)
+        }
+    }
+}
+
+/// Resolve a range expression to its start-of-period instant (D-01, D-02).
+///
+/// When the default `td` command encounters "this week", "next month", etc.,
+/// it returns the start of that period as a single instant:
+/// - "this week" -> Monday 00:00:00
+/// - "next month" -> 1st day 00:00:00
+/// - "this year" -> Jan 1 00:00:00
+/// - "Q3 2025" -> Jul 1 00:00:00
+fn resolve_range_start(range: &RangeExpr, now: &Zoned) -> Result<Zoned, ParseError> {
+    let (start, _end) = resolve_range(range, now)?;
+    Ok(start)
+}
+
+/// Resolve any expression as a range pair with implicit granularity (D-05).
+///
+/// Granularity is determined by the smallest unspecified time unit:
+/// - No time specified -> day granularity (00:00:00..23:59:59)
+/// - Hour only (via Nh notation) -> hour granularity (HH:00:00..HH:59:59)
+/// - Hour:Minute specified -> minute granularity (HH:MM:00..HH:MM:59)
+/// - Full time specified -> instant (duplicated)
+/// - "now" -> instant (duplicated, D-06)
+/// - Range expressions -> use existing resolve_range (week/month/year/quarter)
+/// - Boundary keywords -> instant (duplicated)
+pub(crate) fn resolve_range_with_granularity(
+    expr: &DateExpr,
+    now: &Zoned,
+) -> Result<(Zoned, Zoned), ParseError> {
+    match expr {
+        DateExpr::Now => {
+            let z = now.clone();
+            Ok((z.clone(), z))
+        }
+        DateExpr::Range(range) => resolve_range(range, now),
+        DateExpr::Relative(_, time) | DateExpr::DayRef(_, _, time) => {
+            let z = resolve(expr, now)?;
+            expand_by_time_granularity(z, time)
+        }
+        DateExpr::Absolute(_, time) => {
+            let z = resolve(expr, now)?;
+            expand_by_time_granularity(z, time)
+        }
+        DateExpr::Boundary(_) => {
+            let z = resolve(expr, now)?;
+            Ok((z.clone(), z))
+        }
+        // All other expressions (Epoch, Offset, OffsetFrom, Arithmetic, TimeOnly)
+        // resolve to instants -> duplicate
+        _ => {
+            let z = resolve(expr, now)?;
+            Ok((z.clone(), z))
+        }
+    }
+}
+
+/// Expand a resolved datetime by the time specification's granularity.
+///
+/// - None -> day (00:00:00..23:59:59)
+/// - HourOnly(h) -> hour (h:00:00..h:59:59)
+/// - HourMinute(h,m) -> minute (h:m:00..h:m:59)
+/// - HourMinuteSecond -> instant (same..same)
+fn expand_by_time_granularity(
+    base: Zoned,
+    time: &Option<TimeExpr>,
+) -> Result<(Zoned, Zoned), ParseError> {
+    let tz = base.time_zone().clone();
+    let date = base.date();
+
+    match time {
+        None => {
+            // Day granularity
+            Ok((zoned_midnight(date, &tz)?, zoned_end_of_day(date, &tz)?))
+        }
+        Some(TimeExpr::HourOnly(h)) => {
+            // Hour granularity: h:00:00 .. h:59:59.999999999
+            let dt_start = date.at(*h, 0, 0, 0);
+            let dt_end = date.at(*h, 59, 59, 999_999_999);
+            let start = tz
+                .to_ambiguous_zoned(dt_start)
+                .compatible()
+                .map_err(|e| ParseError::resolution(format!("ambiguous: {e}")))?;
+            let end = tz
+                .to_ambiguous_zoned(dt_end)
+                .compatible()
+                .map_err(|e| ParseError::resolution(format!("ambiguous: {e}")))?;
+            Ok((start, end))
+        }
+        Some(TimeExpr::HourMinute(h, m)) => {
+            // Minute granularity: h:m:00 .. h:m:59.999999999
+            let dt_start = date.at(*h, *m, 0, 0);
+            let dt_end = date.at(*h, *m, 59, 999_999_999);
+            let start = tz
+                .to_ambiguous_zoned(dt_start)
+                .compatible()
+                .map_err(|e| ParseError::resolution(format!("ambiguous: {e}")))?;
+            let end = tz
+                .to_ambiguous_zoned(dt_end)
+                .compatible()
+                .map_err(|e| ParseError::resolution(format!("ambiguous: {e}")))?;
+            Ok((start, end))
+        }
+        Some(TimeExpr::HourMinuteSecond(..)) => {
+            // Second granularity = instant
+            Ok((base.clone(), base))
         }
     }
 }
@@ -1044,12 +1149,20 @@ mod tests {
     }
 
     #[test]
-    fn resolve_range_returns_error_from_resolve() {
-        // Calling resolve() on a Range expression should error
-        let now = make_now();
-        let result = resolve(&DateExpr::Range(RangeExpr::LastWeek), &now);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().format_message().contains("parse_range"));
+    fn resolve_range_returns_start_of_period() {
+        // resolve() on a Range expression returns start-of-period instant (D-01, D-02)
+        let now = make_wednesday(); // Wed 2025-06-18
+        let result = resolve(&DateExpr::Range(RangeExpr::ThisWeek), &now).unwrap();
+        // ThisWeek start = Monday 2025-06-16
+        assert_eq!(format_zoned(&result), "2025-06-16T00:00:00");
+    }
+
+    #[test]
+    fn resolve_range_start_next_month() {
+        let now = make_wednesday(); // 2025-06-18
+        let result = resolve(&DateExpr::Range(RangeExpr::NextMonth), &now).unwrap();
+        // NextMonth start = July 1
+        assert_eq!(format_zoned(&result), "2025-07-01T00:00:00");
     }
 
     // --- Day reference golden test verification ---
@@ -1687,5 +1800,88 @@ mod tests {
         let now = boundary_now(); // 14:30
         let result = crate::parser::parse("now+13:30", &now, &en_kw()).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-19T04:00:00");
+    }
+
+    // -- resolve_range_with_granularity tests --
+
+    #[test]
+    fn range_granularity_day() {
+        let now = make_now(); // Sunday 2025-06-15
+        let (start, end) =
+            resolve_range_with_granularity(&DateExpr::Relative(RelativeDate::Tomorrow, None), &now)
+                .unwrap();
+        let (s, e) = format_range(&start, &end);
+        // Tomorrow = Monday 2025-06-16 -> day granularity
+        assert_eq!(s, "2025-06-16T00:00:00");
+        assert_eq!(e, "2025-06-16T23:59:59");
+    }
+
+    #[test]
+    fn range_granularity_hour() {
+        let now = make_now();
+        let (start, end) = resolve_range_with_granularity(
+            &DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourOnly(18))),
+            &now,
+        )
+        .unwrap();
+        let (s, e) = format_range(&start, &end);
+        assert_eq!(s, "2025-06-16T18:00:00");
+        assert_eq!(e, "2025-06-16T18:59:59");
+    }
+
+    #[test]
+    fn range_granularity_minute() {
+        let now = make_now();
+        let (start, end) = resolve_range_with_granularity(
+            &DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourMinute(18, 30))),
+            &now,
+        )
+        .unwrap();
+        let (s, e) = format_range(&start, &end);
+        assert_eq!(s, "2025-06-16T18:30:00");
+        assert_eq!(e, "2025-06-16T18:30:59");
+    }
+
+    #[test]
+    fn range_granularity_second_is_instant() {
+        let now = make_now();
+        let (start, end) = resolve_range_with_granularity(
+            &DateExpr::Relative(
+                RelativeDate::Tomorrow,
+                Some(TimeExpr::HourMinuteSecond(18, 30, 45)),
+            ),
+            &now,
+        )
+        .unwrap();
+        let (s, e) = format_range(&start, &end);
+        assert_eq!(s, "2025-06-16T18:30:45");
+        assert_eq!(e, "2025-06-16T18:30:45");
+    }
+
+    #[test]
+    fn range_granularity_now_is_instant() {
+        let now = make_now();
+        let (start, end) = resolve_range_with_granularity(&DateExpr::Now, &now).unwrap();
+        assert_eq!(start, end);
+        assert_eq!(format_zoned(&start), "2025-06-15T12:00:00");
+    }
+
+    #[test]
+    fn range_granularity_this_week_uses_resolve_range() {
+        let now = make_wednesday(); // Wed 2025-06-18
+        let (start, end) =
+            resolve_range_with_granularity(&DateExpr::Range(RangeExpr::ThisWeek), &now).unwrap();
+        let (s, e) = format_range(&start, &end);
+        assert_eq!(s, "2025-06-16T00:00:00"); // Monday
+        assert_eq!(e, "2025-06-22T23:59:59"); // Sunday
+    }
+
+    #[test]
+    fn range_granularity_boundary_is_instant() {
+        let now = make_wednesday();
+        let (start, end) =
+            resolve_range_with_granularity(&DateExpr::Boundary(BoundaryKind::Eod), &now).unwrap();
+        assert_eq!(start, end);
+        assert_eq!(format_zoned(&start), "2025-06-18T23:59:59");
     }
 }
