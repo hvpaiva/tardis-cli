@@ -51,15 +51,15 @@ the default format (or the format configured in the config file / env var).
 
 Convert from system local time to UTC:
 
-    td tz "now" --to UTC --now 2025-06-24T09:00:00Z
+    td tz "now" --to UTC
 
 Convert from US Eastern to Sao Paulo:
 
-    td tz "2025-06-24T12:00:00" --from America/New_York --to America/Sao_Paulo
+    td tz "2025-06-24 12:00" --from America/New_York --to America/Sao_Paulo
 
 Convert to Tokyo time:
 
-    td tz "tomorrow at 9am" --to Asia/Tokyo --now 2025-06-24T09:00:00Z
+    td tz "tomorrow" --to Asia/Tokyo
 
 With explicit source timezone:
 
@@ -67,11 +67,11 @@ With explicit source timezone:
 
 JSON output:
 
-    td tz "now" --to Europe/Berlin --json --now 2025-06-24T09:00:00Z
+    td tz "now" --to Europe/Berlin --json
 
-Deterministic timezone conversion:
+Deterministic timezone conversion (for scripting):
 
-    td tz "next monday at noon" --to Pacific/Auckland --now 2025-06-24T09:00:00Z
+    td tz "next monday" --to Pacific/Auckland --now 2025-06-24T09:00:00Z
 
 # SEE ALSO
 

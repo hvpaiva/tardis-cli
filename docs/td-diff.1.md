@@ -51,25 +51,25 @@ the main **td** command, including epoch timestamps with the **@** prefix.
 
 Basic difference between two dates:
 
-    td diff "2025-01-01" "2025-03-15" --now 2025-01-01T00:00:00Z -t UTC
+    td diff "2025-01-01" "2025-03-15" -t UTC
 
 Output as total seconds:
 
-    td diff "2025-01-01" "2025-06-01" --output seconds --now 2025-01-01T00:00:00Z -t UTC
+    td diff "2025-01-01" "2025-06-01" --output seconds -t UTC
 
 Output as ISO 8601 duration:
 
-    td diff "2025-01-01" "2025-03-15" --output iso --now 2025-01-01T00:00:00Z -t UTC
+    td diff "2025-01-01" "2025-03-15" --output iso -t UTC
 
 JSON output:
 
-    td diff yesterday tomorrow --json --now 2025-06-24T12:00:00Z -t UTC
+    td diff yesterday tomorrow --json -t UTC
 
 Timezone-aware diff:
 
-    td diff "2025-01-01" "2025-07-01" -t America/New_York --now 2025-01-01T00:00:00Z
+    td diff "2025-01-01" "2025-07-01" -t America/New_York
 
-With --now for deterministic scripting:
+Deterministic output with --now (for scripting):
 
     td diff "now" "next friday" --now 2025-06-24T09:00:00Z -t UTC
 

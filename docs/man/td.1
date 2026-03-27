@@ -19,8 +19,8 @@ When invoked without an expression in a terminal, \f[B]td\f[R] defaults
 to \[lq]now\[rq].
 When STDIN is a pipe, expressions are read one per line (batch mode).
 .PP
-Epoch timestamps are accepted with the \f[B]\[at]** prefix
-(e.g.\ \f[R]\[at]1719244800**).
+Epoch timestamps are accepted with the \[at] prefix (e.g.
+\[at]1719244800).
 Smart precision auto\-detects seconds, milliseconds, microseconds, and
 nanoseconds.
 .SH OPTIONS
@@ -29,7 +29,7 @@ nanoseconds.
 Output format (strftime pattern or preset name).
 Special values \f[B]epoch\f[R] and \f[B]unix\f[R] emit a Unix timestamp
 in seconds.
-See \f[B]docs/FORMAT\-SPECIFIERS.md\f[R] for the full reference.
+See the FORMAT\-SPECIFIERS reference in the project repository.
 .TP
 \f[B]\-t\f[R], \f[B]\-\-timezone\f[R] \f[I]TZ\f[R]
 IANA/Olson timezone to apply (e.g.\ \[lq]UTC\[rq],
@@ -96,61 +96,61 @@ See \f[B]td\-completions\f[R](1).
 Basic usage \[en] parse \[lq]tomorrow\[rq]:
 .IP
 .EX
-td tomorrow \-\-now 2025\-06\-24T09:00:00Z
+td tomorrow
 .EE
 .PP
 Custom output format:
 .IP
 .EX
-td \[dq]next friday\[dq] \-f \[dq]%Y\-%m\-%d\[dq] \-\-now 2025\-06\-24T09:00:00Z
+td \[dq]next friday\[dq] \-f \[dq]%Y\-%m\-%d\[dq]
 .EE
 .PP
 Apply a specific timezone:
 .IP
 .EX
-td \[dq]now\[dq] \-t UTC \-\-now 2025\-06\-24T09:00:00Z
+td \[dq]now\[dq] \-t UTC
 .EE
 .PP
 Parse an epoch timestamp:
 .IP
 .EX
-td \[at]1719244800 \-\-now 2025\-06\-24T09:00:00Z
+td \[at]1719244800
 .EE
 .PP
 JSON output:
 .IP
 .EX
-td tomorrow \-\-json \-\-now 2025\-06\-24T09:00:00Z
+td tomorrow \-\-json
 .EE
 .PP
 Batch mode (one expression per line from pipe):
 .IP
 .EX
-printf \[dq]tomorrow\[rs]nnext week\[rs]n\[dq] | td \-f \[dq]%Y\-%m\-%d\[dq] \-\-now 2025\-06\-24T09:00:00Z
-.EE
-.PP
-Deterministic output with \[en]now:
-.IP
-.EX
-td \[dq]in 3 days\[dq] \-\-now 2025\-01\-01T00:00:00Z \-f \[dq]%Y\-%m\-%d\[dq] \-t UTC
+printf \[dq]tomorrow\[rs]nnext week\[rs]n\[dq] | td \-f \[dq]%Y\-%m\-%d\[dq]
 .EE
 .PP
 Date arithmetic:
 .IP
 .EX
-td \[dq]tomorrow + 3 hours\[dq] \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td \[dq]tomorrow + 3 hours\[dq] \-t UTC
 .EE
 .PP
 Boundary expression (end of day):
 .IP
 .EX
-td eod \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td eod \-t UTC
 .EE
 .PP
 Operator\-prefixed offset:
 .IP
 .EX
-td \-\- +3h \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td \-t UTC \-\- +3h
+.EE
+.PP
+Deterministic output with \[en]now (for scripting):
+.IP
+.EX
+td \[dq]in 3 days\[dq] \-\-now 2025\-01\-01T00:00:00Z \-f \[dq]%Y\-%m\-%d\[dq] \-t UTC
 .EE
 .SH ENVIRONMENT
 .TP
@@ -161,6 +161,11 @@ Overridden by \f[B]\-f\f[R].
 \f[B]TARDIS_TIMEZONE\f[R]
 Default IANA timezone.
 Overridden by \f[B]\-t\f[R].
+.TP
+\f[B]TARDIS_NOW\f[R]
+Override the current time (RFC 3339 format).
+Overridden by \f[B]\-\-now\f[R].
+Useful for deterministic output in scripts and tests.
 .TP
 \f[B]XDG_CONFIG_HOME\f[R]
 Override the configuration directory base path.

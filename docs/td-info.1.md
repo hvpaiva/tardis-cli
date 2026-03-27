@@ -43,27 +43,27 @@ the date falls in a leap year or during daylight saving time.
 
 Info for the current date:
 
-    td info --now 2025-06-24T09:00:00Z -t UTC
+    td info -t UTC
 
 Info for a specific date:
 
-    td info "2025-12-25" --now 2025-06-24T09:00:00Z -t UTC
+    td info "2025-12-25" -t UTC
 
 Info for a natural-language expression:
 
-    td info "next friday" --now 2025-06-24T09:00:00Z -t UTC
+    td info "next friday" -t UTC
 
 JSON output with all metadata fields:
 
-    td info "2025-01-01" --json --now 2025-01-01T00:00:00Z -t UTC
+    td info "2025-01-01" --json -t UTC
 
 Info with a specific timezone:
 
-    td info "now" -t America/Sao_Paulo --now 2025-06-24T09:00:00Z
+    td info "now" -t America/Sao_Paulo
 
 Info for a relative expression:
 
-    td info "3 days ago" --now 2025-06-24T09:00:00Z -t UTC
+    td info "3 days ago" -t UTC
 
 # SEE ALSO
 

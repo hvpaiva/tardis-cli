@@ -52,34 +52,34 @@ Print help information.
 Basic difference between two dates:
 .IP
 .EX
-td diff \[dq]2025\-01\-01\[dq] \[dq]2025\-03\-15\[dq] \-\-now 2025\-01\-01T00:00:00Z \-t UTC
+td diff \[dq]2025\-01\-01\[dq] \[dq]2025\-03\-15\[dq] \-t UTC
 .EE
 .PP
 Output as total seconds:
 .IP
 .EX
-td diff \[dq]2025\-01\-01\[dq] \[dq]2025\-06\-01\[dq] \-\-output seconds \-\-now 2025\-01\-01T00:00:00Z \-t UTC
+td diff \[dq]2025\-01\-01\[dq] \[dq]2025\-06\-01\[dq] \-\-output seconds \-t UTC
 .EE
 .PP
 Output as ISO 8601 duration:
 .IP
 .EX
-td diff \[dq]2025\-01\-01\[dq] \[dq]2025\-03\-15\[dq] \-\-output iso \-\-now 2025\-01\-01T00:00:00Z \-t UTC
+td diff \[dq]2025\-01\-01\[dq] \[dq]2025\-03\-15\[dq] \-\-output iso \-t UTC
 .EE
 .PP
 JSON output:
 .IP
 .EX
-td diff yesterday tomorrow \-\-json \-\-now 2025\-06\-24T12:00:00Z \-t UTC
+td diff yesterday tomorrow \-\-json \-t UTC
 .EE
 .PP
 Timezone\-aware diff:
 .IP
 .EX
-td diff \[dq]2025\-01\-01\[dq] \[dq]2025\-07\-01\[dq] \-t America/New_York \-\-now 2025\-01\-01T00:00:00Z
+td diff \[dq]2025\-01\-01\[dq] \[dq]2025\-07\-01\[dq] \-t America/New_York
 .EE
 .PP
-With \[en]now for deterministic scripting:
+Deterministic output with \[en]now (for scripting):
 .IP
 .EX
 td diff \[dq]now\[dq] \[dq]next friday\[dq] \-\-now 2025\-06\-24T09:00:00Z \-t UTC

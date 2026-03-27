@@ -48,19 +48,19 @@ Print help information.
 Convert from system local time to UTC:
 .IP
 .EX
-td tz \[dq]now\[dq] \-\-to UTC \-\-now 2025\-06\-24T09:00:00Z
+td tz \[dq]now\[dq] \-\-to UTC
 .EE
 .PP
 Convert from US Eastern to Sao Paulo:
 .IP
 .EX
-td tz \[dq]2025\-06\-24T12:00:00\[dq] \-\-from America/New_York \-\-to America/Sao_Paulo
+td tz \[dq]2025\-06\-24 12:00\[dq] \-\-from America/New_York \-\-to America/Sao_Paulo
 .EE
 .PP
 Convert to Tokyo time:
 .IP
 .EX
-td tz \[dq]tomorrow at 9am\[dq] \-\-to Asia/Tokyo \-\-now 2025\-06\-24T09:00:00Z
+td tz \[dq]tomorrow\[dq] \-\-to Asia/Tokyo
 .EE
 .PP
 With explicit source timezone:
@@ -72,13 +72,13 @@ td tz \[dq]2025\-01\-15 08:30\[dq] \-\-from Europe/London \-\-to America/Chicago
 JSON output:
 .IP
 .EX
-td tz \[dq]now\[dq] \-\-to Europe/Berlin \-\-json \-\-now 2025\-06\-24T09:00:00Z
+td tz \[dq]now\[dq] \-\-to Europe/Berlin \-\-json
 .EE
 .PP
-Deterministic timezone conversion:
+Deterministic timezone conversion (for scripting):
 .IP
 .EX
-td tz \[dq]next monday at noon\[dq] \-\-to Pacific/Auckland \-\-now 2025\-06\-24T09:00:00Z
+td tz \[dq]next monday\[dq] \-\-to Pacific/Auckland \-\-now 2025\-06\-24T09:00:00Z
 .EE
 .SH SEE ALSO
 \f[B]td\f[R](1), \f[B]td\-diff\f[R](1), \f[B]td\-convert\f[R](1),

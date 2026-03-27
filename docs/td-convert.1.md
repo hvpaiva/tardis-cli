@@ -61,7 +61,7 @@ Any strftime pattern or preset name from the config file is also accepted.
 
 Convert a natural-language expression to epoch:
 
-    td convert "2025-06-24" --to epoch --now 2025-06-24T00:00:00Z -t UTC
+    td convert "2025-06-24" --to epoch -t UTC
 
 Convert from ISO 8601 to a custom format:
 
@@ -69,7 +69,7 @@ Convert from ISO 8601 to a custom format:
 
 Auto-detect input and convert to RFC 2822:
 
-    td convert "next friday" --to rfc2822 --now 2025-06-24T09:00:00Z -t UTC
+    td convert "next friday" --to rfc2822 -t UTC
 
 Convert a bare epoch timestamp:
 
@@ -81,7 +81,7 @@ Convert with explicit input format:
 
 JSON output:
 
-    td convert "tomorrow" --to epoch --json --now 2025-06-24T09:00:00Z -t UTC
+    td convert "tomorrow" --to epoch --json -t UTC
 
 # SEE ALSO
 

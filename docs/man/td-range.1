@@ -32,7 +32,7 @@ instant is returned.
 .TP
 \f[B]\-f\f[R], \f[B]\-\-format\f[R] \f[I]FMT\f[R]
 Output format for both start and end (strftime pattern or preset name).
-See \f[B]docs/FORMAT\-SPECIFIERS.md\f[R] for the full reference.
+See the FORMAT\-SPECIFIERS reference in the project repository.
 .TP
 \f[B]\-t\f[R], \f[B]\-\-timezone\f[R] \f[I]TZ\f[R]
 IANA/Olson timezone to apply (e.g.\ \[lq]UTC\[rq],
@@ -44,7 +44,8 @@ Override the current time (RFC 3339).
 \f[B]\-d\f[R], \f[B]\-\-delimiter\f[R] \f[I]DELIM\f[R]
 Delimiter between start and end in plain\-text output.
 Defaults to a newline character.
-Common values: \[rq] / \[lq],\[rq] \[en] \[lq],\[rq],\[lq].
+Common values: \f[CR]\[dq] / \[dq]\f[R], \f[CR]\[dq] \-\- \[dq]\f[R],
+\f[CR]\[dq],\[dq]\f[R].
 .TP
 \f[B]\-j\f[R], \f[B]\-\-json\f[R]
 Output as a JSON object with \f[I]start\f[R], \f[I]end\f[R], and
@@ -62,43 +63,43 @@ Print help information.
 Expand \[lq]this week\[rq] to start/end:
 .IP
 .EX
-td range \[dq]this week\[dq] \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td range \[dq]this week\[dq] \-t UTC
 .EE
 .PP
 Expand \[lq]this month\[rq] with a custom format:
 .IP
 .EX
-td range \[dq]this month\[dq] \-f \[dq]%Y\-%m\-%d\[dq] \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td range \[dq]this month\[dq] \-f \[dq]%Y\-%m\-%d\[dq] \-t UTC
 .EE
 .PP
 Expand \[lq]today\[rq] to a full day range:
 .IP
 .EX
-td range \[dq]today\[dq] \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td range \[dq]today\[dq] \-t UTC
 .EE
 .PP
 Hour\-level granularity (tomorrow at 3pm):
 .IP
 .EX
-td range \[dq]tomorrow at 3pm\[dq] \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td range \[dq]tomorrow at 3pm\[dq] \-t UTC
 .EE
 .PP
 Custom delimiter:
 .IP
 .EX
-td range \[dq]this week\[dq] \-d \[dq] / \[dq] \-f \[dq]%Y\-%m\-%d\[dq] \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td range \[dq]this week\[dq] \-d \[dq] / \[dq] \-f \[dq]%Y\-%m\-%d\[dq] \-t UTC
 .EE
 .PP
 JSON output:
 .IP
 .EX
-td range \[dq]this month\[dq] \-\-json \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td range \[dq]this month\[dq] \-\-json \-t UTC
 .EE
 .PP
 With explicit format:
 .IP
 .EX
-td range \[dq]this week\[dq] \-f \[dq]%d/%m/%Y %H:%M\[dq] \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td range \[dq]this week\[dq] \-f \[dq]%d/%m/%Y %H:%M\[dq] \-t UTC
 .EE
 .SH SEE ALSO
 \f[B]td\f[R](1), \f[B]td\-diff\f[R](1), \f[B]td\-convert\f[R](1),

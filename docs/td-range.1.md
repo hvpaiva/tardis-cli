@@ -33,7 +33,7 @@ the **range** subcommand), only the start-of-period instant is returned.
 
 **-f**, **-\-format** *FMT*
 :   Output format for both start and end (strftime pattern or preset name).
-    See **docs/FORMAT-SPECIFIERS.md** for the full reference.
+    See the FORMAT-SPECIFIERS reference in the project repository.
 
 **-t**, **-\-timezone** *TZ*
 :   IANA/Olson timezone to apply (e.g. "UTC", "America/Sao_Paulo").
@@ -43,7 +43,7 @@ the **range** subcommand), only the start-of-period instant is returned.
 
 **-d**, **-\-delimiter** *DELIM*
 :   Delimiter between start and end in plain-text output.  Defaults to a
-    newline character.  Common values: " / ", " -- ", ",".
+    newline character.  Common values: `" / "`, `" -- "`, `","`.
 
 **-j**, **-\-json**
 :   Output as a JSON object with *start*, *end*, and *delimiter* fields.
@@ -61,31 +61,31 @@ the **range** subcommand), only the start-of-period instant is returned.
 
 Expand "this week" to start/end:
 
-    td range "this week" --now 2025-06-24T09:00:00Z -t UTC
+    td range "this week" -t UTC
 
 Expand "this month" with a custom format:
 
-    td range "this month" -f "%Y-%m-%d" --now 2025-06-24T09:00:00Z -t UTC
+    td range "this month" -f "%Y-%m-%d" -t UTC
 
 Expand "today" to a full day range:
 
-    td range "today" --now 2025-06-24T09:00:00Z -t UTC
+    td range "today" -t UTC
 
 Hour-level granularity (tomorrow at 3pm):
 
-    td range "tomorrow at 3pm" --now 2025-06-24T09:00:00Z -t UTC
+    td range "tomorrow at 3pm" -t UTC
 
 Custom delimiter:
 
-    td range "this week" -d " / " -f "%Y-%m-%d" --now 2025-06-24T09:00:00Z -t UTC
+    td range "this week" -d " / " -f "%Y-%m-%d" -t UTC
 
 JSON output:
 
-    td range "this month" --json --now 2025-06-24T09:00:00Z -t UTC
+    td range "this month" --json -t UTC
 
 With explicit format:
 
-    td range "this week" -f "%d/%m/%Y %H:%M" --now 2025-06-24T09:00:00Z -t UTC
+    td range "this week" -f "%d/%m/%Y %H:%M" -t UTC
 
 # SEE ALSO
 

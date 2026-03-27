@@ -37,37 +37,37 @@ Print help information.
 Info for the current date:
 .IP
 .EX
-td info \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td info \-t UTC
 .EE
 .PP
 Info for a specific date:
 .IP
 .EX
-td info \[dq]2025\-12\-25\[dq] \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td info \[dq]2025\-12\-25\[dq] \-t UTC
 .EE
 .PP
 Info for a natural\-language expression:
 .IP
 .EX
-td info \[dq]next friday\[dq] \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td info \[dq]next friday\[dq] \-t UTC
 .EE
 .PP
 JSON output with all metadata fields:
 .IP
 .EX
-td info \[dq]2025\-01\-01\[dq] \-\-json \-\-now 2025\-01\-01T00:00:00Z \-t UTC
+td info \[dq]2025\-01\-01\[dq] \-\-json \-t UTC
 .EE
 .PP
 Info with a specific timezone:
 .IP
 .EX
-td info \[dq]now\[dq] \-t America/Sao_Paulo \-\-now 2025\-06\-24T09:00:00Z
+td info \[dq]now\[dq] \-t America/Sao_Paulo
 .EE
 .PP
 Info for a relative expression:
 .IP
 .EX
-td info \[dq]3 days ago\[dq] \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td info \[dq]3 days ago\[dq] \-t UTC
 .EE
 .SH SEE ALSO
 \f[B]td\f[R](1), \f[B]td\-diff\f[R](1), \f[B]td\-convert\f[R](1),

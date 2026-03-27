@@ -22,7 +22,7 @@ or "2 days ago" and renders them in configurable formats.
 When invoked without an expression in a terminal, **td** defaults to "now".
 When STDIN is a pipe, expressions are read one per line (batch mode).
 
-Epoch timestamps are accepted with the **@** prefix (e.g. **@1719244800**).
+Epoch timestamps are accepted with the @ prefix (e.g. @1719244800).
 Smart precision auto-detects seconds, milliseconds, microseconds, and
 nanoseconds.
 
@@ -31,7 +31,7 @@ nanoseconds.
 **-f**, **-\-format** *FMT*
 :   Output format (strftime pattern or preset name).  Special values
     **epoch** and **unix** emit a Unix timestamp in seconds.
-    See **docs/FORMAT-SPECIFIERS.md** for the full reference.
+    See the FORMAT-SPECIFIERS reference in the project repository.
 
 **-t**, **-\-timezone** *TZ*
 :   IANA/Olson timezone to apply (e.g. "UTC", "America/Sao_Paulo").
@@ -90,43 +90,43 @@ nanoseconds.
 
 Basic usage -- parse "tomorrow":
 
-    td tomorrow --now 2025-06-24T09:00:00Z
+    td tomorrow
 
 Custom output format:
 
-    td "next friday" -f "%Y-%m-%d" --now 2025-06-24T09:00:00Z
+    td "next friday" -f "%Y-%m-%d"
 
 Apply a specific timezone:
 
-    td "now" -t UTC --now 2025-06-24T09:00:00Z
+    td "now" -t UTC
 
 Parse an epoch timestamp:
 
-    td @1719244800 --now 2025-06-24T09:00:00Z
+    td @1719244800
 
 JSON output:
 
-    td tomorrow --json --now 2025-06-24T09:00:00Z
+    td tomorrow --json
 
 Batch mode (one expression per line from pipe):
 
-    printf "tomorrow\nnext week\n" | td -f "%Y-%m-%d" --now 2025-06-24T09:00:00Z
-
-Deterministic output with --now:
-
-    td "in 3 days" --now 2025-01-01T00:00:00Z -f "%Y-%m-%d" -t UTC
+    printf "tomorrow\nnext week\n" | td -f "%Y-%m-%d"
 
 Date arithmetic:
 
-    td "tomorrow + 3 hours" --now 2025-06-24T09:00:00Z -t UTC
+    td "tomorrow + 3 hours" -t UTC
 
 Boundary expression (end of day):
 
-    td eod --now 2025-06-24T09:00:00Z -t UTC
+    td eod -t UTC
 
 Operator-prefixed offset:
 
-    td -- +3h --now 2025-06-24T09:00:00Z -t UTC
+    td -t UTC -- +3h
+
+Deterministic output with --now (for scripting):
+
+    td "in 3 days" --now 2025-01-01T00:00:00Z -f "%Y-%m-%d" -t UTC
 
 # ENVIRONMENT
 

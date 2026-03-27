@@ -62,7 +62,7 @@ Print help information.
 Convert a natural\-language expression to epoch:
 .IP
 .EX
-td convert \[dq]2025\-06\-24\[dq] \-\-to epoch \-\-now 2025\-06\-24T00:00:00Z \-t UTC
+td convert \[dq]2025\-06\-24\[dq] \-\-to epoch \-t UTC
 .EE
 .PP
 Convert from ISO 8601 to a custom format:
@@ -74,7 +74,7 @@ td convert \[dq]2025\-06\-24T09:00:00Z\[dq] \-\-to \[dq]%d/%m/%Y %H:%M\[dq] \-t 
 Auto\-detect input and convert to RFC 2822:
 .IP
 .EX
-td convert \[dq]next friday\[dq] \-\-to rfc2822 \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td convert \[dq]next friday\[dq] \-\-to rfc2822 \-t UTC
 .EE
 .PP
 Convert a bare epoch timestamp:
@@ -92,7 +92,7 @@ td convert \[dq]24/06/2025\[dq] \-\-from \[dq]%d/%m/%Y\[dq] \-\-to iso8601 \-t U
 JSON output:
 .IP
 .EX
-td convert \[dq]tomorrow\[dq] \-\-to epoch \-\-json \-\-now 2025\-06\-24T09:00:00Z \-t UTC
+td convert \[dq]tomorrow\[dq] \-\-to epoch \-\-json \-t UTC
 .EE
 .SH SEE ALSO
 \f[B]td\f[R](1), \f[B]td\-diff\f[R](1), \f[B]td\-tz\f[R](1),
