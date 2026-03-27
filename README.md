@@ -110,3 +110,11 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 ## License
 
 [MIT](./LICENCE.md)
+
+---
+
+## Trivia
+
+The name **TARDIS** pays homage to the iconic, bigger-on-the-inside
+time machine from *Doctor Who*. This CLI helps you navigate time too --
+minus the wibbly-wobbly stuff.
