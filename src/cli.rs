@@ -1,3 +1,5 @@
+//! CLI argument parsing and input normalization for **TARDIS**.
+
 use std::{
     env,
     ffi::OsString,
@@ -87,7 +89,6 @@ impl Command {
             _ => "now".to_owned(),
         };
 
-        // --now flag > TARDIS_NOW env var > system clock
         let now_str = cli
             .now
             .or_else(|| std::env::var("TARDIS_NOW").ok().filter(|s| !s.is_empty()));

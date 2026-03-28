@@ -3,7 +3,7 @@
 //! This module is a pure function of AST + reference time. No parsing logic.
 //! All datetime arithmetic uses jiff's native calendar-aware operations.
 //!
-//! ## Clamping policy (PARS-07)
+//! ## Clamping policy
 //!
 //! jiff's `checked_add`/`checked_sub` clamps to end-of-month for calendar
 //! unit arithmetic (e.g., Jan 31 + 1 month = Feb 28). This is intentional
@@ -83,7 +83,6 @@ fn resolve_day_ref(
     let today = now.date();
     let current_wd = today.weekday();
 
-    // Use Monday-zero offsets for arithmetic
     let current_offset = current_wd.to_monday_zero_offset() as i32;
     let target_offset = weekday.to_monday_zero_offset() as i32;
 
@@ -203,8 +202,8 @@ fn resolve_arithmetic(
 
 /// Resolve range expressions to (start, end) datetime pairs.
 ///
-/// - Monday as week start (ISO 8601, D-08)
-/// - End boundaries are inclusive: 23:59:59.999999999 (D-09/Pitfall 3)
+/// - Monday as week start (ISO 8601)
+/// - End boundaries are inclusive: 23:59:59.999999999
 /// - All boundaries use `compatible()` for DST safety
 pub(crate) fn resolve_range(range: &RangeExpr, now: &Zoned) -> Result<(Zoned, Zoned), ParseError> {
     let tz = now.time_zone().clone();
@@ -213,7 +212,6 @@ pub(crate) fn resolve_range(range: &RangeExpr, now: &Zoned) -> Result<(Zoned, Zo
     match range {
         RangeExpr::LastWeek => {
             let current_wd = today.weekday().to_monday_zero_offset() as i32;
-            // Go to this Monday, then back one week
             let this_monday = today
                 .checked_sub(Span::new().days(i64::from(current_wd)))
                 .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
@@ -276,7 +274,7 @@ pub(crate) fn resolve_range(range: &RangeExpr, now: &Zoned) -> Result<(Zoned, Zo
     }
 }
 
-/// Resolve a range expression to its start-of-period instant (D-01, D-02).
+/// Resolve a range expression to its start-of-period instant.
 ///
 /// When the default `td` command encounters "this week", "next month", etc.,
 /// it returns the start of that period as a single instant:
@@ -289,14 +287,14 @@ fn resolve_range_start(range: &RangeExpr, now: &Zoned) -> Result<Zoned, ParseErr
     Ok(start)
 }
 
-/// Resolve any expression as a range pair with implicit granularity (D-05).
+/// Resolve any expression as a range pair with implicit granularity.
 ///
 /// Granularity is determined by the smallest unspecified time unit:
 /// - No time specified -> day granularity (00:00:00..23:59:59)
 /// - Hour only (via Nh notation) -> hour granularity (HH:00:00..HH:59:59)
 /// - Hour:Minute specified -> minute granularity (HH:MM:00..HH:MM:59)
 /// - Full time specified -> instant (duplicated)
-/// - "now" -> instant (duplicated, D-06)
+/// - "now" -> instant (duplicated)
 /// - Range expressions -> use existing resolve_range (week/month/year/quarter)
 /// - Boundary keywords -> instant (duplicated)
 pub(crate) fn resolve_range_with_granularity(
@@ -321,8 +319,6 @@ pub(crate) fn resolve_range_with_granularity(
             let z = resolve(expr, now)?;
             Ok((z.clone(), z))
         }
-        // All other expressions (Epoch, Offset, OffsetFrom, Arithmetic, TimeOnly)
-        // resolve to instants -> duplicate
         _ => {
             let z = resolve(expr, now)?;
             Ok((z.clone(), z))
@@ -344,12 +340,8 @@ fn expand_by_time_granularity(
     let date = base.date();
 
     match time {
-        None => {
-            // Day granularity
-            Ok((zoned_midnight(date, &tz)?, zoned_end_of_day(date, &tz)?))
-        }
+        None => Ok((zoned_midnight(date, &tz)?, zoned_end_of_day(date, &tz)?)),
         Some(TimeExpr::HourOnly(h)) => {
-            // Hour granularity: h:00:00 .. h:59:59.999999999
             let dt_start = date.at(*h, 0, 0, 0);
             let dt_end = date.at(*h, 59, 59, 999_999_999);
             let start = tz
@@ -363,7 +355,6 @@ fn expand_by_time_granularity(
             Ok((start, end))
         }
         Some(TimeExpr::HourMinute(h, m)) => {
-            // Minute granularity: h:m:00 .. h:m:59.999999999
             let dt_start = date.at(*h, *m, 0, 0);
             let dt_end = date.at(*h, *m, 59, 999_999_999);
             let start = tz
@@ -376,18 +367,12 @@ fn expand_by_time_granularity(
                 .map_err(|e| ParseError::resolution(format!("ambiguous: {e}")))?;
             Ok((start, end))
         }
-        Some(TimeExpr::HourMinuteSecond(..)) => {
-            // Second granularity = instant
-            Ok((base.clone(), base))
-        }
-        Some(TimeExpr::SameTime) => {
-            // SameTime preserves the exact time from `now` -> instant
-            Ok((base.clone(), base))
-        }
+        Some(TimeExpr::HourMinuteSecond(..)) => Ok((base.clone(), base)),
+        Some(TimeExpr::SameTime) => Ok((base.clone(), base)),
     }
 }
 
-/// Resolve a TaskWarrior boundary keyword to a concrete datetime (D-11).
+/// Resolve a TaskWarrior boundary keyword to a concrete datetime.
 ///
 /// Boundaries are instants (specific moments in time):
 /// - Start-of-period: 00:00:00.000000000
@@ -402,7 +387,6 @@ fn resolve_boundary(kind: &BoundaryKind, now: &Zoned) -> Result<Zoned, ParseErro
     let current_wd = today.weekday().to_monday_zero_offset() as i64;
 
     match kind {
-        // -- Current period --
         BoundaryKind::Sod => zoned_midnight(today, &tz),
         BoundaryKind::Eod => zoned_end_of_day(today, &tz),
         BoundaryKind::Sow => {
@@ -421,14 +405,12 @@ fn resolve_boundary(kind: &BoundaryKind, now: &Zoned) -> Result<Zoned, ParseErro
             zoned_end_of_day(sunday, &tz)
         }
         BoundaryKind::Soww => {
-            // Work week start = Monday
             let monday = today
                 .checked_sub(Span::new().days(current_wd))
                 .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
             zoned_midnight(monday, &tz)
         }
         BoundaryKind::Eoww => {
-            // Work week end = Friday 23:59:59
             let monday = today
                 .checked_sub(Span::new().days(current_wd))
                 .map_err(|e| ParseError::resolution(format!("overflow: {e}")))?;
@@ -470,7 +452,6 @@ fn resolve_boundary(kind: &BoundaryKind, now: &Zoned) -> Result<Zoned, ParseErro
             zoned_end_of_day(last, &tz)
         }
 
-        // -- Previous period --
         BoundaryKind::Sopd => {
             let yesterday = today
                 .checked_sub(Span::new().days(1))
@@ -546,7 +527,6 @@ fn resolve_boundary(kind: &BoundaryKind, now: &Zoned) -> Result<Zoned, ParseErro
             zoned_end_of_day(last, &tz)
         }
 
-        // -- Next period --
         BoundaryKind::Sond => {
             let tomorrow = today
                 .checked_add(Span::new().days(1))
@@ -752,14 +732,11 @@ fn apply_time(date: civil::Date, time: &TimeExpr, now: Option<&Zoned>) -> civil:
                 let t = now.datetime().time();
                 date.at(t.hour(), t.minute(), t.second(), t.subsec_nanosecond())
             } else {
-                // Fallback: no `now` reference available, use midnight
                 date.at(0, 0, 0, 0)
             }
         }
     }
 }
-
-// detect_epoch_precision lives in grammar.rs where it is called during parsing.
 
 #[cfg(test)]
 mod tests {
@@ -828,7 +805,7 @@ mod tests {
 
     #[test]
     fn resolve_next_friday_on_sunday() {
-        let now = make_now(); // Sunday June 15
+        let now = make_now();
         let result = resolve(
             &DateExpr::DayRef(Direction::Next, Weekday::Friday, None),
             &now,
@@ -839,31 +816,29 @@ mod tests {
 
     #[test]
     fn resolve_next_sunday_on_sunday_advances_7() {
-        let now = make_now(); // Sunday June 15
+        let now = make_now();
         let result = resolve(
             &DateExpr::DayRef(Direction::Next, Weekday::Sunday, None),
             &now,
         )
         .unwrap();
-        // Pitfall 3: "next sunday" on Sunday advances to next week
         assert_eq!(format_zoned(&result), "2025-06-22T00:00:00");
     }
 
     #[test]
     fn resolve_this_sunday_on_sunday_is_today() {
-        let now = make_now(); // Sunday June 15
+        let now = make_now();
         let result = resolve(
             &DateExpr::DayRef(Direction::This, Weekday::Sunday, None),
             &now,
         )
         .unwrap();
-        // Pitfall 3: "this sunday" on Sunday returns today
         assert_eq!(format_zoned(&result), "2025-06-15T00:00:00");
     }
 
     #[test]
     fn resolve_last_sunday_on_sunday_goes_back_7() {
-        let now = make_now(); // Sunday June 15
+        let now = make_now();
         let result = resolve(
             &DateExpr::DayRef(Direction::Last, Weekday::Sunday, None),
             &now,
@@ -874,7 +849,7 @@ mod tests {
 
     #[test]
     fn resolve_offset_future_3_days() {
-        let now = make_now(); // Sunday June 15 at 12:00
+        let now = make_now();
         let result = resolve(
             &DateExpr::Offset(
                 Direction::Future,
@@ -886,7 +861,6 @@ mod tests {
             &now,
         )
         .unwrap();
-        // Preserves time for offsets
         assert_eq!(format_zoned(&result), "2025-06-18T12:00:00");
     }
 
@@ -935,8 +909,6 @@ mod tests {
         assert_eq!(format_zoned(&result), "1969-12-31T00:00:00");
     }
 
-    // detect_epoch_precision tests are in grammar.rs where the function lives.
-
     #[test]
     fn resolve_absolute_iso_date() {
         let now = make_now();
@@ -975,11 +947,11 @@ mod tests {
 
     #[test]
     fn resolve_absolute_year_sentinel() {
-        let now = make_now(); // 2025-06-15
+        let now = make_now();
         let result = resolve(
             &DateExpr::Absolute(
                 AbsoluteDate {
-                    year: 0, // sentinel
+                    year: 0,
                     month: 3,
                     day: 24,
                 },
@@ -988,13 +960,12 @@ mod tests {
             &now,
         )
         .unwrap();
-        // Uses current year (2025)
         assert_eq!(format_zoned(&result), "2025-03-24T00:00:00");
     }
 
     #[test]
     fn resolve_time_only() {
-        let now = make_now(); // 2025-06-15
+        let now = make_now();
         let result = resolve(&DateExpr::TimeOnly(TimeExpr::HourMinute(15, 30)), &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-15T15:30:00");
     }
@@ -1052,7 +1023,7 @@ mod tests {
 
     #[test]
     fn resolve_offset_from_base() {
-        let now = make_now(); // Sunday June 15 at 12:00
+        let now = make_now();
         let result = resolve(
             &DateExpr::OffsetFrom(
                 Direction::Past,
@@ -1065,13 +1036,12 @@ mod tests {
             &now,
         )
         .unwrap();
-        // tomorrow = June 16 at 00:00, minus 3 hours = June 15 at 21:00
         assert_eq!(format_zoned(&result), "2025-06-15T21:00:00");
     }
 
     #[test]
     fn resolve_arithmetic_add() {
-        let now = make_now(); // 2025-06-15T12:00:00 UTC
+        let now = make_now();
         let result = resolve(
             &DateExpr::Arithmetic(
                 Box::new(DateExpr::Relative(RelativeDate::Tomorrow, None)),
@@ -1084,13 +1054,12 @@ mod tests {
             &now,
         )
         .unwrap();
-        // tomorrow = June 16 at 00:00, + 3 hours = June 16 at 03:00
         assert_eq!(format_zoned(&result), "2025-06-16T03:00:00");
     }
 
     #[test]
     fn resolve_arithmetic_chained() {
-        let now = make_now(); // 2025-06-15T12:00:00 UTC
+        let now = make_now();
         let result = resolve(
             &DateExpr::Arithmetic(
                 Box::new(DateExpr::Arithmetic(
@@ -1117,13 +1086,11 @@ mod tests {
             &now,
         )
         .unwrap();
-        // now (12:00) + 1 day (13 June 16 12:00) + 3 hours (15:00) - 30 min (14:30)
         assert_eq!(format_zoned(&result), "2025-06-16T14:30:00");
     }
 
     #[test]
     fn resolve_arithmetic_month_clamping() {
-        // now + 1 month when now is Jan 31 -> Feb 28 (clamping per PARS-07)
         let jan31 = {
             let dt = civil::date(2025, 1, 31).at(12, 0, 0, 0);
             utc().to_ambiguous_zoned(dt).compatible().unwrap()
@@ -1145,7 +1112,7 @@ mod tests {
 
     #[test]
     fn resolve_arithmetic_next_friday_minus_1_week() {
-        let now = make_now(); // Sunday 2025-06-15
+        let now = make_now();
         let result = resolve(
             &DateExpr::Arithmetic(
                 Box::new(DateExpr::DayRef(Direction::Next, Weekday::Friday, None)),
@@ -1158,44 +1125,37 @@ mod tests {
             &now,
         )
         .unwrap();
-        // Next friday = June 20, - 1 week = June 13
         assert_eq!(format_zoned(&result), "2025-06-13T00:00:00");
     }
 
     #[test]
     fn resolve_range_returns_start_of_period() {
-        // resolve() on a Range expression returns start-of-period instant (D-01, D-02)
-        let now = make_wednesday(); // Wed 2025-06-18
+        let now = make_wednesday();
         let result = resolve(&DateExpr::Range(RangeExpr::ThisWeek), &now).unwrap();
-        // ThisWeek start = Monday 2025-06-16
         assert_eq!(format_zoned(&result), "2025-06-16T00:00:00");
     }
 
     #[test]
     fn resolve_range_start_next_month() {
-        let now = make_wednesday(); // 2025-06-18
+        let now = make_wednesday();
         let result = resolve(&DateExpr::Range(RangeExpr::NextMonth), &now).unwrap();
-        // NextMonth start = July 1
         assert_eq!(format_zoned(&result), "2025-07-01T00:00:00");
     }
 
-    // --- Day reference golden test verification ---
-
     #[test]
     fn resolve_this_monday_on_sunday() {
-        let now = make_now(); // Sunday June 15
+        let now = make_now();
         let result = resolve(
             &DateExpr::DayRef(Direction::This, Weekday::Monday, None),
             &now,
         )
         .unwrap();
-        // "this monday" on Sunday = Monday June 16 (golden test expectation)
         assert_eq!(format_zoned(&result), "2025-06-16T00:00:00");
     }
 
     #[test]
     fn resolve_this_friday_on_sunday() {
-        let now = make_now(); // Sunday June 15
+        let now = make_now();
         let result = resolve(
             &DateExpr::DayRef(Direction::This, Weekday::Friday, None),
             &now,
@@ -1206,7 +1166,7 @@ mod tests {
 
     #[test]
     fn resolve_this_saturday_on_sunday() {
-        let now = make_now(); // Sunday June 15
+        let now = make_now();
         let result = resolve(
             &DateExpr::DayRef(Direction::This, Weekday::Saturday, None),
             &now,
@@ -1217,19 +1177,18 @@ mod tests {
 
     #[test]
     fn resolve_last_saturday_on_sunday() {
-        let now = make_now(); // Sunday June 15
+        let now = make_now();
         let result = resolve(
             &DateExpr::DayRef(Direction::Last, Weekday::Saturday, None),
             &now,
         )
         .unwrap();
-        // Last Saturday from Sunday = June 14
         assert_eq!(format_zoned(&result), "2025-06-14T00:00:00");
     }
 
     #[test]
     fn resolve_last_monday_on_sunday() {
-        let now = make_now(); // Sunday June 15
+        let now = make_now();
         let result = resolve(
             &DateExpr::DayRef(Direction::Last, Weekday::Monday, None),
             &now,
@@ -1240,7 +1199,7 @@ mod tests {
 
     #[test]
     fn resolve_next_monday_on_sunday() {
-        let now = make_now(); // Sunday June 15
+        let now = make_now();
         let result = resolve(
             &DateExpr::DayRef(Direction::Next, Weekday::Monday, None),
             &now,
@@ -1251,7 +1210,7 @@ mod tests {
 
     #[test]
     fn resolve_next_saturday_on_sunday() {
-        let now = make_now(); // Sunday June 15
+        let now = make_now();
         let result = resolve(
             &DateExpr::DayRef(Direction::Next, Weekday::Saturday, None),
             &now,
@@ -1259,8 +1218,6 @@ mod tests {
         .unwrap();
         assert_eq!(format_zoned(&result), "2025-06-21T00:00:00");
     }
-
-    // --- Integration: parse() end-to-end ---
 
     #[test]
     fn parse_now_e2e() {
@@ -1367,48 +1324,45 @@ mod tests {
         assert_eq!(format_zoned(&result), "2025-06-08T00:00:00");
     }
 
-    // ── Phase 3: Range resolution tests ──────────────────────
-
     fn format_range(start: &Zoned, end: &Zoned) -> (String, String) {
         (format_zoned(start), format_zoned(end))
     }
 
     fn make_wednesday() -> Zoned {
-        // Wednesday 2025-06-18 at 12:00 UTC
         let dt = civil::date(2025, 6, 18).at(12, 0, 0, 0);
         utc().to_ambiguous_zoned(dt).compatible().unwrap()
     }
 
     #[test]
     fn resolve_range_last_week() {
-        let now = make_wednesday(); // Wed 2025-06-18
+        let now = make_wednesday();
         let (start, end) = resolve_range(&RangeExpr::LastWeek, &now).unwrap();
         let (s, e) = format_range(&start, &end);
-        assert_eq!(s, "2025-06-09T00:00:00"); // Monday
-        assert_eq!(e, "2025-06-15T23:59:59"); // Sunday
+        assert_eq!(s, "2025-06-09T00:00:00");
+        assert_eq!(e, "2025-06-15T23:59:59");
     }
 
     #[test]
     fn resolve_range_this_week() {
-        let now = make_wednesday(); // Wed 2025-06-18
+        let now = make_wednesday();
         let (start, end) = resolve_range(&RangeExpr::ThisWeek, &now).unwrap();
         let (s, e) = format_range(&start, &end);
-        assert_eq!(s, "2025-06-16T00:00:00"); // Monday
-        assert_eq!(e, "2025-06-22T23:59:59"); // Sunday
+        assert_eq!(s, "2025-06-16T00:00:00");
+        assert_eq!(e, "2025-06-22T23:59:59");
     }
 
     #[test]
     fn resolve_range_next_week() {
-        let now = make_wednesday(); // Wed 2025-06-18
+        let now = make_wednesday();
         let (start, end) = resolve_range(&RangeExpr::NextWeek, &now).unwrap();
         let (s, e) = format_range(&start, &end);
-        assert_eq!(s, "2025-06-23T00:00:00"); // Monday
-        assert_eq!(e, "2025-06-29T23:59:59"); // Sunday
+        assert_eq!(s, "2025-06-23T00:00:00");
+        assert_eq!(e, "2025-06-29T23:59:59");
     }
 
     #[test]
     fn resolve_range_this_month() {
-        let now = make_wednesday(); // 2025-06-18
+        let now = make_wednesday();
         let (start, end) = resolve_range(&RangeExpr::ThisMonth, &now).unwrap();
         let (s, e) = format_range(&start, &end);
         assert_eq!(s, "2025-06-01T00:00:00");
@@ -1417,7 +1371,7 @@ mod tests {
 
     #[test]
     fn resolve_range_last_month() {
-        let now = make_wednesday(); // 2025-06-18
+        let now = make_wednesday();
         let (start, end) = resolve_range(&RangeExpr::LastMonth, &now).unwrap();
         let (s, e) = format_range(&start, &end);
         assert_eq!(s, "2025-05-01T00:00:00");
@@ -1426,7 +1380,7 @@ mod tests {
 
     #[test]
     fn resolve_range_next_month() {
-        let now = make_wednesday(); // 2025-06-18
+        let now = make_wednesday();
         let (start, end) = resolve_range(&RangeExpr::NextMonth, &now).unwrap();
         let (s, e) = format_range(&start, &end);
         assert_eq!(s, "2025-07-01T00:00:00");
@@ -1435,7 +1389,7 @@ mod tests {
 
     #[test]
     fn resolve_range_next_year() {
-        let now = make_wednesday(); // 2025-06-18
+        let now = make_wednesday();
         let (start, end) = resolve_range(&RangeExpr::NextYear, &now).unwrap();
         let (s, e) = format_range(&start, &end);
         assert_eq!(s, "2026-01-01T00:00:00");
@@ -1444,7 +1398,7 @@ mod tests {
 
     #[test]
     fn resolve_range_this_year() {
-        let now = make_wednesday(); // 2025-06-18
+        let now = make_wednesday();
         let (start, end) = resolve_range(&RangeExpr::ThisYear, &now).unwrap();
         let (s, e) = format_range(&start, &end);
         assert_eq!(s, "2025-01-01T00:00:00");
@@ -1453,7 +1407,7 @@ mod tests {
 
     #[test]
     fn resolve_range_last_year() {
-        let now = make_wednesday(); // 2025-06-18
+        let now = make_wednesday();
         let (start, end) = resolve_range(&RangeExpr::LastYear, &now).unwrap();
         let (s, e) = format_range(&start, &end);
         assert_eq!(s, "2024-01-01T00:00:00");
@@ -1471,18 +1425,16 @@ mod tests {
 
     #[test]
     fn resolve_range_q1_no_year() {
-        let now = make_wednesday(); // 2025
+        let now = make_wednesday();
         let (start, end) = resolve_range(&RangeExpr::Quarter(0, 1), &now).unwrap();
         let (s, e) = format_range(&start, &end);
         assert_eq!(s, "2025-01-01T00:00:00");
         assert_eq!(e, "2025-03-31T23:59:59");
     }
 
-    // ── Phase 3: End-to-end arithmetic tests ──────────────────────
-
     #[test]
     fn parse_tomorrow_plus_3_hours_e2e() {
-        let now = make_now(); // 2025-06-15T12:00:00 UTC
+        let now = make_now();
         let result = crate::parser::parse("tomorrow + 3 hours", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-16T03:00:00");
     }
@@ -1503,9 +1455,8 @@ mod tests {
 
     #[test]
     fn parse_2_days_before_next_friday_e2e() {
-        let now = make_now(); // Sunday 2025-06-15
+        let now = make_now();
         let result = crate::parser::parse("2 days before next friday", &now).unwrap();
-        // next friday = June 20, - 2 days = June 18
         assert_eq!(format_zoned(&result), "2025-06-18T00:00:00");
     }
 
@@ -1524,23 +1475,19 @@ mod tests {
         assert_eq!(format_zoned(&verbal), format_zoned(&infix));
     }
 
-    // ── Phase 3: End-to-end range tests ──────────────────────
-
     #[test]
     fn parse_last_week_returns_period_start_e2e() {
-        // "last week" resolves as Range(LastWeek) = start of previous week
-        let now = make_wednesday(); // Wed 2025-06-18 12:00:00
+        let now = make_wednesday();
         let result = crate::parser::parse("last week", &now).unwrap();
-        assert_eq!(format_zoned(&result), "2025-06-09T00:00:00"); // Monday of previous week
+        assert_eq!(format_zoned(&result), "2025-06-09T00:00:00");
     }
 
     #[test]
     fn parse_range_last_week_produces_range_e2e() {
-        // "last week" is a valid range expression
         let now = make_wednesday();
         let (start, end) = crate::parser::parse_range_with_granularity("last week", &now).unwrap();
-        assert_eq!(format_zoned(&start), "2025-06-09T00:00:00"); // Monday
-        assert_eq!(format_zoned(&end), "2025-06-15T23:59:59"); // Sunday
+        assert_eq!(format_zoned(&start), "2025-06-09T00:00:00");
+        assert_eq!(format_zoned(&end), "2025-06-15T23:59:59");
     }
 
     #[test]
@@ -1563,7 +1510,6 @@ mod tests {
     fn parse_range_with_granularity_resolves_non_range_as_day() {
         let now = make_now();
         let (start, end) = crate::parser::parse_range_with_granularity("tomorrow", &now).unwrap();
-        // Day granularity: entire day range
         let start_str = format_zoned(&start);
         let end_str = format_zoned(&end);
         assert!(
@@ -1576,9 +1522,6 @@ mod tests {
         );
     }
 
-    // ── Phase 8: Boundary resolution tests ──────────────────────
-
-    // Use Wednesday 2025-06-18 (Mon=0..Sun=6, Wed=2) for deterministic week math
     fn boundary_now() -> Zoned {
         let dt = civil::date(2025, 6, 18).at(14, 30, 0, 0);
         utc().to_ambiguous_zoned(dt).compatible().unwrap()
@@ -1600,7 +1543,6 @@ mod tests {
 
     #[test]
     fn resolve_boundary_sow() {
-        // Wednesday -> this Monday = June 16
         let now = boundary_now();
         let result = resolve(&DateExpr::Boundary(BoundaryKind::Sow), &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-16T00:00:00");
@@ -1608,7 +1550,6 @@ mod tests {
 
     #[test]
     fn resolve_boundary_eow() {
-        // Wednesday -> this Sunday = June 22
         let now = boundary_now();
         let result = resolve(&DateExpr::Boundary(BoundaryKind::Eow), &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-22T23:59:59");
@@ -1617,17 +1558,15 @@ mod tests {
     #[test]
     fn resolve_boundary_soww_eoww() {
         let now = boundary_now();
-        // Work week start = Monday June 16
         let soww = resolve(&DateExpr::Boundary(BoundaryKind::Soww), &now).unwrap();
         assert_eq!(format_zoned(&soww), "2025-06-16T00:00:00");
-        // Work week end = Friday June 20
         let eoww = resolve(&DateExpr::Boundary(BoundaryKind::Eoww), &now).unwrap();
         assert_eq!(format_zoned(&eoww), "2025-06-20T23:59:59");
     }
 
     #[test]
     fn resolve_boundary_som_eom() {
-        let now = boundary_now(); // June 2025
+        let now = boundary_now();
         let som = resolve(&DateExpr::Boundary(BoundaryKind::Som), &now).unwrap();
         assert_eq!(format_zoned(&som), "2025-06-01T00:00:00");
         let eom = resolve(&DateExpr::Boundary(BoundaryKind::Eom), &now).unwrap();
@@ -1636,7 +1575,6 @@ mod tests {
 
     #[test]
     fn resolve_boundary_soq_eoq() {
-        // June is Q2 (Apr-Jun)
         let now = boundary_now();
         let soq = resolve(&DateExpr::Boundary(BoundaryKind::Soq), &now).unwrap();
         assert_eq!(format_zoned(&soq), "2025-04-01T00:00:00");
@@ -1655,7 +1593,7 @@ mod tests {
 
     #[test]
     fn resolve_boundary_sopd_eopd() {
-        let now = boundary_now(); // June 18
+        let now = boundary_now();
         let sopd = resolve(&DateExpr::Boundary(BoundaryKind::Sopd), &now).unwrap();
         assert_eq!(format_zoned(&sopd), "2025-06-17T00:00:00");
         let eopd = resolve(&DateExpr::Boundary(BoundaryKind::Eopd), &now).unwrap();
@@ -1664,7 +1602,6 @@ mod tests {
 
     #[test]
     fn resolve_boundary_sonw_eonw() {
-        // Next week: Monday June 23 to Sunday June 29
         let now = boundary_now();
         let sonw = resolve(&DateExpr::Boundary(BoundaryKind::Sonw), &now).unwrap();
         assert_eq!(format_zoned(&sonw), "2025-06-23T00:00:00");
@@ -1674,7 +1611,6 @@ mod tests {
 
     #[test]
     fn resolve_boundary_sopw_eopw() {
-        // Previous week: Monday June 9 to Sunday June 15
         let now = boundary_now();
         let sopw = resolve(&DateExpr::Boundary(BoundaryKind::Sopw), &now).unwrap();
         assert_eq!(format_zoned(&sopw), "2025-06-09T00:00:00");
@@ -1684,7 +1620,6 @@ mod tests {
 
     #[test]
     fn resolve_boundary_sopm_eopm() {
-        // Previous month: May 2025
         let now = boundary_now();
         let sopm = resolve(&DateExpr::Boundary(BoundaryKind::Sopm), &now).unwrap();
         assert_eq!(format_zoned(&sopm), "2025-05-01T00:00:00");
@@ -1694,7 +1629,6 @@ mod tests {
 
     #[test]
     fn resolve_boundary_sonm_eonm() {
-        // Next month: July 2025
         let now = boundary_now();
         let sonm = resolve(&DateExpr::Boundary(BoundaryKind::Sonm), &now).unwrap();
         assert_eq!(format_zoned(&sonm), "2025-07-01T00:00:00");
@@ -1704,7 +1638,6 @@ mod tests {
 
     #[test]
     fn resolve_boundary_sopq_eopq() {
-        // June is Q2, previous quarter is Q1 (Jan-Mar)
         let now = boundary_now();
         let sopq = resolve(&DateExpr::Boundary(BoundaryKind::Sopq), &now).unwrap();
         assert_eq!(format_zoned(&sopq), "2025-01-01T00:00:00");
@@ -1714,7 +1647,6 @@ mod tests {
 
     #[test]
     fn resolve_boundary_sonq_eonq() {
-        // June is Q2, next quarter is Q3 (Jul-Sep)
         let now = boundary_now();
         let sonq = resolve(&DateExpr::Boundary(BoundaryKind::Sonq), &now).unwrap();
         assert_eq!(format_zoned(&sonq), "2025-07-01T00:00:00");
@@ -1724,7 +1656,6 @@ mod tests {
 
     #[test]
     fn resolve_boundary_sopy_eopy() {
-        // Previous year: 2024
         let now = boundary_now();
         let sopy = resolve(&DateExpr::Boundary(BoundaryKind::Sopy), &now).unwrap();
         assert_eq!(format_zoned(&sopy), "2024-01-01T00:00:00");
@@ -1734,7 +1665,6 @@ mod tests {
 
     #[test]
     fn resolve_boundary_sony_eony() {
-        // Next year: 2026
         let now = boundary_now();
         let sony = resolve(&DateExpr::Boundary(BoundaryKind::Sony), &now).unwrap();
         assert_eq!(format_zoned(&sony), "2026-01-01T00:00:00");
@@ -1744,7 +1674,6 @@ mod tests {
 
     #[test]
     fn resolve_boundary_sond_eond() {
-        // Tomorrow: June 19
         let now = boundary_now();
         let sond = resolve(&DateExpr::Boundary(BoundaryKind::Sond), &now).unwrap();
         assert_eq!(format_zoned(&sond), "2025-06-19T00:00:00");
@@ -1754,7 +1683,6 @@ mod tests {
 
     #[test]
     fn resolve_hour_only_time() {
-        // "today 18h" -> today at 18:00:00
         let now = boundary_now();
         let result = resolve(
             &DateExpr::Relative(RelativeDate::Today, Some(TimeExpr::HourOnly(18))),
@@ -1763,8 +1691,6 @@ mod tests {
         .unwrap();
         assert_eq!(format_zoned(&result), "2025-06-18T18:00:00");
     }
-
-    // ── Phase 8: End-to-end boundary + new expression tests ──────
 
     #[test]
     fn parse_eod_e2e() {
@@ -1784,21 +1710,20 @@ mod tests {
     fn parse_eod_plus_1h_e2e() {
         let now = boundary_now();
         let result = crate::parser::parse("eod + 1h", &now).unwrap();
-        // eod = 23:59:59.999999999, + 1 hour = next day 00:59:59.999999999
         let formatted = result.strftime("%Y-%m-%dT%H:%M").to_string();
         assert_eq!(formatted, "2025-06-19T00:59");
     }
 
     #[test]
     fn parse_plus_3h_e2e() {
-        let now = boundary_now(); // 14:30
+        let now = boundary_now();
         let result = crate::parser::parse("+3h", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-18T17:30:00");
     }
 
     #[test]
     fn parse_minus_1d_e2e() {
-        let now = boundary_now(); // June 18
+        let now = boundary_now();
         let result = crate::parser::parse("-1d", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-17T14:30:00");
     }
@@ -1812,29 +1737,25 @@ mod tests {
 
     #[test]
     fn parse_now_plus_13h30_e2e() {
-        let now = boundary_now(); // 14:30
+        let now = boundary_now();
         let result = crate::parser::parse("now+13h30", &now).unwrap();
-        // 14:30 + 13h30m = 28:00 = next day 04:00
         assert_eq!(format_zoned(&result), "2025-06-19T04:00:00");
     }
 
     #[test]
     fn parse_now_plus_colon_duration_e2e() {
-        let now = boundary_now(); // 14:30
+        let now = boundary_now();
         let result = crate::parser::parse("now+13:30", &now).unwrap();
         assert_eq!(format_zoned(&result), "2025-06-19T04:00:00");
     }
 
-    // -- resolve_range_with_granularity tests --
-
     #[test]
     fn range_granularity_day() {
-        let now = make_now(); // Sunday 2025-06-15
+        let now = make_now();
         let (start, end) =
             resolve_range_with_granularity(&DateExpr::Relative(RelativeDate::Tomorrow, None), &now)
                 .unwrap();
         let (s, e) = format_range(&start, &end);
-        // Tomorrow = Monday 2025-06-16 -> day granularity
         assert_eq!(s, "2025-06-16T00:00:00");
         assert_eq!(e, "2025-06-16T23:59:59");
     }
@@ -1891,12 +1812,12 @@ mod tests {
 
     #[test]
     fn range_granularity_this_week_uses_resolve_range() {
-        let now = make_wednesday(); // Wed 2025-06-18
+        let now = make_wednesday();
         let (start, end) =
             resolve_range_with_granularity(&DateExpr::Range(RangeExpr::ThisWeek), &now).unwrap();
         let (s, e) = format_range(&start, &end);
-        assert_eq!(s, "2025-06-16T00:00:00"); // Monday
-        assert_eq!(e, "2025-06-22T23:59:59"); // Sunday
+        assert_eq!(s, "2025-06-16T00:00:00");
+        assert_eq!(e, "2025-06-22T23:59:59");
     }
 
     #[test]
@@ -1908,11 +1829,9 @@ mod tests {
         assert_eq!(format_zoned(&start), "2025-06-18T23:59:59");
     }
 
-    // ── SameTime tests ──────────────────────────────────────────
-
     #[test]
     fn resolve_tomorrow_at_same_time() {
-        let now = make_now(); // 2025-06-15T12:00:00 UTC
+        let now = make_now();
         let result = resolve(
             &DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::SameTime)),
             &now,
@@ -1923,7 +1842,7 @@ mod tests {
 
     #[test]
     fn resolve_yesterday_at_same_time() {
-        let now = make_now(); // 2025-06-15T12:00:00 UTC
+        let now = make_now();
         let result = resolve(
             &DateExpr::Relative(RelativeDate::Yesterday, Some(TimeExpr::SameTime)),
             &now,
@@ -1934,7 +1853,7 @@ mod tests {
 
     #[test]
     fn resolve_next_friday_at_same_time() {
-        let now = make_now(); // 2025-06-15T12:00:00 (Sunday)
+        let now = make_now();
         let result = resolve(
             &DateExpr::DayRef(Direction::Next, Weekday::Friday, Some(TimeExpr::SameTime)),
             &now,
@@ -1945,7 +1864,6 @@ mod tests {
 
     #[test]
     fn resolve_same_time_preserves_seconds() {
-        // now at 12:34:56
         let dt = civil::date(2025, 6, 15).at(12, 34, 56, 0);
         let now = utc().to_ambiguous_zoned(dt).compatible().unwrap();
         let result = resolve(
@@ -1955,8 +1873,6 @@ mod tests {
         .unwrap();
         assert_eq!(format_zoned(&result), "2025-06-16T12:34:56");
     }
-
-    // ── AM/PM resolver tests ────────────────────────────────────
 
     #[test]
     fn resolve_3pm_time_only() {
@@ -1985,7 +1901,7 @@ mod tests {
 
     #[test]
     fn range_granularity_same_time_is_instant() {
-        let now = make_now(); // 2025-06-15T12:00:00 UTC
+        let now = make_now();
         let (start, end) = resolve_range_with_granularity(
             &DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::SameTime)),
             &now,

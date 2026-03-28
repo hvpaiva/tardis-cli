@@ -14,7 +14,7 @@ pub struct SpannedToken {
     pub span: ByteSpan,
 }
 
-/// Temporal duration unit (PARS-06: all seven standard units).
+/// Temporal duration unit.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TemporalUnit {
@@ -27,7 +27,7 @@ pub enum TemporalUnit {
     Second,
 }
 
-/// Epoch timestamp precision levels (EPOCH-01, EPOCH-02).
+/// Epoch timestamp precision levels.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EpochPrecision {
@@ -37,17 +37,13 @@ pub enum EpochPrecision {
     Nanoseconds,
 }
 
-/// TaskWarrior-style boundary keywords (D-11).
-/// Current period (so/eo = start-of / end-of):
-///   Sod, Eod, Sow, Eow, Soww, Eoww, Som, Eom, Soq, Eoq, Soy, Eoy
-/// Previous period (sop/eop = start-of-previous / end-of-previous):
-///   Sopd, Eopd, Sopw, Eopw, Sopm, Eopm, Sopq, Eopq, Sopy, Eopy
-/// Next period (son/eon = start-of-next / end-of-next):
-///   Sond, Eond, Sonw, Eonw, Sonm, Eonm, Sonq, Eonq, Sony, Eony
+/// TaskWarrior-style boundary keywords.
+///
+/// Current period (so/eo = start-of / end-of),
+/// previous period (sop/eop), and next period (son/eon).
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoundaryKind {
-    // Current period (12 variants: includes soww, eoww, soq, eoq)
     Sod,
     Eod,
     Sow,
@@ -60,7 +56,6 @@ pub enum BoundaryKind {
     Eoq,
     Soy,
     Eoy,
-    // Previous period (10 variants)
     Sopd,
     Eopd,
     Sopw,
@@ -71,7 +66,6 @@ pub enum BoundaryKind {
     Eopq,
     Sopy,
     Eopy,
-    // Next period (10 variants)
     Sond,
     Eond,
     Sonw,
@@ -86,74 +80,43 @@ pub enum BoundaryKind {
 
 /// Lexer token types.
 ///
-/// Keywords are simple enum variants (zero heap allocation per D-04 perf constraint).
+/// Keywords are simple enum variants with zero heap allocation.
 /// Only `Word(String)` carries owned data (for unrecognized words in error messages).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    // Relative keywords
     Now,
     Today,
     Tomorrow,
     Yesterday,
     Overmorrow,
     Ereyesterday,
-
-    // Direction modifiers
     Next,
     Last,
     This,
     In,
     Ago,
     From,
-
-    // Articles (implicit count=1)
     A,
     An,
-
-    // Connectors
     At,
     And,
-
-    // AM/PM meridiem indicators
     Am,
     Pm,
-
-    // Temporal units
     Unit(TemporalUnit),
-
-    // Weekday (using jiff's Weekday enum)
     Weekday(jiff::civil::Weekday),
-
-    // Month (1-12)
     Month(i8),
-
-    // Numeric literal
     Number(i64),
-
-    // Separators
     Colon,
     Dash,
     Slash,
     AtSign,
-
-    // Arithmetic operators
     Plus,
-
-    // Verbal arithmetic keywords
     After,
     Before,
-
-    // Quarter indicator (Q1-Q4)
     Quarter(i8),
-
-    /// TaskWarrior boundary keyword (D-11, D-12)
     Boundary(BoundaryKind),
-
-    // Epoch suffix (@NNNms, @NNNus, @NNNns, @NNNs)
     EpochSuffix(EpochPrecision),
-
-    // Unrecognized word (kept for error messages and typo suggestions)
     Word(String),
 }
 
@@ -171,7 +134,6 @@ mod tests {
 
     #[test]
     fn token_variants_no_heap_alloc() {
-        // Verify keyword tokens are simple enum variants (no String allocation)
         let t = Token::Now;
         assert_eq!(t, Token::Now);
         let t2 = Token::Unit(TemporalUnit::Day);

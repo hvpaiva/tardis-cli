@@ -52,8 +52,6 @@ pub(crate) fn suggest_keyword(word: &str, max_distance: usize) -> Option<String>
             let is_better = match &best {
                 None => true,
                 Some((prev_kw, prev_dist)) => {
-                    // Lower distance wins; on tie, prefer alphabetically first
-                    // for deterministic output across iteration orders
                     dist < *prev_dist || (dist == *prev_dist && kw < prev_kw.as_str())
                 }
             };
@@ -118,7 +116,6 @@ mod tests {
 
     #[test]
     fn suggest_exact_match_excluded() {
-        // Exact matches (distance 0) should not be returned as "suggestions"
         let suggestion = suggest_keyword("wednesday", 2);
         assert!(suggestion.is_none());
     }

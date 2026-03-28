@@ -14,7 +14,7 @@ pub mod token;
 
 pub use error::ParseError;
 
-/// Maximum input length in bytes (UX-03). Inputs longer than this are rejected
+/// Maximum input length in bytes. Inputs longer than this are rejected
 /// before tokenization to prevent abuse.
 const MAX_INPUT_LEN: usize = 1024;
 
@@ -25,7 +25,6 @@ const MAX_INPUT_LEN: usize = 1024;
 ///
 /// Returns the resolved datetime or a [`ParseError`] with span-based diagnostics.
 pub fn parse(input: &str, now: &jiff::Zoned) -> std::result::Result<jiff::Zoned, ParseError> {
-    // UX-03: Input length validation
     if input.len() > MAX_INPUT_LEN {
         return Err(ParseError::input_too_long(input.len(), MAX_INPUT_LEN));
     }
@@ -35,7 +34,6 @@ pub fn parse(input: &str, now: &jiff::Zoned) -> std::result::Result<jiff::Zoned,
         return resolver::resolve(&ast::DateExpr::Now, now);
     }
 
-    // Try RFC 3339/ISO 8601 first (handles "2025-03-24T12:00:00Z" etc.)
     if let Ok(ts) = trimmed.parse::<jiff::Timestamp>() {
         return Ok(ts.to_zoned(now.time_zone().clone()));
     }
@@ -46,7 +44,7 @@ pub fn parse(input: &str, now: &jiff::Zoned) -> std::result::Result<jiff::Zoned,
     resolver::resolve(&expr, now)
 }
 
-/// Parse any expression and resolve it as a range with implicit granularity (D-05).
+/// Parse any expression and resolve it as a range with implicit granularity.
 ///
 /// This is the API used by the `td range` subcommand. It accepts any expression
 /// type (not just Range variants) and applies granularity expansion based on
@@ -71,7 +69,6 @@ pub fn parse_range_with_granularity(
         return Ok((z.clone(), z));
     }
 
-    // Try RFC 3339/ISO 8601 first (instant -> duplicated)
     if let Ok(ts) = trimmed.parse::<jiff::Timestamp>() {
         let z = ts.to_zoned(now.time_zone().clone());
         return Ok((z.clone(), z));

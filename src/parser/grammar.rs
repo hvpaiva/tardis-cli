@@ -29,19 +29,17 @@ impl<'a> Parser<'a> {
 
     /// Parse the token stream into a `DateExpr`.
     ///
-    /// Empty token list -> `DateExpr::Now` (Pitfall 6: empty input = now).
+    /// Empty token list -> `DateExpr::Now`
     pub(crate) fn parse_expression(&mut self) -> Result<DateExpr, ParseError> {
         if self.tokens.is_empty() {
             return Ok(DateExpr::Now);
         }
 
-        // Single `Now` token (only if truly the only token)
         if self.tokens.len() == 1 && self.tokens[0].kind == Token::Now {
             self.pos = 1;
             return Ok(DateExpr::Now);
         }
 
-        // Multi-token starting with `Now` -- consume and try arithmetic tail
         if self.peek() == Some(&Token::Now) && self.tokens.len() > 1 {
             self.advance();
             let expr = DateExpr::Now;
@@ -49,17 +47,14 @@ impl<'a> Parser<'a> {
             return self.with_optional_trailing(expr);
         }
 
-        // Try productions in priority order (most specific first)
         if let Some(expr) = self.try_epoch()? {
             let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
         }
-        // P0.5: Operator-prefixed offset (+3h, -1d) — must come before duration_offset
         if let Some(expr) = self.try_operator_prefixed_offset()? {
             let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
         }
-        // TaskWarrior boundary keywords (eod, sow, etc.) — must come before duration_offset
         if let Some(expr) = self.try_boundary_keyword()? {
             let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
@@ -76,9 +71,6 @@ impl<'a> Parser<'a> {
             let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
         }
-        // Range expressions: "last week", "this month", "next year", "Q3 2025"
-        // Must come after day_ref (so "last monday" still parses as DayRef)
-        // but before absolute_datetime
         if let Some(expr) = self.try_range()? {
             return self.with_optional_trailing(expr);
         }
@@ -86,19 +78,13 @@ impl<'a> Parser<'a> {
             let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
         }
-        // P5 (time-only) removed: standalone time expressions like "15:00", "3pm",
-        // "15h" are rejected. Time requires day context (e.g., "tomorrow 15:00").
-        // This is consistent with other units: "1d", "3 hours" are also not valid alone.
         if let Some(expr) = self.try_bare_weekday()? {
             let expr = self.try_arithmetic_tail(expr)?;
             return self.with_optional_trailing(expr);
         }
 
-        // Nothing matched -- produce error with suggestion
         Err(self.unexpected_input_error())
     }
-
-    // ── Helper methods ─────────────────────────────────────────
 
     /// Look at current token without consuming.
     fn peek(&self) -> Option<&Token> {
@@ -157,7 +143,6 @@ impl<'a> Parser<'a> {
         if self.at_end() {
             return Ok(expr);
         }
-        // Remaining tokens are an error
         let span = self.current_span();
         let remaining: Vec<String> = self.tokens[self.pos..]
             .iter()
@@ -236,8 +221,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    // ── P0: Epoch ──────────────────────────────────────────────
-
     /// `AtSign Number [EpochSuffix]`
     fn try_epoch(&mut self) -> Result<Option<DateExpr>, ParseError> {
         let saved = self.save();
@@ -253,23 +236,20 @@ impl<'a> Parser<'a> {
 
         let raw = self.last_number();
 
-        // Check for explicit epoch suffix
         let precision = if self.match_token(&Token::EpochSuffix(EpochPrecision::Seconds)) {
             match &self.tokens[self.pos - 1].kind {
                 Token::EpochSuffix(p) => *p,
                 _ => unreachable!(),
             }
         } else {
-            // Auto-detect precision from magnitude
             detect_epoch_precision(raw)
         };
 
         Ok(Some(DateExpr::Epoch(EpochValue { raw, precision })))
     }
 
-    // ── P0.5: Operator-prefixed offset ──────────────────────────
-
-    /// P0.5: Operator-prefixed duration offset (D-07).
+    /// Operator-prefixed duration offset.
+    ///
     /// `Plus/Dash DurationComponents` -> Offset(Future/Past, comps) with implicit "now".
     /// Examples: "+3h", "-1d", "+1h30min", "+1d3h"
     fn try_operator_prefixed_offset(&mut self) -> Result<Option<DateExpr>, ParseError> {
@@ -294,9 +274,7 @@ impl<'a> Parser<'a> {
         Ok(None)
     }
 
-    // ── P0.6: Boundary keyword ────────────────────────────────
-
-    /// TaskWarrior boundary keyword production (D-11, D-12, D-13).
+    /// Boundary keyword production.
     /// `Boundary(kind)` -> DateExpr::Boundary(kind)
     /// Composes with arithmetic tail: "eod + 1h" works.
     fn try_boundary_keyword(&mut self) -> Result<Option<DateExpr>, ParseError> {
@@ -307,14 +285,11 @@ impl<'a> Parser<'a> {
         Ok(None)
     }
 
-    // ── P1: Duration offset ────────────────────────────────────
-
     /// `In [A|An|Number] Unit ...` or `[A|An|Number] Unit ... Ago [From expr]`
     /// Also handles verbal arithmetic: `[A|An|Number] Unit ... After/Before expr`
     fn try_duration_offset(&mut self) -> Result<Option<DateExpr>, ParseError> {
         let saved = self.save();
 
-        // Pattern A: "in N unit(s) [and N unit(s) ...]"
         if self.match_token(&Token::In) {
             if let Some(comps) = self.try_duration_components() {
                 return Ok(Some(DateExpr::Offset(Direction::Future, comps)));
@@ -322,8 +297,6 @@ impl<'a> Parser<'a> {
             self.restore(saved);
         }
 
-        // Pattern C: "Ago N unit(s) ..." (PT prefix-ago: "ha 2 horas" = "2 hours ago")
-        // Token::Ago starts this pattern only when followed by duration components
         self.restore(saved);
         if self.match_token(&Token::Ago) {
             if let Some(comps) = self.try_duration_components() {
@@ -332,11 +305,8 @@ impl<'a> Parser<'a> {
             self.restore(saved);
         }
 
-        // Pattern B: "N unit(s) [and N unit(s) ...] after/before/ago [from expr]"
         self.restore(saved);
         if let Some(comps) = self.try_duration_components() {
-            // Check for verbal arithmetic: "after" / "before" (D-06)
-            // Must check BEFORE "ago" since "3 hours after tomorrow" != "3 hours ago"
             if self.match_token(&Token::After) {
                 let base = self.parse_expression()?;
                 return Ok(Some(DateExpr::OffsetFrom(
@@ -355,7 +325,6 @@ impl<'a> Parser<'a> {
             }
 
             if self.match_token(&Token::Ago) {
-                // Check for "from" clause
                 if self.match_token(&Token::From) {
                     let base = self.parse_expression()?;
                     return Ok(Some(DateExpr::OffsetFrom(
@@ -374,12 +343,11 @@ impl<'a> Parser<'a> {
 
     /// Parse one or more duration components: `[A|An|Number] Unit [(And|,) [A|An|Number] Unit ...]`
     ///
-    /// Also handles NhMM inference: "13h30" -> 13 hours + 30 minutes (D-07, gap #1/#2).
+    /// Also handles NhMM inference: "13h30" -> 13 hours + 30 minutes.
     fn try_duration_components(&mut self) -> Option<Vec<DurationComponent>> {
         let mut comps = Vec::new();
 
         if let Some(comp) = self.try_single_duration() {
-            // NhMM inference: "13h30" -> 13 hours + 30 minutes
             if comp.unit == TemporalUnit::Hour {
                 let saved_after_hour = self.save();
                 if self.match_token(&Token::Number(0)) {
@@ -390,7 +358,6 @@ impl<'a> Parser<'a> {
                             count: minutes,
                             unit: TemporalUnit::Minute,
                         });
-                        // Continue to compound loop for further components
                     } else {
                         self.restore(saved_after_hour);
                         comps.push(comp);
@@ -405,14 +372,11 @@ impl<'a> Parser<'a> {
             return None;
         }
 
-        // Compound: loop consuming [And] Number/A/An Unit sequences
         loop {
             let saved = self.save();
-            // Optional "and" connector (commas are already stripped by lexer)
             let _ = self.match_token(&Token::And);
 
             if let Some(comp) = self.try_single_duration() {
-                // NhMM inference in compound loop
                 if comp.unit == TemporalUnit::Hour {
                     let saved_after_hour = self.save();
                     if self.match_token(&Token::Number(0)) {
@@ -465,20 +429,16 @@ impl<'a> Parser<'a> {
         }
     }
 
-    // ── P2: Relative with time ─────────────────────────────────
-
     /// `(Today|Tomorrow|Yesterday|Overmorrow) [time_suffix]`
     /// Also handles reversed: `[time_suffix] (Today|Tomorrow|Yesterday|Overmorrow)`
     fn try_relative_with_time(&mut self) -> Result<Option<DateExpr>, ParseError> {
         let saved = self.save();
 
-        // Forward order: relative keyword then optional time
         if let Some(rel) = self.try_relative_keyword() {
             let time = self.try_time_suffix();
             return Ok(Some(DateExpr::Relative(rel, time)));
         }
 
-        // Reversed order: time then relative keyword (e.g., "15:00 tomorrow")
         self.restore(saved);
         if let Some(time) = self.try_time_suffix() {
             if let Some(rel) = self.try_relative_keyword() {
@@ -517,8 +477,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    // ── P3: Day reference with time ────────────────────────────
-
     /// `(Next|Last|This) Weekday(w) [time_suffix]`
     fn try_day_ref_with_time(&mut self) -> Result<Option<DateExpr>, ParseError> {
         let saved = self.save();
@@ -549,14 +507,11 @@ impl<'a> Parser<'a> {
         Ok(None)
     }
 
-    // ── P4: Absolute datetime ──────────────────────────────────
-
     /// ISO date: `Number Dash Number Dash Number [time]`
     /// Day-month: `Number Month [Number] [time]`
     fn try_absolute_datetime(&mut self) -> Result<Option<DateExpr>, ParseError> {
         let saved = self.save();
 
-        // Pattern A: ISO date "YYYY-MM-DD [HH:MM[:SS]]"
         if self.match_token(&Token::Number(0)) {
             let first = self.last_number();
 
@@ -577,20 +532,17 @@ impl<'a> Parser<'a> {
                 }
             }
 
-            // Pattern B: Day-month "DD Month [YYYY] [time]"
-            // first is the day number, next should be Month
             self.restore(saved);
-            self.advance(); // consume the number again
+            self.advance();
             let day = first;
 
             if self.match_token(&Token::Month(1)) {
                 let month = self.last_month();
 
-                // Optional year
                 let year = if self.match_token(&Token::Number(0)) {
                     self.last_number() as i16
                 } else {
-                    0 // sentinel: resolver will fill in current year
+                    0
                 };
 
                 let abs = AbsoluteDate {
@@ -608,15 +560,7 @@ impl<'a> Parser<'a> {
         Ok(None)
     }
 
-    // ── P5: Time only ──────────────────────────────────────────
-
-    // try_time_only removed: standalone time expressions ("15:00", "3pm", "15h")
-    // are no longer valid. Time requires day context (e.g., "tomorrow 15:00").
-    // This is consistent: "1d", "3 hours" standalone are also errors.
-
-    // ── P6: Bare weekday ───────────────────────────────────────
-
-    /// Single `Weekday(w)` token -> `DayRef(Next, w, None)` (future-biased D-05).
+    /// Single `Weekday(w)` token -> `DayRef(Next, w, None)` (future-biased).
     fn try_bare_weekday(&mut self) -> Result<Option<DateExpr>, ParseError> {
         if self.match_token(&Token::Weekday(jiff::civil::Weekday::Monday)) {
             let weekday = self.last_weekday();
@@ -624,8 +568,6 @@ impl<'a> Parser<'a> {
         }
         Ok(None)
     }
-
-    // ── Arithmetic tail (Phase 3) ────────────────────────────────
 
     /// After parsing a primary expression, consume trailing `+ duration` or `- duration`
     /// chains, wrapping left-to-right: `Arithmetic(Arithmetic(base, Add, [1d]), Sub, [30m])`
@@ -636,8 +578,6 @@ impl<'a> Parser<'a> {
             let saved = self.save();
 
             if self.match_token(&Token::Plus) {
-                // Try N:MM compound duration first (gap #3)
-                // "now + 13:30" = now + 13 hours 30 minutes
                 {
                     let saved_colon = self.save();
                     if self.match_token(&Token::Number(0)) {
@@ -661,16 +601,13 @@ impl<'a> Parser<'a> {
                     self.restore(saved_colon);
                 }
 
-                // Then try standard duration components
                 if let Some(comps) = self.try_duration_components() {
                     result = DateExpr::Arithmetic(Box::new(result), ArithOp::Add, comps);
                     continue;
                 }
-                // No duration components after operator -- backtrack
                 self.restore(saved);
                 break;
             } else if self.match_token(&Token::Dash) {
-                // Try N:MM compound duration first (gap #3)
                 {
                     let saved_colon = self.save();
                     if self.match_token(&Token::Number(0)) {
@@ -694,24 +631,19 @@ impl<'a> Parser<'a> {
                     self.restore(saved_colon);
                 }
 
-                // Then try standard duration components
                 if let Some(comps) = self.try_duration_components() {
                     result = DateExpr::Arithmetic(Box::new(result), ArithOp::Sub, comps);
                     continue;
                 }
-                // Not a duration after dash -- backtrack
                 self.restore(saved);
                 break;
             }
 
-            // No operator found -- done
             break;
         }
 
         Ok(result)
     }
-
-    // ── Range expressions (Phase 3) ────────────────────────────
 
     /// Try to parse range expressions:
     /// - `Last/This/Next Unit(Week/Month/Year)` -> `Range(LastWeek/ThisWeek/etc.)`
@@ -719,7 +651,6 @@ impl<'a> Parser<'a> {
     fn try_range(&mut self) -> Result<Option<DateExpr>, ParseError> {
         let saved = self.save();
 
-        // Pattern A: "last/this/next week/month/year"
         let dir = match self.peek() {
             Some(Token::Last) => {
                 self.advance();
@@ -737,7 +668,6 @@ impl<'a> Parser<'a> {
         };
 
         if let Some(dir) = dir {
-            // Only match if next token is Unit(Week/Month/Year) -- NOT Weekday
             if let Some(Token::Unit(unit)) = self.peek() {
                 let unit = *unit;
                 match unit {
@@ -780,15 +710,13 @@ impl<'a> Parser<'a> {
             self.restore(saved);
         }
 
-        // Pattern B: "Q3 2025" or "Q1" (standalone quarter)
         if let Some(Token::Quarter(q)) = self.peek() {
             let q = *q;
             self.advance();
-            // Optional year
             let year = if self.match_token(&Token::Number(0)) {
                 self.last_number() as i16
             } else {
-                0 // sentinel: resolver will fill in current year
+                0
             };
             return Ok(Some(DateExpr::Range(RangeExpr::Quarter(year, q))));
         }
@@ -796,32 +724,25 @@ impl<'a> Parser<'a> {
         Ok(None)
     }
 
-    // ── Time suffix helper ─────────────────────────────────────
-
-    /// `[At] Number Colon Number [Colon Number]` or `[At] Number Unit(Hour)` (D-10).
+    /// `[At] Number Colon Number [Colon Number]` or `[At] Number Unit(Hour)`.
     /// Also handles AM/PM: `[At] Number [Colon Number [Colon Number]] Am/Pm`
     /// Also handles "at same time" -> SameTime.
     fn try_time_suffix(&mut self) -> Option<TimeExpr> {
         let saved = self.save();
-        // Optional leading "at"
         let _ = self.match_token(&Token::At);
 
         if let Some(time) = self.try_time_pattern() {
             return Some(time);
         }
 
-        // Number Unit(Hour) [Number] -> HourOnly or HourMinute
-        // "today 18h" = "today 18:00", "today 15h30" = "today 15:30"
         self.restore(saved);
-        let _ = self.match_token(&Token::At); // re-consume optional "at"
+        let _ = self.match_token(&Token::At);
         if self.match_token(&Token::Number(0)) {
             let hour = self.last_number() as i8;
             if self.match_token(&Token::Unit(TemporalUnit::Hour)) {
-                // Check for trailing minutes: "15h30" -> HourMinute(15, 30)
                 let saved_after_h = self.save();
                 if self.match_token(&Token::Number(0)) {
                     let minute = self.last_number() as i8;
-                    // Only consume if not followed by a unit (otherwise it's a duration like "1h 30m")
                     if !self.peek_is_unit() {
                         return Some(TimeExpr::HourMinute(hour, minute));
                     }
@@ -831,10 +752,8 @@ impl<'a> Parser<'a> {
             }
         }
 
-        // Bare Number Am/Pm -> HourOnly (e.g., "3pm" -> HourOnly(15))
-        // No explicit minutes → hour granularity, same as "15h"
         self.restore(saved);
-        let _ = self.match_token(&Token::At); // re-consume optional "at"
+        let _ = self.match_token(&Token::At);
         if self.match_token(&Token::Number(0)) {
             let hour = self.last_number() as i8;
             if self.match_token(&Token::Am) {
@@ -845,7 +764,6 @@ impl<'a> Parser<'a> {
             }
         }
 
-        // "at same time" -> SameTime
         self.restore(saved);
         if self.match_token(&Token::At) && self.match_word("same") && self.match_word("time") {
             return Some(TimeExpr::SameTime);
@@ -875,13 +793,11 @@ impl<'a> Parser<'a> {
         }
         let minute = self.last_number() as i8;
 
-        // Optional seconds
         let saved_after_hm = self.save();
         if self.match_token(&Token::Colon) {
             if self.match_token(&Token::Number(0)) {
                 let second = self.last_number() as i8;
                 let time = TimeExpr::HourMinuteSecond(hour, minute, second);
-                // Check for trailing AM/PM on HH:MM:SS
                 if self.match_token(&Token::Am) {
                     return Some(self.apply_meridiem(time, false));
                 }
@@ -894,7 +810,6 @@ impl<'a> Parser<'a> {
         }
 
         let time = TimeExpr::HourMinute(hour, minute);
-        // Check for trailing AM/PM on HH:MM
         if self.match_token(&Token::Am) {
             return Some(self.apply_meridiem(time, false));
         }
@@ -905,9 +820,7 @@ impl<'a> Parser<'a> {
         Some(time)
     }
 
-    // ── Error production ───────────────────────────────────────
-
-    /// Produce an error with typo suggestion for unrecognized words (D-08).
+    /// Produce an error with typo suggestion for unrecognized words.
     fn unexpected_input_error(&self) -> ParseError {
         if let Some(Token::Word(w)) = self.peek() {
             if let Some(suggestion) = suggest::suggest_keyword(w, 2) {
@@ -1249,7 +1162,6 @@ mod tests {
 
     #[test]
     fn standalone_time_is_error() {
-        // Standalone time expressions are rejected (no implicit "today")
         let tokens = vec![
             st(Token::Number(15)),
             st(Token::Colon),
@@ -1324,7 +1236,7 @@ mod tests {
     fn day_month_year_absolute() {
         let tokens = vec![
             st(Token::Number(24)),
-            st(Token::Month(3)), // March
+            st(Token::Month(3)),
             st(Token::Number(2025)),
         ];
         let result = parse_tokens(&tokens).unwrap();
@@ -1343,16 +1255,13 @@ mod tests {
 
     #[test]
     fn day_month_no_year() {
-        let tokens = vec![
-            st(Token::Number(24)),
-            st(Token::Month(3)), // March
-        ];
+        let tokens = vec![st(Token::Number(24)), st(Token::Month(3))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(
             result,
             DateExpr::Absolute(
                 AbsoluteDate {
-                    year: 0, // sentinel
+                    year: 0,
                     month: 3,
                     day: 24,
                 },
@@ -1433,8 +1342,6 @@ mod tests {
         );
     }
 
-    // ── Phase 3: Arithmetic expression grammar tests ──────────────
-
     #[test]
     fn tomorrow_plus_3_hours_arithmetic() {
         let tokens = vec![
@@ -1472,7 +1379,6 @@ mod tests {
             st(Token::Unit(TemporalUnit::Minute)),
         ];
         let result = parse_tokens(&tokens).unwrap();
-        // Left-to-right: Arithmetic(Arithmetic(Arithmetic(Now, Add, [1d]), Add, [3h]), Sub, [30m])
         assert_eq!(
             result,
             DateExpr::Arithmetic(
@@ -1509,7 +1415,6 @@ mod tests {
             st(Token::Tomorrow),
         ];
         let result = parse_tokens(&tokens).unwrap();
-        // Per D-06: reuses OffsetFrom(Future, ...)
         assert_eq!(
             result,
             DateExpr::OffsetFrom(
@@ -1546,11 +1451,8 @@ mod tests {
         );
     }
 
-    // ── Phase 3: Range expression grammar tests ──────────────
-
     #[test]
     fn last_week_range() {
-        // "last week" -> Range(LastWeek) -- period start, consistent with this/next
         let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Week))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::LastWeek));
@@ -1558,7 +1460,6 @@ mod tests {
 
     #[test]
     fn last_month_range() {
-        // "last month" -> Range(LastMonth) -- period start, consistent with this/next
         let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Month))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::LastMonth));
@@ -1566,7 +1467,6 @@ mod tests {
 
     #[test]
     fn last_year_range() {
-        // "last year" -> Range(LastYear) -- period start, consistent with this/next
         let tokens = vec![st(Token::Last), st(Token::Unit(TemporalUnit::Year))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::LastYear));
@@ -1574,7 +1474,6 @@ mod tests {
 
     #[test]
     fn this_week_still_range() {
-        // "this week" should remain a range expression
         let tokens = vec![st(Token::This), st(Token::Unit(TemporalUnit::Week))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::ThisWeek));
@@ -1589,7 +1488,6 @@ mod tests {
 
     #[test]
     fn next_week_still_range() {
-        // "next week" should remain a range expression
         let tokens = vec![st(Token::Next), st(Token::Unit(TemporalUnit::Week))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::NextWeek));
@@ -1651,7 +1549,6 @@ mod tests {
 
     #[test]
     fn last_monday_still_parses_as_day_ref() {
-        // "last monday" should NOT become a range -- must stay as DayRef
         let tokens = vec![st(Token::Last), st(Token::Weekday(Weekday::Monday))];
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(
@@ -1687,8 +1584,6 @@ mod tests {
         let result = parse_tokens(&tokens).unwrap();
         assert_eq!(result, DateExpr::Range(RangeExpr::ThisYear));
     }
-
-    // ── Phase 8: Operator-prefixed offset, boundary, compound, Nh tests ──
 
     /// Helper: tokenize and parse to DateExpr.
     fn parse_expr(input: &str) -> Result<DateExpr, ParseError> {
@@ -1750,7 +1645,6 @@ mod tests {
 
     #[test]
     fn test_nhmm_inferred_minutes() {
-        // "now+13h30" -> Arithmetic(Now, Add, [13 Hour, 30 Minute])
         let result = parse_expr("now+13h30").unwrap();
         assert_eq!(
             result,
@@ -1773,7 +1667,6 @@ mod tests {
 
     #[test]
     fn test_colon_duration_in_arithmetic() {
-        // "now+13:30" -> Arithmetic(Now, Add, [13 Hour, 30 Minute])
         let result = parse_expr("now+13:30").unwrap();
         assert_eq!(
             result,
@@ -1805,7 +1698,6 @@ mod tests {
 
     #[test]
     fn test_boundary_with_arithmetic() {
-        // "eod+1h" -> Arithmetic(Boundary(Eod), Add, [1 Hour])
         let result = parse_expr("eod+1h").unwrap();
         assert_eq!(
             result,
@@ -1822,7 +1714,6 @@ mod tests {
 
     #[test]
     fn test_time_suffix_nh() {
-        // "today 18h" -> Relative(Today, Some(HourOnly(18)))
         let result = parse_expr("today 18h").unwrap();
         assert!(matches!(
             result,
@@ -1832,7 +1723,6 @@ mod tests {
 
     #[test]
     fn test_time_suffix_at_nh() {
-        // "today at 18h" -> Relative(Today, Some(HourOnly(18)))
         let result = parse_expr("today at 18h").unwrap();
         assert!(matches!(
             result,
@@ -1842,22 +1732,18 @@ mod tests {
 
     #[test]
     fn test_bare_duration_still_errors() {
-        // "3h" alone (no operator, no day context) should error
         let result = parse_expr("3h");
         assert!(result.is_err(), "bare '3h' without operator should error");
     }
 
     #[test]
     fn test_operator_without_unit_errors() {
-        // "+1" (number without unit after operator) should error
         let result = parse_expr("+1");
         assert!(
             result.is_err(),
             "'+1' without unit should error, got: {result:?}"
         );
     }
-
-    // ── AM/PM tests ─────────────────────────────────────────────
 
     #[test]
     fn standalone_3pm_is_error() {
@@ -1899,18 +1785,13 @@ mod tests {
         assert!(parse_expr("15h30").is_err());
     }
 
-    // ── Notation equivalence: all time styles produce the same result ──
-
     #[test]
     fn notation_equivalence_hour_only() {
-        // "tomorrow 15h" = "tomorrow 3pm" = "tomorrow 3 pm" → HourOnly(15)
-        // "tomorrow 15:00" → HourMinute(15, 0) — different granularity, intentional
         let a = parse_expr("tomorrow 15h").unwrap();
         let b = parse_expr("tomorrow 3pm").unwrap();
         let c = parse_expr("tomorrow 3 pm").unwrap();
         assert_eq!(a, b);
         assert_eq!(b, c);
-        // Verify it's HourOnly, not HourMinute
         assert_eq!(
             a,
             DateExpr::Relative(RelativeDate::Tomorrow, Some(TimeExpr::HourOnly(15)))
@@ -1919,7 +1800,6 @@ mod tests {
 
     #[test]
     fn notation_equivalence_hour_minute() {
-        // "tomorrow 15h30" = "tomorrow 15:30" = "tomorrow 3:30pm" → HourMinute(15, 30)
         let a = parse_expr("tomorrow 15h30").unwrap();
         let b = parse_expr("tomorrow 15:30").unwrap();
         let c = parse_expr("tomorrow 3:30pm").unwrap();
@@ -1933,8 +1813,6 @@ mod tests {
 
     #[test]
     fn notation_equivalence_explicit_zero_minute() {
-        // "tomorrow 15:00" = "tomorrow 3:00pm" → HourMinute(15, 0)
-        // These explicitly specify minute=0, so HourMinute not HourOnly
         let a = parse_expr("tomorrow 15:00").unwrap();
         let b = parse_expr("tomorrow 3:00pm").unwrap();
         assert_eq!(a, b);
@@ -1946,7 +1824,6 @@ mod tests {
 
     #[test]
     fn notation_equivalence_midnight() {
-        // "tomorrow 0h" = "tomorrow 12am" → HourOnly(0)
         let a = parse_expr("tomorrow 0h").unwrap();
         let b = parse_expr("tomorrow 12am").unwrap();
         assert_eq!(a, b);
@@ -1958,7 +1835,6 @@ mod tests {
 
     #[test]
     fn notation_equivalence_noon() {
-        // "tomorrow 12h" = "tomorrow 12pm" → HourOnly(12)
         let a = parse_expr("tomorrow 12h").unwrap();
         let b = parse_expr("tomorrow 12pm").unwrap();
         assert_eq!(a, b);
@@ -1970,7 +1846,6 @@ mod tests {
 
     #[test]
     fn notation_equivalence_with_at() {
-        // "tomorrow at 15h" = "tomorrow at 3pm" → HourOnly(15)
         let a = parse_expr("tomorrow at 15h").unwrap();
         let b = parse_expr("tomorrow at 3pm").unwrap();
         assert_eq!(a, b);
@@ -1982,7 +1857,6 @@ mod tests {
 
     #[test]
     fn notation_equivalence_day_ref() {
-        // "next friday 15h30" = "next friday 15:30" = "next friday 3:30pm" → HourMinute(15, 30)
         let a = parse_expr("next friday 15h30").unwrap();
         let b = parse_expr("next friday 15:30").unwrap();
         let c = parse_expr("next friday 3:30pm").unwrap();
@@ -1992,8 +1866,6 @@ mod tests {
 
     #[test]
     fn test_tomorrow_at_3pm() {
-        // "tomorrow at 3pm" -> Relative(Tomorrow, Some(HourOnly(15)))
-        // Bare pm = no explicit minutes → HourOnly
         let result = parse_expr("tomorrow at 3pm").unwrap();
         assert_eq!(
             result,
@@ -2003,8 +1875,6 @@ mod tests {
 
     #[test]
     fn test_next_friday_at_3_30pm() {
-        // "next friday at 3:30pm" -> DayRef(Next, Friday, Some(HourMinute(15, 30)))
-        // Explicit minutes → HourMinute
         let result = parse_expr("next friday at 3:30pm").unwrap();
         assert_eq!(
             result,
@@ -2018,7 +1888,6 @@ mod tests {
 
     #[test]
     fn test_today_3pm() {
-        // "today 3pm" -> Relative(Today, Some(HourOnly(15)))
         let result = parse_expr("today 3pm").unwrap();
         assert_eq!(
             result,
@@ -2026,11 +1895,8 @@ mod tests {
         );
     }
 
-    // ── SameTime tests ──────────────────────────────────────────
-
     #[test]
     fn test_tomorrow_at_same_time() {
-        // "tomorrow at same time" -> Relative(Tomorrow, Some(SameTime))
         let result = parse_expr("tomorrow at same time").unwrap();
         assert_eq!(
             result,
@@ -2040,7 +1906,6 @@ mod tests {
 
     #[test]
     fn test_next_friday_at_same_time() {
-        // "next friday at same time" -> DayRef(Next, Friday, Some(SameTime))
         let result = parse_expr("next friday at same time").unwrap();
         assert_eq!(
             result,
@@ -2050,7 +1915,6 @@ mod tests {
 
     #[test]
     fn test_yesterday_at_same_time() {
-        // "yesterday at same time" -> Relative(Yesterday, Some(SameTime))
         let result = parse_expr("yesterday at same time").unwrap();
         assert_eq!(
             result,

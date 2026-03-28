@@ -42,7 +42,6 @@ impl Config {
         let mut cfg: Config = toml::from_str(&contents)
             .map_err(|e| system_error!(Config, "failed to parse config: {}", e))?;
 
-        // Env var overlay (D-08): TARDIS_FORMAT, TARDIS_TIMEZONE
         if let Ok(val) = env::var("TARDIS_FORMAT") {
             if !val.is_empty() {
                 cfg.format = val;

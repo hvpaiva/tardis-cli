@@ -40,7 +40,6 @@ fn man_page_structure() {
         let content =
             std::fs::read_to_string(path).unwrap_or_else(|_| panic!("{path} should exist"));
 
-        // Pandoc title block: first line must be % TITLE(SECTION) ...
         assert!(
             content.starts_with("% "),
             "{path}: missing pandoc title block (must start with '% ')"
@@ -78,7 +77,6 @@ fn man_page_roff_snapshots() {
             "{path}: roff man page should not be empty"
         );
 
-        // Basic roff structure: should start with a comment or macro
         assert!(
             content.starts_with(".\\\"") || content.starts_with(".TH"),
             "{path}: does not look like valid roff (expected .\\\" or .TH header)"

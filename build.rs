@@ -7,7 +7,6 @@ fn main() {
 
     let mut cmd = Cli::command();
 
-    // Generate shell completions for all supported shells.
     for &shell in clap_complete::Shell::value_variants() {
         clap_complete::generate_to(shell, &mut cmd, "td", &out_dir)
             .expect("failed to generate completions");

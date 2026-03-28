@@ -8,9 +8,9 @@
 //! without excessive inline comments.
 
 /// POSIX sysexits-compatible exit codes.
-const EX_USAGE: i32 = 64; // Command line usage error
-const EX_IOERR: i32 = 74; // Input/output error
-const EX_CONFIG: i32 = 78; // Configuration error
+const EX_USAGE: i32 = 64;
+const EX_IOERR: i32 = 74;
+const EX_CONFIG: i32 = 78;
 
 /// All possible failures surfaced by the CLI.
 #[non_exhaustive]
@@ -87,7 +87,6 @@ fn colorize_suggestion(msg: &str) -> String {
         return msg.to_string();
     }
 
-    // Find "Did you mean 'word'?" and wrap word in yellow
     if let Some(start) = msg.find("Did you mean '") {
         let prefix_end = start + "Did you mean '".len();
         if let Some(end) = msg[prefix_end..].find("'?") {

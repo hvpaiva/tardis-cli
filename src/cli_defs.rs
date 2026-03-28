@@ -4,12 +4,14 @@ use clap::{
 };
 use color_print::cstr;
 
+/// Clap color styles for CLI help output.
 pub const STYLES: Styles = Styles::styled()
     .header(AnsiColor::Green.on_default().bold())
     .usage(AnsiColor::Green.on_default().bold())
     .literal(AnsiColor::Blue.on_default().bold())
     .placeholder(AnsiColor::Cyan.on_default());
 
+/// Extended help text displayed after long help output.
 pub const AFTER_LONG_HELP: &str = cstr!(
     r#"
 <green><bold>Environment Variables:</bold></green>
@@ -28,7 +30,6 @@ pub const AFTER_LONG_HELP: &str = cstr!(
   The file is created automatically on first run and contains commented
   examples for every field.
 
-
 <green><bold>Precedence:</bold></green>
   CLI flags → env vars → config file
 
@@ -36,6 +37,7 @@ For more info, visit <underline>https://github.com/hvpaiva/tardis-cli</underline
 "#
 );
 
+/// Help text for the positional input argument.
 pub const INPUT_HELP: &str = cstr!(
     r#"
 <bold>A natural-language expression</bold> like <underline>"next Friday at 9:30"</underline>.
@@ -65,6 +67,7 @@ falls back to the default format defined in the config file.
 "#
 );
 
+/// Long help text for the `--timezone` flag.
 pub const TIMEZONE_HELP: &str = cstr!(
     r#"
 <bold>Time‑zone to apply</bold> (IANA/Olson ID). If not provided, uses system local time.
@@ -79,6 +82,7 @@ falls back to the default time zone defined in the config file.
 "#
 );
 
+/// Long help text for the `--now` flag.
 pub const NOW_HELP: &str = cstr!(
     r#"
 Override "now". Format <bold>RFC 3339</bold>, e.g. <italic>2025‑06‑24T09:00:00Z</italic>.
@@ -96,6 +100,7 @@ Exit code is <bold>1</bold> if any line failed, <bold>0</bold> if all succeeded.
 "#
 );
 
+/// Long about text displayed in `--help` output.
 pub const ABOUT_HELP: &str = cstr!(
     r#"
 <magenta>TARDIS — Time And Relative Date Input Simplifier</magenta>
@@ -155,6 +160,7 @@ pub struct Cli {
     pub subcmd: Option<SubCmd>,
 }
 
+/// Available subcommands for the `td` binary.
 #[non_exhaustive]
 #[derive(Debug, Subcommand)]
 pub enum SubCmd {
@@ -191,6 +197,7 @@ pub enum DiffOutput {
     Iso,
 }
 
+/// Arguments for the `diff` subcommand.
 #[derive(Debug, clap::Args)]
 pub struct DiffArgs {
     /// First date expression
@@ -217,6 +224,7 @@ pub struct DiffArgs {
     pub verbose: bool,
 }
 
+/// Arguments for the `convert` subcommand.
 #[derive(Debug, clap::Args)]
 pub struct ConvertArgs {
     /// Input date expression or formatted date string
@@ -244,6 +252,7 @@ pub struct ConvertArgs {
     pub verbose: bool,
 }
 
+/// Arguments for the `tz` subcommand.
 #[derive(Debug, clap::Args)]
 pub struct TzArgs {
     /// Input datetime expression
@@ -268,6 +277,7 @@ pub struct TzArgs {
     pub verbose: bool,
 }
 
+/// Arguments for the `info` subcommand.
 #[derive(Debug, clap::Args)]
 pub struct InfoArgs {
     /// Date expression to inspect (defaults to "now")
@@ -318,6 +328,7 @@ pub struct RangeArgs {
     pub verbose: bool,
 }
 
+/// Subactions for `td config`.
 #[non_exhaustive]
 #[derive(Debug, Subcommand)]
 pub enum ConfigAction {
@@ -331,6 +342,7 @@ pub enum ConfigAction {
     Presets,
 }
 
+/// Supported shell types for completion generation.
 #[non_exhaustive]
 #[derive(Debug, Clone, ValueEnum)]
 pub enum ShellType {

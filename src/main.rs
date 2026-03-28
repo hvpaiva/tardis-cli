@@ -24,10 +24,10 @@ macro_rules! verbose {
     ($tag:expr, $($arg:tt)*) => {{
         if stderr_use_color() {
             let color = match $tag {
-                "config" => "\x1b[36m",  // cyan
-                "parse" => "\x1b[34m",   // blue
-                "resolve" => "\x1b[32m", // green
-                "timing" => "\x1b[33m",  // yellow
+                "config" => "\x1b[36m",
+                "parse" => "\x1b[34m",
+                "resolve" => "\x1b[32m",
+                "timing" => "\x1b[33m",
                 _ => "\x1b[0m",
             };
             eprintln!("{}[{}]\x1b[0m {}", color, $tag, format_args!($($arg)*));
@@ -44,14 +44,12 @@ fn main() {
 }
 
 fn run() -> Result<()> {
-    // Parse raw CLI first to check for subcommands.
     let cli = <Cli as clap::Parser>::parse();
 
     if let Some(subcmd) = cli.subcmd {
         return handle_subcmd(subcmd);
     }
 
-    // Default parse flow (backwards compatible).
     let is_terminal = io::stdin().is_terminal();
     let cmd = Command::from_raw_cli(cli, io::stdin(), is_terminal)?;
     let cfg = Config::load()?;
@@ -67,7 +65,6 @@ fn run() -> Result<()> {
         verbose!("config", "format={} timezone={}", cfg.format, cfg.timezone);
     }
 
-    // Batch mode: if input has multiple lines, process each.
     let lines: Vec<&str> = cmd.input.lines().collect();
     if lines.len() > 1 {
         let mut had_error = false;
@@ -163,7 +160,6 @@ fn handle_subcmd(subcmd: SubCmd) -> Result<()> {
 
 /// Resolve the `--now` argument to an optional `jiff::Timestamp`.
 fn resolve_now(now_arg: &Option<String>) -> Result<Option<jiff::Timestamp>> {
-    // --now flag > TARDIS_NOW env var > system clock
     let effective = now_arg
         .clone()
         .or_else(|| std::env::var("TARDIS_NOW").ok().filter(|s| !s.is_empty()));
@@ -216,9 +212,8 @@ fn output_value(value: &str, no_newline: bool) {
 
 /// Emit a JSON value to stdout with TTY-aware formatting.
 ///
-/// - TTY + NO_COLOR unset: pretty-printed with jq-style syntax colors (D-02)
-/// - Piped / NO_COLOR set: compact single-line JSON (D-03)
-/// - TTY detection is automatic, no extra flags needed (D-04)
+/// Pretty-prints with syntax colors when stdout is a TTY and `NO_COLOR` is unset;
+/// emits compact single-line JSON otherwise.
 fn emit_json(value: &serde_json::Value, no_newline: bool) {
     let text = if io::stdout().is_terminal() && std::env::var("NO_COLOR").is_err() {
         colored_json::to_colored_json_auto(value)
@@ -234,7 +229,7 @@ fn emit_json(value: &serde_json::Value, no_newline: bool) {
     }
 }
 
-/// Handle `td range <expression>` -- expand expression to start/end pair (D-04, D-05, D-06).
+/// Handle `td range <expression>` -- expand expression to start/end pair.
 fn handle_range(args: RangeArgs) -> Result<()> {
     let start_instant = std::time::Instant::now();
     let tz = resolve_timezone(&args.timezone)?;
@@ -284,7 +279,7 @@ fn handle_range(args: RangeArgs) -> Result<()> {
     Ok(())
 }
 
-/// Handle `td diff <date1> <date2>` -- compute calendar-aware duration (D-01, SUBCMD-01).
+/// Handle `td diff <date1> <date2>` -- compute calendar-aware duration.
 fn handle_diff(args: DiffArgs) -> Result<()> {
     let start_instant = std::time::Instant::now();
     let tz = resolve_timezone(&args.timezone)?;
@@ -300,12 +295,10 @@ fn handle_diff(args: DiffArgs) -> Result<()> {
     let z2 = parser::parse(&args.date2, &now)
         .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
 
-    // Calendar-aware span (human-readable and ISO 8601)
     let span = z1
         .until(jiff::ZonedDifference::new(&z2).largest(jiff::Unit::Year))
         .map_err(|e| user_input_error!(InvalidDateFormat, "diff failed: {}", e))?;
 
-    // Total seconds (absolute duration)
     let total_secs = z2.timestamp().as_second() - z1.timestamp().as_second();
 
     if args.verbose {
@@ -328,7 +321,6 @@ fn handle_diff(args: DiffArgs) -> Result<()> {
         });
         emit_json(&json, args.no_newline);
     } else {
-        // Route output based on --output flag (D-01)
         let text = match args.output {
             DiffOutput::Human => format!("{:#}", span),
             DiffOutput::Seconds => total_secs.to_string(),
@@ -339,7 +331,7 @@ fn handle_diff(args: DiffArgs) -> Result<()> {
     Ok(())
 }
 
-/// Handle `td convert <input> --to <format>` -- format conversion (D-02, SUBCMD-02).
+/// Handle `td convert <input> --to <format>` -- format conversion.
 fn handle_convert(args: ConvertArgs) -> Result<()> {
     let start_instant = std::time::Instant::now();
     let tz = resolve_timezone(&args.timezone)?;
@@ -356,7 +348,6 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
         verbose!("parse", "timezone={}", tz.iana_name().unwrap_or("system"));
     }
 
-    // Parse input: if --from is specified, use strptime; otherwise auto-detect via parser
     let zoned = if let Some(ref from_fmt) = args.from {
         let pattern = resolve_builtin_format(from_fmt);
         jiff::Zoned::strptime(&pattern, &args.input).map_err(|e| {
@@ -368,12 +359,9 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
             )
         })?
     } else {
-        // Try RFC 3339/ISO 8601 first (handles "2025-03-24T12:00:00Z" and similar)
         if let Ok(ts) = args.input.parse::<jiff::Timestamp>() {
             ts.to_zoned(tz.clone())
         } else if let Ok(epoch) = args.input.trim().parse::<i64>() {
-            // Bare integer → epoch timestamp with auto-detected precision.
-            // Epoch precision thresholds match grammar.rs detect_epoch_precision
             let abs = epoch.unsigned_abs();
             let ts = if abs < 1_000_000_000_000 {
                 jiff::Timestamp::from_second(epoch)
@@ -392,7 +380,6 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
         }
     };
 
-    // Format output using --to
     let to_fmt = resolve_builtin_format(&args.to);
     let output = if to_fmt == "epoch" || to_fmt == "unix" {
         zoned.timestamp().as_second().to_string()
@@ -420,10 +407,9 @@ fn handle_convert(args: ConvertArgs) -> Result<()> {
     Ok(())
 }
 
-/// Handle `td tz <datetime> --to <timezone>` -- timezone conversion (D-03, SUBCMD-03).
+/// Handle `td tz <datetime> --to <timezone>` -- timezone conversion.
 fn handle_tz(args: TzArgs) -> Result<()> {
     let start_instant = std::time::Instant::now();
-    // Source timezone: --from > system default
     let from_tz = resolve_timezone(&args.from)?;
     let now = resolve_now_zoned(&args.now, &from_tz)?;
 
@@ -437,11 +423,9 @@ fn handle_tz(args: TzArgs) -> Result<()> {
         );
     }
 
-    // Parse input in source timezone
     let zoned = parser::parse(&args.input, &now)
         .map_err(|e| user_input_error!(InvalidDateFormat, "{}", e.format_message()))?;
 
-    // Convert to target timezone
     let target_tz = jiff::tz::TimeZone::get(&args.to)
         .map_err(|e| user_input_error!(UnsupportedTimezone, "{}", e))?;
     let converted = zoned.with_time_zone(target_tz);
@@ -475,7 +459,7 @@ fn handle_tz(args: TzArgs) -> Result<()> {
     Ok(())
 }
 
-/// Handle `td info <date>` -- calendar metadata card (D-04, SUBCMD-04).
+/// Handle `td info <date>` -- calendar metadata card.
 fn handle_info(args: InfoArgs) -> Result<()> {
     let start_instant = std::time::Instant::now();
     let tz = resolve_timezone(&args.timezone)?;
@@ -531,7 +515,6 @@ fn handle_info(args: InfoArgs) -> Result<()> {
         return Ok(());
     }
 
-    // Colored output per D-04 (neofetch/fastfetch style)
     let use_color = io::stdout().is_terminal() && std::env::var("NO_COLOR").is_err();
 
     let (bold, cyan, yellow, green, reset) = if use_color {
@@ -591,7 +574,6 @@ fn handle_config(action: ConfigAction) -> Result<()> {
         }
         ConfigAction::Edit => {
             let path = config::config_path()?;
-            // Ensure the config file exists before opening.
             Config::load()?;
             let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
             std::process::Command::new(&editor)

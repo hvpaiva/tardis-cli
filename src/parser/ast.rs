@@ -9,7 +9,6 @@ use crate::parser::token::{BoundaryKind, EpochPrecision, TemporalUnit};
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum DateExpr {
-    // Phase 2: Fully implemented
     /// "now" or empty input
     Now,
     /// "today", "tomorrow", "yesterday", "overmorrow" with optional time
@@ -27,13 +26,12 @@ pub enum DateExpr {
     /// "3 hours ago from next friday"
     OffsetFrom(Direction, Vec<DurationComponent>, Box<DateExpr>),
 
-    // Phase 3: Arithmetic and range expressions
     /// "tomorrow + 3 hours" -- compound arithmetic
     Arithmetic(Box<DateExpr>, ArithOp, Vec<DurationComponent>),
     /// "last week", "this month", "next year", "Q3 2025" -- period expressions
     Range(RangeExpr),
 
-    /// TaskWarrior boundary keyword (D-11): `eod`, `sow`, etc.
+    /// TaskWarrior boundary keyword: `eod`, `sow`, etc.
     Boundary(BoundaryKind),
 }
 
@@ -55,8 +53,8 @@ pub enum Direction {
     Next,
     Last,
     This,
-    Future, // "in N ..."
-    Past,   // "N ... ago"
+    Future,
+    Past,
 }
 
 /// A single duration component (e.g., "3 hours" -> count=3, unit=Hour).
@@ -114,7 +112,6 @@ pub enum RangeExpr {
     LastYear,
     ThisYear,
     NextYear,
-    /// Quarter(year, quarter_number). year=0 is sentinel for "current year".
     Quarter(i16, i8),
 }
 
@@ -153,7 +150,7 @@ mod tests {
     }
 
     #[test]
-    fn phase8_boundary_expr() {
+    fn boundary_expr() {
         let expr = DateExpr::Boundary(BoundaryKind::Sod);
         assert!(matches!(expr, DateExpr::Boundary(BoundaryKind::Sod)));
     }
@@ -166,8 +163,7 @@ mod tests {
     }
 
     #[test]
-    fn phase3_extension_types_exist() {
-        // Verify Phase 3 types compile (D-06)
+    fn extension_types_exist() {
         let _ = DateExpr::Arithmetic(
             Box::new(DateExpr::Now),
             ArithOp::Add,

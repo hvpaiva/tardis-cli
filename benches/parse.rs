@@ -24,10 +24,6 @@ fn make_app(expr: &str) -> App {
     )
 }
 
-// ---------------------------------------------------------------------------
-// Group 1: Relative date expressions
-// ---------------------------------------------------------------------------
-
 fn bench_relative(c: &mut Criterion) {
     let app_today = make_app("today");
     c.bench_function("relative_today", |b| {
@@ -50,10 +46,6 @@ fn bench_relative(c: &mut Criterion) {
     });
 }
 
-// ---------------------------------------------------------------------------
-// Group 2: Day reference expressions
-// ---------------------------------------------------------------------------
-
 fn bench_dayref(c: &mut Criterion) {
     let app_next_friday = make_app("next friday");
     c.bench_function("dayref_next_friday", |b| {
@@ -65,10 +57,6 @@ fn bench_dayref(c: &mut Criterion) {
         b.iter(|| core::process(&app_last_monday, &[]).unwrap());
     });
 }
-
-// ---------------------------------------------------------------------------
-// Group 3: Time suffix expressions
-// ---------------------------------------------------------------------------
 
 fn bench_time_suffix(c: &mut Criterion) {
     let app_in_5_min = make_app("in 5 minutes");
@@ -86,10 +74,6 @@ fn bench_time_suffix(c: &mut Criterion) {
         b.iter(|| core::process(&app_next_mon, &[]).unwrap());
     });
 }
-
-// ---------------------------------------------------------------------------
-// Group 4: Duration expressions
-// ---------------------------------------------------------------------------
 
 fn bench_duration(c: &mut Criterion) {
     let app_3_days = make_app("in 3 days");
@@ -113,10 +97,6 @@ fn bench_duration(c: &mut Criterion) {
     });
 }
 
-// ---------------------------------------------------------------------------
-// Group 5: Absolute date/time expressions
-// ---------------------------------------------------------------------------
-
 fn bench_absolute(c: &mut Criterion) {
     let app_iso_date = make_app("2025-01-01");
     c.bench_function("absolute_iso_date", |b| {
@@ -133,10 +113,6 @@ fn bench_absolute(c: &mut Criterion) {
         b.iter(|| core::process(&app_overmorrow, &[]).unwrap());
     });
 }
-
-// ---------------------------------------------------------------------------
-// Group 6: Epoch input expressions
-// ---------------------------------------------------------------------------
 
 fn bench_epoch(c: &mut Criterion) {
     let app_epoch_simple = make_app("@1735689600");
@@ -159,10 +135,6 @@ fn bench_epoch(c: &mut Criterion) {
         b.iter(|| core::process(&app_epoch_large, &[]).unwrap());
     });
 }
-
-// ---------------------------------------------------------------------------
-// Group 7: Format rendering variants
-// ---------------------------------------------------------------------------
 
 fn bench_format(c: &mut Criterion) {
     let app_complex_fmt = App::new(
@@ -196,10 +168,6 @@ fn bench_format(c: &mut Criterion) {
     });
 }
 
-// ---------------------------------------------------------------------------
-// Group 8: Preset resolution
-// ---------------------------------------------------------------------------
-
 fn bench_preset(c: &mut Criterion) {
     let presets = vec![
         Preset::new("iso".into(), "%Y-%m-%dT%H:%M:%S".into()),
@@ -223,10 +191,6 @@ fn bench_preset(c: &mut Criterion) {
         b.iter(|| core::process(&app_preset_br, &presets).unwrap());
     });
 }
-
-// ---------------------------------------------------------------------------
-// Group 9: Timezone conversion
-// ---------------------------------------------------------------------------
 
 fn bench_timezone(c: &mut Criterion) {
     let tz_sp = TimeZone::get("America/Sao_Paulo").unwrap();
@@ -258,19 +222,11 @@ fn bench_timezone(c: &mut Criterion) {
     });
 }
 
-// ---------------------------------------------------------------------------
-// Group 10: Config loading
-// ---------------------------------------------------------------------------
-
 fn bench_config(c: &mut Criterion) {
     c.bench_function("config_load", |b| {
         b.iter(|| Config::load().unwrap());
     });
 }
-
-// ---------------------------------------------------------------------------
-// Group 11: Error paths (measure cost of invalid input)
-// ---------------------------------------------------------------------------
 
 fn bench_error(c: &mut Criterion) {
     let app_bad = make_app("???");
@@ -283,10 +239,6 @@ fn bench_error(c: &mut Criterion) {
         b.iter(|| core::process(&app_bad_epoch, &[]).unwrap_err());
     });
 }
-
-// ---------------------------------------------------------------------------
-// Criterion registration
-// ---------------------------------------------------------------------------
 
 criterion_group!(
     benches,

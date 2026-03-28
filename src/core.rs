@@ -69,9 +69,6 @@ fn format_output(zoned: &Zoned, fmt: &str) -> Result<String> {
 
     let output = zoned.strftime(fmt).to_string();
 
-    // Validate that the format string was meaningful: if the output contains
-    // an unrecognized specifier (i.e., jiff passes through unknown % sequences
-    // as literals), detect and error on unknown %-specifiers for backward compat.
     validate_format_output(fmt, &output)?;
 
     Ok(output)
@@ -83,14 +80,10 @@ fn format_output(zoned: &Zoned, fmt: &str) -> Result<String> {
 /// jiff's strftime passes through unrecognized specifiers as literals,
 /// but we want to error on them (matching chrono's old behavior).
 fn validate_format_output(fmt: &str, output: &str) -> Result<()> {
-    // Known strftime specifiers (both jiff and POSIX)
     const KNOWN_SPECIFIERS: &[char] = &[
         'A', 'a', 'B', 'b', 'C', 'c', 'D', 'd', 'e', 'F', 'G', 'g', 'H', 'h', 'I', 'j', 'k', 'l',
         'M', 'm', 'N', 'n', 'P', 'p', 'R', 'r', 'S', 's', 'T', 't', 'U', 'u', 'V', 'v', 'W', 'w',
-        'X', 'x', 'Y', 'y', 'Z', 'z', // jiff extensions
-        'f', // Modifiers (these precede another specifier)
-        '-', '0', '_', ':', // Literal percent
-        '%',
+        'X', 'x', 'Y', 'y', 'Z', 'z', 'f', '-', '0', '_', ':', '%',
     ];
 
     let bytes = fmt.as_bytes();
@@ -99,14 +92,12 @@ fn validate_format_output(fmt: &str, output: &str) -> Result<()> {
         if bytes[i] == b'%' {
             i += 1;
             if i >= bytes.len() {
-                // Trailing % at end of format
                 return Err(user_input_error!(
                     UnsupportedFormat,
                     "invalid format string: {}",
                     fmt
                 ));
             }
-            // Skip modifiers
             while i < bytes.len() && (bytes[i] == b'-' || bytes[i] == b'0' || bytes[i] == b'_') {
                 i += 1;
             }
@@ -117,10 +108,8 @@ fn validate_format_output(fmt: &str, output: &str) -> Result<()> {
                     fmt
                 ));
             }
-            // Handle %: prefix (for %:z, %::z, etc.)
             if bytes[i] == b':' {
                 i += 1;
-                // skip additional colons for %::z, %:::z
                 while i < bytes.len() && bytes[i] == b':' {
                     i += 1;
                 }
@@ -145,7 +134,7 @@ fn validate_format_output(fmt: &str, output: &str) -> Result<()> {
         }
         i += 1;
     }
-    let _ = output; // output not needed for format-level validation
+    let _ = output;
     Ok(())
 }
 
@@ -297,8 +286,6 @@ mod tests {
         assert!(matches!(err, Error::UserInput(_)));
     }
 
-    // --- from_cli tests ---
-
     fn make_cmd(
         input: &str,
         format: Option<&str>,
@@ -398,8 +385,6 @@ mod tests {
         assert!(app.now.is_some());
     }
 
-    // --- Epoch input tests ---
-
     #[test]
     fn epoch_input_valid() {
         let tz = utc();
@@ -422,12 +407,9 @@ mod tests {
 
     #[test]
     fn epoch_input_smart_precision() {
-        // The new parser detects 99999999999999999 (17 digits) as microseconds
-        // and resolves it to a valid datetime (~year 5138).
         let tz = utc();
         let app = App::new("@99999999999999999".into(), "%Y".into(), tz, None);
         let out = process(&app, &[]).unwrap();
-        // 99999999999999999 microseconds = ~year 5138
         assert!(!out.formatted.is_empty());
     }
 
@@ -475,8 +457,6 @@ mod tests {
         let out = process(&app, &[]).unwrap();
         assert_eq!(out.formatted, "1969-12-31");
     }
-
-    // --- format_output edge cases ---
 
     #[test]
     fn format_output_with_literal_text() {

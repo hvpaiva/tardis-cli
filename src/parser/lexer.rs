@@ -19,33 +19,26 @@ use crate::parser::token::{
 /// in one and not the other is a logic error caught by the
 /// `keyword_list_count` test.
 pub(crate) const KEYWORD_LIST: &[(&str, Token)] = &[
-    // Relative keywords
     ("now", Token::Now),
     ("today", Token::Today),
     ("tomorrow", Token::Tomorrow),
     ("yesterday", Token::Yesterday),
     ("overmorrow", Token::Overmorrow),
     ("ereyesterday", Token::Ereyesterday),
-    // Direction modifiers
     ("next", Token::Next),
     ("last", Token::Last),
     ("this", Token::This),
     ("in", Token::In),
     ("ago", Token::Ago),
     ("from", Token::From),
-    // Verbal arithmetic keywords
     ("after", Token::After),
     ("before", Token::Before),
-    // Articles
     ("a", Token::A),
     ("an", Token::An),
-    // Connectors
     ("at", Token::At),
     ("and", Token::And),
-    // AM/PM meridiem indicators
     ("am", Token::Am),
     ("pm", Token::Pm),
-    // Weekdays (full)
     ("monday", Token::Weekday(jiff::civil::Weekday::Monday)),
     ("tuesday", Token::Weekday(jiff::civil::Weekday::Tuesday)),
     ("wednesday", Token::Weekday(jiff::civil::Weekday::Wednesday)),
@@ -53,7 +46,6 @@ pub(crate) const KEYWORD_LIST: &[(&str, Token)] = &[
     ("friday", Token::Weekday(jiff::civil::Weekday::Friday)),
     ("saturday", Token::Weekday(jiff::civil::Weekday::Saturday)),
     ("sunday", Token::Weekday(jiff::civil::Weekday::Sunday)),
-    // Weekdays (abbreviated)
     ("mon", Token::Weekday(jiff::civil::Weekday::Monday)),
     ("tue", Token::Weekday(jiff::civil::Weekday::Tuesday)),
     ("wed", Token::Weekday(jiff::civil::Weekday::Wednesday)),
@@ -61,7 +53,6 @@ pub(crate) const KEYWORD_LIST: &[(&str, Token)] = &[
     ("fri", Token::Weekday(jiff::civil::Weekday::Friday)),
     ("sat", Token::Weekday(jiff::civil::Weekday::Saturday)),
     ("sun", Token::Weekday(jiff::civil::Weekday::Sunday)),
-    // Months (full)
     ("january", Token::Month(1)),
     ("february", Token::Month(2)),
     ("march", Token::Month(3)),
@@ -74,7 +65,6 @@ pub(crate) const KEYWORD_LIST: &[(&str, Token)] = &[
     ("october", Token::Month(10)),
     ("november", Token::Month(11)),
     ("december", Token::Month(12)),
-    // Months (abbreviated)
     ("jan", Token::Month(1)),
     ("feb", Token::Month(2)),
     ("mar", Token::Month(3)),
@@ -86,7 +76,6 @@ pub(crate) const KEYWORD_LIST: &[(&str, Token)] = &[
     ("oct", Token::Month(10)),
     ("nov", Token::Month(11)),
     ("dec", Token::Month(12)),
-    // Temporal units (singular + plural + abbreviations)
     ("year", Token::Unit(TemporalUnit::Year)),
     ("years", Token::Unit(TemporalUnit::Year)),
     ("month", Token::Unit(TemporalUnit::Month)),
@@ -105,7 +94,6 @@ pub(crate) const KEYWORD_LIST: &[(&str, Token)] = &[
     ("seconds", Token::Unit(TemporalUnit::Second)),
     ("sec", Token::Unit(TemporalUnit::Second)),
     ("secs", Token::Unit(TemporalUnit::Second)),
-    // Abbreviated duration units
     ("h", Token::Unit(TemporalUnit::Hour)),
     ("hr", Token::Unit(TemporalUnit::Hour)),
     ("hrs", Token::Unit(TemporalUnit::Hour)),
@@ -118,7 +106,6 @@ pub(crate) const KEYWORD_LIST: &[(&str, Token)] = &[
     ("yrs", Token::Unit(TemporalUnit::Year)),
     ("mo", Token::Unit(TemporalUnit::Month)),
     ("mos", Token::Unit(TemporalUnit::Month)),
-    // TaskWarrior boundary keywords -- current period (12)
     ("sod", Token::Boundary(BoundaryKind::Sod)),
     ("eod", Token::Boundary(BoundaryKind::Eod)),
     ("sow", Token::Boundary(BoundaryKind::Sow)),
@@ -131,7 +118,6 @@ pub(crate) const KEYWORD_LIST: &[(&str, Token)] = &[
     ("eoq", Token::Boundary(BoundaryKind::Eoq)),
     ("soy", Token::Boundary(BoundaryKind::Soy)),
     ("eoy", Token::Boundary(BoundaryKind::Eoy)),
-    // TaskWarrior boundary keywords -- previous period (10)
     ("sopd", Token::Boundary(BoundaryKind::Sopd)),
     ("eopd", Token::Boundary(BoundaryKind::Eopd)),
     ("sopw", Token::Boundary(BoundaryKind::Sopw)),
@@ -142,7 +128,6 @@ pub(crate) const KEYWORD_LIST: &[(&str, Token)] = &[
     ("eopq", Token::Boundary(BoundaryKind::Eopq)),
     ("sopy", Token::Boundary(BoundaryKind::Sopy)),
     ("eopy", Token::Boundary(BoundaryKind::Eopy)),
-    // TaskWarrior boundary keywords -- next period (10)
     ("sond", Token::Boundary(BoundaryKind::Sond)),
     ("eond", Token::Boundary(BoundaryKind::Eond)),
     ("sonw", Token::Boundary(BoundaryKind::Sonw)),
@@ -161,33 +146,26 @@ pub(crate) const KEYWORD_LIST: &[(&str, Token)] = &[
 /// The match arms are grouped by semantic category and use `|` for synonyms.
 fn match_keyword(word: &str) -> Option<Token> {
     match word {
-        // Relative keywords
         "now" => Some(Token::Now),
         "today" => Some(Token::Today),
         "tomorrow" => Some(Token::Tomorrow),
         "yesterday" => Some(Token::Yesterday),
         "overmorrow" => Some(Token::Overmorrow),
         "ereyesterday" => Some(Token::Ereyesterday),
-        // Direction modifiers
         "next" => Some(Token::Next),
         "last" => Some(Token::Last),
         "this" => Some(Token::This),
         "in" => Some(Token::In),
         "ago" => Some(Token::Ago),
         "from" => Some(Token::From),
-        // Verbal arithmetic
         "after" => Some(Token::After),
         "before" => Some(Token::Before),
-        // Articles
         "a" => Some(Token::A),
         "an" => Some(Token::An),
-        // Connectors
         "at" => Some(Token::At),
         "and" => Some(Token::And),
-        // AM/PM meridiem indicators
         "am" => Some(Token::Am),
         "pm" => Some(Token::Pm),
-        // Weekdays (full + abbreviated)
         "monday" | "mon" => Some(Token::Weekday(jiff::civil::Weekday::Monday)),
         "tuesday" | "tue" => Some(Token::Weekday(jiff::civil::Weekday::Tuesday)),
         "wednesday" | "wed" => Some(Token::Weekday(jiff::civil::Weekday::Wednesday)),
@@ -195,7 +173,6 @@ fn match_keyword(word: &str) -> Option<Token> {
         "friday" | "fri" => Some(Token::Weekday(jiff::civil::Weekday::Friday)),
         "saturday" | "sat" => Some(Token::Weekday(jiff::civil::Weekday::Saturday)),
         "sunday" | "sun" => Some(Token::Weekday(jiff::civil::Weekday::Sunday)),
-        // Months (full + abbreviated)
         "january" | "jan" => Some(Token::Month(1)),
         "february" | "feb" => Some(Token::Month(2)),
         "march" | "mar" => Some(Token::Month(3)),
@@ -208,7 +185,6 @@ fn match_keyword(word: &str) -> Option<Token> {
         "october" | "oct" => Some(Token::Month(10)),
         "november" | "nov" => Some(Token::Month(11)),
         "december" | "dec" => Some(Token::Month(12)),
-        // Temporal units (singular + plural + abbreviations)
         "year" | "years" | "y" | "yr" | "yrs" => Some(Token::Unit(TemporalUnit::Year)),
         "month" | "months" | "mo" | "mos" => Some(Token::Unit(TemporalUnit::Month)),
         "week" | "weeks" | "w" | "wk" | "wks" => Some(Token::Unit(TemporalUnit::Week)),
@@ -216,7 +192,6 @@ fn match_keyword(word: &str) -> Option<Token> {
         "hour" | "hours" | "h" | "hr" | "hrs" => Some(Token::Unit(TemporalUnit::Hour)),
         "minute" | "minutes" | "min" | "mins" => Some(Token::Unit(TemporalUnit::Minute)),
         "second" | "seconds" | "sec" | "secs" => Some(Token::Unit(TemporalUnit::Second)),
-        // TaskWarrior boundary keywords -- current period
         "sod" => Some(Token::Boundary(BoundaryKind::Sod)),
         "eod" => Some(Token::Boundary(BoundaryKind::Eod)),
         "sow" => Some(Token::Boundary(BoundaryKind::Sow)),
@@ -229,7 +204,6 @@ fn match_keyword(word: &str) -> Option<Token> {
         "eoq" => Some(Token::Boundary(BoundaryKind::Eoq)),
         "soy" => Some(Token::Boundary(BoundaryKind::Soy)),
         "eoy" => Some(Token::Boundary(BoundaryKind::Eoy)),
-        // TaskWarrior boundary keywords -- previous period
         "sopd" => Some(Token::Boundary(BoundaryKind::Sopd)),
         "eopd" => Some(Token::Boundary(BoundaryKind::Eopd)),
         "sopw" => Some(Token::Boundary(BoundaryKind::Sopw)),
@@ -240,7 +214,6 @@ fn match_keyword(word: &str) -> Option<Token> {
         "eopq" => Some(Token::Boundary(BoundaryKind::Eopq)),
         "sopy" => Some(Token::Boundary(BoundaryKind::Sopy)),
         "eopy" => Some(Token::Boundary(BoundaryKind::Eopy)),
-        // TaskWarrior boundary keywords -- next period
         "sond" => Some(Token::Boundary(BoundaryKind::Sond)),
         "eond" => Some(Token::Boundary(BoundaryKind::Eond)),
         "sonw" => Some(Token::Boundary(BoundaryKind::Sonw)),
@@ -273,19 +246,16 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
     while pos < len {
         let b = bytes[pos];
 
-        // Skip whitespace
         if b.is_ascii_whitespace() {
             pos += 1;
             continue;
         }
 
-        // Skip commas (optional separators in compound durations)
         if b == b',' {
             pos += 1;
             continue;
         }
 
-        // Single-character separators
         match b {
             b':' => {
                 tokens.push(SpannedToken {
@@ -321,16 +291,12 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
                 continue;
             }
             b'+' => {
-                // "+" is a positive number sign ONLY after @ (epoch like @+1735689600).
-                // At start of input, emit Plus operator so "+3h" tokenizes as
-                // [Plus, Number(3), Unit(Hour)].
                 let is_sign_position = tokens
                     .last()
                     .is_some_and(|t| matches!(t.kind, Token::AtSign));
                 if pos + 1 < len && bytes[pos + 1].is_ascii_digit() && is_sign_position {
-                    // Parse as positive number (skip the '+')
                     let start = pos;
-                    pos += 1; // skip '+'
+                    pos += 1;
                     while pos < len && bytes[pos].is_ascii_digit() {
                         pos += 1;
                     }
@@ -343,7 +309,6 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
                     try_epoch_suffix(input, &mut pos, &mut tokens);
                     continue;
                 }
-                // Otherwise emit Plus operator
                 tokens.push(SpannedToken {
                     kind: Token::Plus,
                     span: ByteSpan {
@@ -355,31 +320,25 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
                 continue;
             }
             b'-' => {
-                // "-" is a negative number sign ONLY after @ (epoch like @-1735689600).
-                // At start of input, emit Dash so "-3h" tokenizes as
-                // [Dash, Number(3), Unit(Hour)].
                 let is_sign_position = tokens
                     .last()
                     .is_some_and(|t| matches!(t.kind, Token::AtSign));
                 if pos + 1 < len && bytes[pos + 1].is_ascii_digit() && is_sign_position {
                     let start = pos;
-                    pos += 1; // skip the '-'
+                    pos += 1;
                     let num_start = pos;
                     while pos < len && bytes[pos].is_ascii_digit() {
                         pos += 1;
                     }
                     let num_str = &input[num_start..pos];
-                    // Safe: we only consumed ASCII digits
                     let value: i64 = num_str.parse().unwrap_or(0);
                     tokens.push(SpannedToken {
                         kind: Token::Number(-value),
                         span: ByteSpan { start, end: pos },
                     });
-                    // Check for epoch suffix immediately after number
                     try_epoch_suffix(input, &mut pos, &mut tokens);
                     continue;
                 }
-                // Otherwise emit Dash (separator in ISO dates, standalone minus)
                 tokens.push(SpannedToken {
                     kind: Token::Dash,
                     span: ByteSpan {
@@ -393,7 +352,6 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
             _ => {}
         }
 
-        // Digits: parse number
         if b.is_ascii_digit() {
             let start = pos;
             while pos < len && bytes[pos].is_ascii_digit() {
@@ -405,22 +363,18 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
                 kind: Token::Number(value),
                 span: ByteSpan { start, end: pos },
             });
-            // Check for epoch suffix immediately after number
             try_epoch_suffix(input, &mut pos, &mut tokens);
             continue;
         }
 
-        // Alpha characters (ASCII or UTF-8 multi-byte): consume word, match keyword
         if b.is_ascii_alphabetic() || (b & 0x80 != 0) {
             let start = pos;
 
-            // Scan word: ASCII alpha or multi-byte UTF-8 alphabetic chars
             while pos < len {
                 let b = bytes[pos];
                 if b.is_ascii_alphabetic() {
                     pos += 1;
                 } else if b & 0x80 != 0 {
-                    // Multi-byte UTF-8: decode char, check if alphabetic
                     if let Some(ch) = input[pos..].chars().next() {
                         if ch.is_alphabetic() {
                             pos += ch.len_utf8();
@@ -435,7 +389,6 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
                 }
             }
 
-            // Special handling for Q+digit patterns (Q1, Q2, Q3, Q4)
             let original = &input[start..pos];
             let normalized = original.to_ascii_lowercase();
 
@@ -452,7 +405,6 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
                     });
                     continue;
                 }
-                // Not a valid quarter -- restore pos and treat "q" as word
                 pos = digit_start;
             }
 
@@ -467,7 +419,6 @@ pub(crate) fn tokenize(input: &str) -> Vec<SpannedToken> {
             continue;
         }
 
-        // Any other character: emit as Word
         let start = pos;
         pos += 1;
         tokens.push(SpannedToken {
@@ -491,7 +442,6 @@ fn try_epoch_suffix(input: &str, pos: &mut usize, tokens: &mut Vec<SpannedToken>
         return;
     }
 
-    // Try two-char suffixes first: ms, us, ns
     if *pos + 1 < len {
         let two = &input[*pos..*pos + 2];
         let two_lower = two.to_ascii_lowercase();
@@ -502,7 +452,6 @@ fn try_epoch_suffix(input: &str, pos: &mut usize, tokens: &mut Vec<SpannedToken>
             _ => None,
         };
         if let Some(p) = precision {
-            // Ensure not followed by more alpha chars
             if *pos + 2 >= len || !bytes[*pos + 2].is_ascii_alphabetic() {
                 let start = *pos;
                 *pos += 2;
@@ -515,17 +464,15 @@ fn try_epoch_suffix(input: &str, pos: &mut usize, tokens: &mut Vec<SpannedToken>
         }
     }
 
-    // Try single-char suffix: s
-    if bytes[*pos].eq_ignore_ascii_case(&b's') {
-        // Ensure not followed by more alpha chars
-        if *pos + 1 >= len || !bytes[*pos + 1].is_ascii_alphabetic() {
-            let start = *pos;
-            *pos += 1;
-            tokens.push(SpannedToken {
-                kind: Token::EpochSuffix(EpochPrecision::Seconds),
-                span: ByteSpan { start, end: *pos },
-            });
-        }
+    if bytes[*pos].eq_ignore_ascii_case(&b's')
+        && (*pos + 1 >= len || !bytes[*pos + 1].is_ascii_alphabetic())
+    {
+        let start = *pos;
+        *pos += 1;
+        tokens.push(SpannedToken {
+            kind: Token::EpochSuffix(EpochPrecision::Seconds),
+            span: ByteSpan { start, end: *pos },
+        });
     }
 }
 
@@ -551,8 +498,6 @@ mod tests {
         tokenize(input).into_iter().map(|st| st.kind).collect()
     }
 
-    // ── match_keyword tests ───────────────────────────────────────
-
     #[test]
     fn match_keyword_known() {
         assert_eq!(match_keyword("tomorrow"), Some(Token::Tomorrow));
@@ -576,8 +521,6 @@ mod tests {
     fn keyword_list_count() {
         assert_eq!(KEYWORD_LIST.len(), 119);
     }
-
-    // ── Basic tokenize tests ──────────────────────────────────────
 
     #[test]
     fn simple_keyword_now() {
@@ -746,8 +689,6 @@ mod tests {
         );
     }
 
-    // Additional tests beyond the minimum 20
-
     #[test]
     fn epoch_suffix_us() {
         assert_eq!(
@@ -786,7 +727,6 @@ mod tests {
 
     #[test]
     fn number_followed_by_word_not_suffix() {
-        // "5 seconds" -- "seconds" is separated by whitespace so NOT a suffix
         assert_eq!(
             kinds("5 seconds"),
             vec![Token::Number(5), Token::Unit(TemporalUnit::Second)]
@@ -795,9 +735,6 @@ mod tests {
 
     #[test]
     fn number_immediately_followed_by_non_suffix_word() {
-        // "5abc" -- "abc" is not a recognized epoch suffix. The suffix check sees "ab"
-        // (not ms/us/ns) then "a" (not "s"), so nothing is consumed as suffix. The main
-        // loop then consumes "abc" as an alpha word -> no keyword match -> Word("abc").
         assert_eq!(
             kinds("5abc"),
             vec![Token::Number(5), Token::Word("abc".to_string())]
@@ -806,9 +743,6 @@ mod tests {
 
     #[test]
     fn number_directly_followed_by_non_suffix_alpha() {
-        // "10seconds" -- "se" is not ms/us/ns, and "s" IS "s" but followed by "econds"
-        // (more alpha), so the suffix is NOT consumed. The word "seconds" is then parsed
-        // as Unit(Second).
         assert_eq!(
             kinds("10seconds"),
             vec![Token::Number(10), Token::Unit(TemporalUnit::Second)]
@@ -903,7 +837,6 @@ mod tests {
 
     #[test]
     fn unknown_single_char() {
-        // Characters not matching any rule become Word tokens
         assert_eq!(kinds("!"), vec![Token::Word("!".to_string())]);
         assert_eq!(kinds("#"), vec![Token::Word("#".to_string())]);
     }
@@ -959,16 +892,15 @@ mod tests {
     fn span_tracking_iso_date() {
         let tokens = tokenize("2025-01-15");
         assert_eq!(tokens.len(), 5);
-        assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 4 }); // 2025
-        assert_eq!(tokens[1].span, ByteSpan { start: 4, end: 5 }); // -
-        assert_eq!(tokens[2].span, ByteSpan { start: 5, end: 7 }); // 01
-        assert_eq!(tokens[3].span, ByteSpan { start: 7, end: 8 }); // -
-        assert_eq!(tokens[4].span, ByteSpan { start: 8, end: 10 }); // 15
+        assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 4 });
+        assert_eq!(tokens[1].span, ByteSpan { start: 4, end: 5 });
+        assert_eq!(tokens[2].span, ByteSpan { start: 5, end: 7 });
+        assert_eq!(tokens[3].span, ByteSpan { start: 7, end: 8 });
+        assert_eq!(tokens[4].span, ByteSpan { start: 8, end: 10 });
     }
 
     #[test]
     fn negative_number_at_start_emits_dash_and_number() {
-        // After D-07 fix: "-42" at start emits Dash+Number, not Number(-42)
         let tokens = tokenize("-42");
         assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0].kind, Token::Dash);
@@ -990,8 +922,6 @@ mod tests {
         assert_eq!(tokens[1].span, ByteSpan { start: 3, end: 5 });
     }
 
-    // ── Phase 3: Arithmetic and range token tests ────────────────
-
     #[test]
     fn tomorrow_plus_3_hours_tokenizes() {
         assert_eq!(
@@ -1007,7 +937,6 @@ mod tests {
 
     #[test]
     fn now_minus_30_minutes_tokenizes() {
-        // Dash is reused for minus since context resolves
         assert_eq!(
             kinds("now - 30 minutes"),
             vec![
@@ -1048,13 +977,11 @@ mod tests {
 
     #[test]
     fn plus_5_at_start_emits_operator_and_number() {
-        // After D-07 fix: "+5" at start emits Plus+Number, not Number(5)
         assert_eq!(kinds("+5"), vec![Token::Plus, Token::Number(5)]);
     }
 
     #[test]
     fn plus_after_number_is_operator() {
-        // "3 + 5" -- the plus after number IS an operator
         assert_eq!(
             kinds("3 + 5"),
             vec![Token::Number(3), Token::Plus, Token::Number(5)]
@@ -1090,14 +1017,10 @@ mod tests {
         assert_eq!(kinds("before"), vec![Token::Before]);
     }
 
-    // ── UTF-8 multi-byte character tests ────────────────────────
-
     #[test]
     fn utf8_accented_word_scans_as_single_token() {
-        // "amanha" with tilde should scan as one word token
         let tokens = tokenize("amanh\u{00e3}");
         assert_eq!(tokens.len(), 1);
-        // EN keywords don't include accented words, so it becomes a Word
         match &tokens[0].kind {
             Token::Word(w) => assert_eq!(w, "amanh\u{00e3}"),
             _ => panic!("expected Word token for unrecognized accented word"),
@@ -1106,15 +1029,13 @@ mod tests {
 
     #[test]
     fn utf8_span_tracking_correct() {
-        // "amanha" = 6 bytes: a(1) m(1) a(1) n(1) h(1) a-tilde(2 bytes: 0xC3 0xA3)
         let tokens = tokenize("amanh\u{00e3}");
         assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 7 }); // 7 bytes total
+        assert_eq!(tokens[0].span, ByteSpan { start: 0, end: 7 });
     }
 
     #[test]
     fn utf8_mixed_with_ascii_tokens() {
-        // "amanh\u{00e3} 3 days" -- accented word followed by ASCII tokens
         assert_eq!(
             kinds("amanh\u{00e3} 3 days"),
             vec![
@@ -1124,8 +1045,6 @@ mod tests {
             ]
         );
     }
-
-    // ── Phase 8: Sign-position fix and boundary keyword tests ──
 
     #[test]
     fn test_plus_at_start_emits_operator() {
