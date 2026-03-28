@@ -82,4 +82,3 @@ pub fn parse_range_with_granularity(
     let expr = parser.parse_expression()?;
     resolver::resolve_range_with_granularity(&expr, now)
 }
-

@@ -1562,8 +1562,7 @@ mod tests {
     #[test]
     fn parse_range_with_granularity_resolves_non_range_as_day() {
         let now = make_now();
-        let (start, end) =
-            crate::parser::parse_range_with_granularity("tomorrow", &now).unwrap();
+        let (start, end) = crate::parser::parse_range_with_granularity("tomorrow", &now).unwrap();
         // Day granularity: entire day range
         let start_str = format_zoned(&start);
         let end_str = format_zoned(&end);
