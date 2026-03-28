@@ -1,7 +1,7 @@
 //! Parser error types with span-based diagnostics.
 //!
 //! Errors carry the original input, byte-level position information, and
-//! optional typo-correction suggestions (D-08).
+//! optional typo-correction suggestions.
 
 use std::fmt;
 
@@ -12,29 +12,16 @@ use crate::parser::token::ByteSpan;
 pub struct ParseError {
     kind: ParseErrorKind,
     span: Option<ByteSpan>,
-    /// Original input string for error context.
     input: String,
     suggestion: Option<String>,
 }
 
 #[derive(Debug)]
 enum ParseErrorKind {
-    UnexpectedToken {
-        expected: String,
-        found: String,
-    },
+    UnexpectedToken { expected: String, found: String },
     UnrecognizedInput,
-    /// Reserved for explicit epoch range errors (currently handled by ResolutionFailed).
-    #[allow(dead_code)]
-    EpochOutOfRange,
     ResolutionFailed(String),
-    InputTooLong {
-        len: usize,
-        max: usize,
-    },
-    /// Reserved for future unsupported-feature errors.
-    #[allow(dead_code)]
-    Unsupported(String),
+    InputTooLong { len: usize, max: usize },
 }
 
 impl ParseError {
@@ -61,17 +48,6 @@ impl ParseError {
         }
     }
 
-    /// Construct an error for epoch timestamps out of range.
-    #[allow(dead_code)]
-    pub(crate) fn epoch_out_of_range(input: &str) -> Self {
-        Self {
-            kind: ParseErrorKind::EpochOutOfRange,
-            span: None,
-            input: input.to_string(),
-            suggestion: None,
-        }
-    }
-
     /// Construct an error for resolution failures (e.g., overflow).
     pub(crate) fn resolution(detail: String) -> Self {
         Self {
@@ -82,7 +58,7 @@ impl ParseError {
         }
     }
 
-    /// Construct an error for input too long (UX-03).
+    /// Construct an error for input too long.
     pub(crate) fn input_too_long(len: usize, max: usize) -> Self {
         Self {
             kind: ParseErrorKind::InputTooLong { len, max },
@@ -92,18 +68,7 @@ impl ParseError {
         }
     }
 
-    /// Construct an unsupported-feature error (reserved for future use).
-    #[allow(dead_code)]
-    pub(crate) fn unsupported(what: &str) -> Self {
-        Self {
-            kind: ParseErrorKind::Unsupported(what.to_string()),
-            span: None,
-            input: String::new(),
-            suggestion: None,
-        }
-    }
-
-    /// Attach a typo-correction suggestion (D-08).
+    /// Attach a typo-correction suggestion.
     pub(crate) fn with_suggestion(mut self, suggestion: String) -> Self {
         self.suggestion = Some(suggestion);
         self
@@ -134,17 +99,13 @@ impl ParseError {
                     format!("could not parse '{}' as a date expression", self.input)
                 }
             }
-            ParseErrorKind::EpochOutOfRange => "epoch timestamp out of range".to_string(),
             ParseErrorKind::ResolutionFailed(detail) => detail.clone(),
             ParseErrorKind::InputTooLong { len, max } => {
                 format!("input too long ({len} bytes, max {max})")
             }
-            ParseErrorKind::Unsupported(what) => what.clone(),
         };
 
         if let Some(suggestion) = &self.suggestion {
-            // Pure text — no ANSI codes. Coloring is applied at the display
-            // layer (Error::exit) so format_message() remains deterministic.
             msg.push_str(&format!("\n\nDid you mean '{suggestion}'?"));
         }
 
@@ -230,9 +191,7 @@ mod tests {
         let err = ParseError::unrecognized("tomorow").with_suggestion("tomorrow".to_string());
         let msg = err.format_message();
         let lines: Vec<&str> = msg.lines().collect();
-        // Line 1: error message
         assert!(lines[0].contains("could not parse 'tomorow'"));
-        // "\n\n" creates an empty line between error and suggestion
         assert_eq!(
             lines.len(),
             3,
@@ -243,7 +202,6 @@ mod tests {
 
     #[test]
     fn suggestion_is_plain_text_no_ansi() {
-        // format_message() is pure — no ANSI codes, regardless of terminal
         let err = ParseError::unrecognized("tomorow").with_suggestion("tomorrow".to_string());
         let msg = err.format_message();
         assert!(
@@ -266,7 +224,7 @@ mod tests {
 
     #[test]
     fn display_impl_matches_format_message() {
-        let err = ParseError::epoch_out_of_range("@999999999999999999");
+        let err = ParseError::unrecognized("@999999999999999999");
         assert_eq!(format!("{err}"), err.format_message());
     }
 
