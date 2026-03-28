@@ -2306,6 +2306,27 @@ fn test_tomorrow_8h_minus_30min() {
         .stdout(predicate::str::starts_with("2025-03-27 07:30"));
 }
 
+// ── Gap #11: ereyesterday keyword activation (GAP-01) ────────
+
+#[test]
+fn test_ereyesterday() {
+    let tmp = TempDir::new().unwrap();
+
+    td_cmd(&tmp)
+        .args([
+            "ereyesterday",
+            "--now",
+            "2025-01-15T10:30:00Z",
+            "-t",
+            "UTC",
+            "-f",
+            "%Y-%m-%dT%H:%M:%S",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-01-13T00:00:00"));
+}
+
 // ── Gap #10: TW boundary keywords ────────────────────────────
 
 #[test]

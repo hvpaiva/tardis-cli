@@ -1538,7 +1538,7 @@ mod tests {
     fn parse_range_last_week_produces_range_e2e() {
         // "last week" is a valid range expression
         let now = make_wednesday();
-        let (start, end) = crate::parser::parse_range("last week", &now).unwrap();
+        let (start, end) = crate::parser::parse_range_with_granularity("last week", &now).unwrap();
         assert_eq!(format_zoned(&start), "2025-06-09T00:00:00"); // Monday
         assert_eq!(format_zoned(&end), "2025-06-15T23:59:59"); // Sunday
     }
@@ -1546,7 +1546,7 @@ mod tests {
     #[test]
     fn parse_range_this_month_e2e() {
         let now = make_wednesday();
-        let (start, end) = crate::parser::parse_range("this month", &now).unwrap();
+        let (start, end) = crate::parser::parse_range_with_granularity("this month", &now).unwrap();
         assert_eq!(format_zoned(&start), "2025-06-01T00:00:00");
         assert_eq!(format_zoned(&end), "2025-06-30T23:59:59");
     }
@@ -1554,17 +1554,27 @@ mod tests {
     #[test]
     fn parse_range_q3_2025_e2e() {
         let now = make_wednesday();
-        let (start, end) = crate::parser::parse_range("Q3 2025", &now).unwrap();
+        let (start, end) = crate::parser::parse_range_with_granularity("Q3 2025", &now).unwrap();
         assert_eq!(format_zoned(&start), "2025-07-01T00:00:00");
         assert_eq!(format_zoned(&end), "2025-09-30T23:59:59");
     }
 
     #[test]
-    fn parse_range_not_a_range_errors() {
+    fn parse_range_with_granularity_resolves_non_range_as_day() {
         let now = make_now();
-        let result = crate::parser::parse_range("tomorrow", &now);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().format_message().contains("not a range"));
+        let (start, end) =
+            crate::parser::parse_range_with_granularity("tomorrow", &now).unwrap();
+        // Day granularity: entire day range
+        let start_str = format_zoned(&start);
+        let end_str = format_zoned(&end);
+        assert!(
+            start_str.ends_with("T00:00:00"),
+            "start should be midnight: {start_str}"
+        );
+        assert!(
+            end_str.ends_with("T23:59:59"),
+            "end should be end of day: {end_str}"
+        );
     }
 
     // ── Phase 8: Boundary resolution tests ──────────────────────
