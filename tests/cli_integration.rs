@@ -2625,6 +2625,184 @@ fn test_tw_sond_eond() {
         .stdout(predicate::str::starts_with("2025-03-27 23:59:59"));
 }
 
+// ── Gap #11: Missing TW previous/next period CLI tests (GAP-04) ──
+
+#[test]
+fn test_tw_sopw() {
+    // Start of previous week (Monday of week before current)
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["sopw", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-17 00:00:00"));
+}
+
+#[test]
+fn test_tw_eopw() {
+    // End of previous week (Sunday of week before current)
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["eopw", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-23 23:59:59"));
+}
+
+#[test]
+fn test_tw_sopm() {
+    // Start of previous month
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["sopm", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-02-01 00:00:00"));
+}
+
+#[test]
+fn test_tw_eopm() {
+    // End of previous month
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["eopm", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-02-28 23:59:59"));
+}
+
+#[test]
+fn test_tw_sopq() {
+    // Start of previous quarter (Q4 2024)
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["sopq", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2024-10-01 00:00:00"));
+}
+
+#[test]
+fn test_tw_eopq() {
+    // End of previous quarter (Q4 2024)
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["eopq", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2024-12-31 23:59:59"));
+}
+
+#[test]
+fn test_tw_sopy() {
+    // Start of previous year
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["sopy", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2024-01-01 00:00:00"));
+}
+
+#[test]
+fn test_tw_eopy() {
+    // End of previous year
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["eopy", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2024-12-31 23:59:59"));
+}
+
+#[test]
+fn test_tw_sonw() {
+    // Start of next week (Monday of week after current)
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["sonw", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-03-31 00:00:00"));
+}
+
+#[test]
+fn test_tw_eonw() {
+    // End of next week (Sunday of week after current)
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["eonw", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-04-06 23:59:59"));
+}
+
+#[test]
+fn test_tw_sonm() {
+    // Start of next month
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["sonm", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-04-01 00:00:00"));
+}
+
+#[test]
+fn test_tw_eonm() {
+    // End of next month
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["eonm", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-04-30 23:59:59"));
+}
+
+#[test]
+fn test_tw_sonq() {
+    // Start of next quarter (Q2 2025)
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["sonq", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-04-01 00:00:00"));
+}
+
+#[test]
+fn test_tw_eonq() {
+    // End of next quarter (Q2 2025)
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["eonq", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2025-06-30 23:59:59"));
+}
+
+#[test]
+fn test_tw_sony() {
+    // Start of next year
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["sony", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2026-01-01 00:00:00"));
+}
+
+#[test]
+fn test_tw_eony() {
+    // End of next year
+    let tmp = TempDir::new().unwrap();
+    td_cmd(&tmp)
+        .args(["eony", "--now", "2025-03-26T12:00:00Z", "-t", "UTC", "-f", "%Y-%m-%d %H:%M:%S"])
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("2026-12-31 23:59:59"));
+}
+
 // ── Gap #11: TW keywords + arithmetic ─────────────────────────
 
 #[test]
