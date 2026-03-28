@@ -18,6 +18,7 @@ Simple keywords that resolve to a specific point in time.
 | `tomorrow`   | Start of the next day      |
 | `yesterday`  | Start of the previous day  |
 | `overmorrow` | Start of the day after tomorrow |
+| `ereyesterday` | Start of the day before yesterday |
 
 ```console
 $ td now
@@ -34,6 +35,9 @@ $ td yesterday
 
 $ td overmorrow
 2025-01-17T00:00:00
+
+$ td ereyesterday
+2025-01-13T00:00:00
 
 ```
 

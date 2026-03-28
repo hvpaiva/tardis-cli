@@ -25,6 +25,7 @@ pub(crate) const KEYWORD_LIST: &[(&str, Token)] = &[
     ("tomorrow", Token::Tomorrow),
     ("yesterday", Token::Yesterday),
     ("overmorrow", Token::Overmorrow),
+    ("ereyesterday", Token::Ereyesterday),
     // Direction modifiers
     ("next", Token::Next),
     ("last", Token::Last),
@@ -166,6 +167,7 @@ fn match_keyword(word: &str) -> Option<Token> {
         "tomorrow" => Some(Token::Tomorrow),
         "yesterday" => Some(Token::Yesterday),
         "overmorrow" => Some(Token::Overmorrow),
+        "ereyesterday" => Some(Token::Ereyesterday),
         // Direction modifiers
         "next" => Some(Token::Next),
         "last" => Some(Token::Last),
@@ -572,7 +574,7 @@ mod tests {
 
     #[test]
     fn keyword_list_count() {
-        assert_eq!(KEYWORD_LIST.len(), 118);
+        assert_eq!(KEYWORD_LIST.len(), 119);
     }
 
     // ── Basic tokenize tests ──────────────────────────────────────
