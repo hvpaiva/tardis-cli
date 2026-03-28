@@ -645,7 +645,6 @@ fn invalid_epoch_not_a_number() {
 fn epoch_smart_precision_large_value() {
     let tmp = TempDir::new().unwrap();
 
-    // 17-digit epoch auto-detected as microseconds by the custom parser (~year 5138)
     td_cmd(&tmp)
         .args(["@99999999999999999", "--format", "%Y", "--timezone", "UTC"])
         .assert()
@@ -657,7 +656,6 @@ fn epoch_smart_precision_large_value() {
 fn epoch_roundtrip() {
     let tmp = TempDir::new().unwrap();
 
-    // @epoch -> formatted
     td_cmd(&tmp)
         .args(["@0", "--format", "%Y-%m-%dT%H:%M:%SZ", "--timezone", "UTC"])
         .assert()
@@ -696,7 +694,6 @@ fn json_with_no_newline() {
         .unwrap();
 
     let stdout = String::from_utf8(output.stdout).unwrap();
-    // Should NOT end with newline
     assert!(!stdout.ends_with('\n'));
     assert!(stdout.contains("\"output\":\"2025\""));
     assert!(stdout.contains("\"epoch\":"));
@@ -774,7 +771,6 @@ fn batch_with_blank_lines() {
 fn batch_single_line_not_batch() {
     let tmp = TempDir::new().unwrap();
 
-    // A single line should produce a single result, not be treated as batch
     td_cmd(&tmp)
         .args([
             "--now",
@@ -853,9 +849,6 @@ fn config_edit_with_nonexistent_editor() {
 fn ambiguous_dst_resolves_compatible() {
     let tmp = TempDir::new().unwrap();
 
-    // 2025-11-02 01:30 is ambiguous in America/New_York (DST fall-back).
-    // The custom parser resolves ambiguous times using jiff's compatible()
-    // semantics, picking the earlier (pre-transition) interpretation.
     td_cmd(&tmp)
         .args([
             "2025-11-02 01:30",
@@ -887,7 +880,6 @@ fn invalid_now_format_error_message() {
 fn timezone_conversion_across_date_boundary() {
     let tmp = TempDir::new().unwrap();
 
-    // 2025-01-01 23:00 UTC should be 2025-01-02 in Tokyo (+09:00)
     td_cmd(&tmp)
         .args([
             "today",
@@ -945,7 +937,6 @@ fn format_percent_only() {
 fn test_diff_basic_output() {
     let tmp = TempDir::new().unwrap();
 
-    // Default mode is human: shows human-readable duration only
     td_cmd(&tmp)
         .args([
             "diff",
@@ -958,7 +949,7 @@ fn test_diff_basic_output() {
         ])
         .assert()
         .success()
-        .stdout(predicate::str::contains("mo")); // human-readable contains month abbreviation
+        .stdout(predicate::str::contains("mo"));
 }
 
 #[test]
@@ -1008,7 +999,6 @@ fn test_diff_no_newline() {
 fn test_diff_same_date_zero() {
     let tmp = TempDir::new().unwrap();
 
-    // Default mode is human: same date produces empty span display
     td_cmd(&tmp)
         .args([
             "diff",
@@ -1129,7 +1119,7 @@ fn test_tz_utc_to_sao_paulo() {
         ])
         .assert()
         .success()
-        .stdout(predicate::str::contains("09:00")); // UTC-3
+        .stdout(predicate::str::contains("09:00"));
 }
 
 #[test]
@@ -1254,7 +1244,6 @@ fn test_info_leap_year() {
 
 #[test]
 fn test_info_default_now() {
-    // No input should default to "now"
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -1306,7 +1295,6 @@ fn test_skip_errors_continues() {
         .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    // Should have 3 lines in stdout (2 valid + 1 empty for error)
     let stdout_lines: Vec<&str> = stdout.lines().collect();
     assert_eq!(
         stdout_lines.len(),
@@ -1335,12 +1323,11 @@ fn test_skip_errors_all_valid() {
         ])
         .write_stdin("tomorrow\nyesterday\n")
         .assert()
-        .success(); // Exit code 0 when all valid
+        .success();
 }
 
 #[test]
 fn test_last_week_returns_period_start() {
-    // "last week" returns start of previous week (Monday 00:00)
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -1355,12 +1342,11 @@ fn test_last_week_returns_period_start() {
         ])
         .assert()
         .success()
-        .stdout("2025-01-06T00:00:00\n"); // Monday of previous week
+        .stdout("2025-01-06T00:00:00\n");
 }
 
 #[test]
 fn test_last_month_returns_period_start() {
-    // "last month" returns 1st of previous month at 00:00
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -1375,12 +1361,11 @@ fn test_last_month_returns_period_start() {
         ])
         .assert()
         .success()
-        .stdout("2025-02-01T00:00:00\n"); // Feb 1st 00:00
+        .stdout("2025-02-01T00:00:00\n");
 }
 
 #[test]
 fn test_last_year_returns_period_start() {
-    // "last year" returns Jan 1st of previous year at 00:00
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -1395,7 +1380,7 @@ fn test_last_year_returns_period_start() {
         ])
         .assert()
         .success()
-        .stdout("2024-01-01T00:00:00\n"); // Jan 1 2024 00:00
+        .stdout("2024-01-01T00:00:00\n");
 }
 
 #[test]
@@ -1437,7 +1422,7 @@ fn test_this_week_returns_single_instant() {
             "-t",
             "UTC",
             "--now",
-            "2025-01-15T00:00:00Z", // Wednesday
+            "2025-01-15T00:00:00Z",
         ])
         .output()
         .unwrap();
@@ -1449,7 +1434,7 @@ fn test_this_week_returns_single_instant() {
         1,
         "Default command should return 1 line, got: {lines:?}"
     );
-    assert_eq!(lines[0], "2025-01-13"); // Monday
+    assert_eq!(lines[0], "2025-01-13");
 }
 
 #[test]
@@ -1476,7 +1461,7 @@ fn test_next_week_returns_single_instant() {
         1,
         "Default command should return 1 line, got: {lines:?}"
     );
-    assert_eq!(lines[0], "2025-01-20"); // Next Monday
+    assert_eq!(lines[0], "2025-01-20");
 }
 
 #[test]
@@ -1500,8 +1485,8 @@ fn test_range_subcommand_this_week() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.trim().lines().collect();
     assert_eq!(lines.len(), 2, "Range subcommand should return 2 lines");
-    assert_eq!(lines[0], "2025-06-16"); // Monday
-    assert_eq!(lines[1], "2025-06-22"); // Sunday
+    assert_eq!(lines[0], "2025-06-16");
+    assert_eq!(lines[1], "2025-06-22");
 }
 
 #[test]
@@ -1546,7 +1531,7 @@ fn test_q3_2025_returns_single_instant() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.trim().lines().collect();
     assert_eq!(lines.len(), 1, "Default command should return 1 line");
-    assert_eq!(lines[0], "2025-07-01"); // Start of Q3
+    assert_eq!(lines[0], "2025-07-01");
 }
 
 #[test]
@@ -2194,8 +2179,6 @@ fn test_tomorrow_8h_minus_30min() {
         .stdout(predicate::str::starts_with("2025-03-27 07:30"));
 }
 
-// ── Gap #11: ereyesterday keyword activation (GAP-01) ────────
-
 #[test]
 fn test_ereyesterday() {
     let tmp = TempDir::new().unwrap();
@@ -2215,7 +2198,6 @@ fn test_ereyesterday() {
         .stdout(predicate::str::starts_with("2025-01-13T00:00:00"));
 }
 
-// ── Gap #10: TW boundary keywords ────────────────────────────
 #[test]
 fn test_tw_eod() {
     let tmp = TempDir::new().unwrap();
@@ -2500,11 +2482,8 @@ fn test_tw_sond_eond() {
         .stdout(predicate::str::starts_with("2025-03-27 23:59:59"));
 }
 
-// ── Gap #11: Missing TW previous/next period CLI tests (GAP-04) ──
-
 #[test]
 fn test_tw_sopw() {
-    // Start of previous week (Monday of week before current)
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2523,7 +2502,6 @@ fn test_tw_sopw() {
 
 #[test]
 fn test_tw_eopw() {
-    // End of previous week (Sunday of week before current)
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2542,7 +2520,6 @@ fn test_tw_eopw() {
 
 #[test]
 fn test_tw_sopm() {
-    // Start of previous month
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2561,7 +2538,6 @@ fn test_tw_sopm() {
 
 #[test]
 fn test_tw_eopm() {
-    // End of previous month
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2580,7 +2556,6 @@ fn test_tw_eopm() {
 
 #[test]
 fn test_tw_sopq() {
-    // Start of previous quarter (Q4 2024)
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2599,7 +2574,6 @@ fn test_tw_sopq() {
 
 #[test]
 fn test_tw_eopq() {
-    // End of previous quarter (Q4 2024)
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2618,7 +2592,6 @@ fn test_tw_eopq() {
 
 #[test]
 fn test_tw_sopy() {
-    // Start of previous year
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2637,7 +2610,6 @@ fn test_tw_sopy() {
 
 #[test]
 fn test_tw_eopy() {
-    // End of previous year
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2656,7 +2628,6 @@ fn test_tw_eopy() {
 
 #[test]
 fn test_tw_sonw() {
-    // Start of next week (Monday of week after current)
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2675,7 +2646,6 @@ fn test_tw_sonw() {
 
 #[test]
 fn test_tw_eonw() {
-    // End of next week (Sunday of week after current)
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2694,7 +2664,6 @@ fn test_tw_eonw() {
 
 #[test]
 fn test_tw_sonm() {
-    // Start of next month
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2713,7 +2682,6 @@ fn test_tw_sonm() {
 
 #[test]
 fn test_tw_eonm() {
-    // End of next month
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2732,7 +2700,6 @@ fn test_tw_eonm() {
 
 #[test]
 fn test_tw_sonq() {
-    // Start of next quarter (Q2 2025)
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2751,7 +2718,6 @@ fn test_tw_sonq() {
 
 #[test]
 fn test_tw_eonq() {
-    // End of next quarter (Q2 2025)
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2770,7 +2736,6 @@ fn test_tw_eonq() {
 
 #[test]
 fn test_tw_sony() {
-    // Start of next year
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2789,7 +2754,6 @@ fn test_tw_sony() {
 
 #[test]
 fn test_tw_eony() {
-    // End of next year
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2806,7 +2770,6 @@ fn test_tw_eony() {
         .stdout(predicate::str::starts_with("2026-12-31 23:59:59"));
 }
 
-// ── Gap #11: TW keywords + arithmetic ─────────────────────────
 #[test]
 fn test_tw_eod_plus_1h() {
     let tmp = TempDir::new().unwrap();
@@ -2842,7 +2805,7 @@ fn test_tw_sow_minus_1d() {
         ])
         .assert()
         .success()
-        .stdout(predicate::str::starts_with("2025-03-23")); // Sunday
+        .stdout(predicate::str::starts_with("2025-03-23"));
 }
 
 #[test]
@@ -2865,31 +2828,7 @@ fn test_tw_eom_plus_3d() {
 }
 
 #[test]
-fn test_range_subcommand_this_week_phase8() {
-    let tmp = TempDir::new().unwrap();
-
-    let output = td_cmd(&tmp)
-        .args([
-            "range",
-            "this week",
-            "--now",
-            "2025-03-26T12:00:00Z",
-            "-t",
-            "UTC",
-            "-f",
-            "%Y-%m-%d",
-        ])
-        .output()
-        .expect("process");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.starts_with("2025-03-24\n2025-03-30"),
-        "Expected Monday..Sunday, got: {stdout}"
-    );
-}
-
-#[test]
-fn test_range_subcommand_tomorrow_phase8() {
+fn test_range_subcommand_tomorrow() {
     let tmp = TempDir::new().unwrap();
 
     let output = td_cmd(&tmp)
@@ -3355,7 +3294,6 @@ fn diff_output_iso() {
         .output()
         .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    // ISO 8601 duration starts with P
     assert!(
         stdout.starts_with('P'),
         "iso mode should start with 'P', got: {stdout}"
