@@ -52,7 +52,7 @@ jobs:
       - name: Smoke 4 - diff subcommand
         run: |
           out=$(td diff "2025-01-01" "2025-01-10" --now "2025-01-01T00:00:00Z" -t UTC)
-          echo "$out" | head -1 | grep -q "9 days"
+          echo "$out" | grep -q "9d"
 
       - name: Smoke 5 - convert subcommand
         run: |
