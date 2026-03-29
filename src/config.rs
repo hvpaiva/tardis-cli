@@ -20,6 +20,7 @@ const CONFIG_FILE: &str = "config.toml";
 const TEMPLATE: &str = include_str!("../assets/config_template.toml");
 
 /// In-memory representation of the user configuration.
+#[must_use]
 #[non_exhaustive]
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -69,6 +70,7 @@ impl Config {
 }
 
 /// Resolve the absolute path to `config.toml`.
+#[must_use = "config_path returns a PathBuf that should not be discarded"]
 pub fn config_path() -> Result<PathBuf> {
     let base_dir = env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)

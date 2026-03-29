@@ -58,6 +58,7 @@ pub enum Direction {
 }
 
 /// A single duration component (e.g., "3 hours" -> count=3, unit=Hour).
+#[must_use]
 #[derive(Debug, Clone, PartialEq)]
 pub struct DurationComponent {
     pub count: i64,
@@ -77,6 +78,7 @@ pub enum TimeExpr {
 }
 
 /// Absolute date components.
+#[must_use]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AbsoluteDate {
     pub year: i16,
@@ -85,6 +87,7 @@ pub struct AbsoluteDate {
 }
 
 /// Epoch value with precision.
+#[must_use]
 #[derive(Debug, Clone, PartialEq)]
 pub struct EpochValue {
     pub raw: i64,

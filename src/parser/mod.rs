@@ -24,6 +24,7 @@ const MAX_INPUT_LEN: usize = 1024;
 /// * `now` -- reference "now" for relative resolution
 ///
 /// Returns the resolved datetime or a [`ParseError`] with span-based diagnostics.
+#[must_use = "parse returns a Result that should not be discarded"]
 pub fn parse(input: &str, now: &jiff::Zoned) -> std::result::Result<jiff::Zoned, ParseError> {
     if input.len() > MAX_INPUT_LEN {
         return Err(ParseError::input_too_long(input.len(), MAX_INPUT_LEN));
@@ -55,6 +56,7 @@ pub fn parse(input: &str, now: &jiff::Zoned) -> std::result::Result<jiff::Zoned,
 /// - `"tomorrow at 18:30"` -> minute granularity (18:30:00..18:30:59)
 /// - `"now"` -> instant (now..now)
 /// - `"this week"` -> week range (Monday..Sunday)
+#[must_use = "parse_range_with_granularity returns a Result that should not be discarded"]
 pub fn parse_range_with_granularity(
     input: &str,
     now: &jiff::Zoned,

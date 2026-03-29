@@ -8,6 +8,7 @@ use std::fmt;
 use crate::parser::token::ByteSpan;
 
 /// A parse error with optional span, expected/found context, and suggestion.
+#[must_use]
 #[derive(Debug)]
 pub struct ParseError {
     kind: ParseErrorKind,

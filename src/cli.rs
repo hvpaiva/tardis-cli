@@ -16,6 +16,7 @@ mod cli_defs_mod;
 pub use cli_defs_mod::*;
 
 /// Normalised user command ready for further processing.
+#[must_use]
 #[non_exhaustive]
 #[derive(Debug)]
 pub struct Command {
@@ -32,6 +33,7 @@ pub struct Command {
 impl Command {
     /// Create a new Command with a different input, preserving all other fields.
     /// Used in batch mode to avoid manual field cloning.
+    #[must_use = "with_input returns a new Command and does not modify self"]
     pub fn with_input(&self, input: String) -> Self {
         Command {
             input,

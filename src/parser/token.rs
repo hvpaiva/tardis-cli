@@ -1,6 +1,7 @@
 //! Token types and span tracking for the TARDIS lexer.
 
 /// Byte offset range into the original input string.
+#[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ByteSpan {
     pub start: usize,
@@ -8,6 +9,7 @@ pub struct ByteSpan {
 }
 
 /// A token paired with its source position.
+#[must_use]
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpannedToken {
     pub kind: Token,

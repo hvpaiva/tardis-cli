@@ -574,7 +574,7 @@ fn handle_config(action: ConfigAction) -> Result<()> {
         }
         ConfigAction::Edit => {
             let path = config::config_path()?;
-            Config::load()?;
+            let _ = Config::load()?;
             let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
             std::process::Command::new(&editor)
                 .arg(&path)

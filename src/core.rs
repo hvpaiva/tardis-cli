@@ -8,6 +8,7 @@ use jiff::{Zoned, tz::TimeZone};
 use crate::{Result, cli::Command, config::Config, parser, user_input_error};
 
 /// Immutable application context passed to [`process`].
+#[must_use]
 #[non_exhaustive]
 #[derive(Debug)]
 pub struct App {
@@ -22,6 +23,7 @@ pub struct App {
 }
 
 /// Pairing of a **named** preset with a strftime format string.
+#[must_use]
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct Preset {
@@ -30,6 +32,7 @@ pub struct Preset {
 }
 
 /// Result of processing a date expression.
+#[must_use]
 #[non_exhaustive]
 #[derive(Debug)]
 pub struct ProcessOutput {
@@ -43,6 +46,7 @@ pub struct ProcessOutput {
 ///
 /// * `presets` is passed as a slice to avoid unnecessary allocation.
 /// * All error paths bubble up via [`Result`], ready for unit testing.
+#[must_use = "process returns a ProcessOutput that should not be discarded"]
 pub fn process(app: &App, presets: &[Preset]) -> Result<ProcessOutput> {
     let now = app
         .now
