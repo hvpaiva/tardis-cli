@@ -90,3 +90,22 @@ jobs:
           out=$(td range "this week" -f "%Y-%m-%d" -t UTC --now "2025-01-01T00:00:00Z")
           echo "$out" | head -1 | grep -q "2024-12-30"
           echo "$out" | tail -1 | grep -q "2025-01-05"
+
+      - name: Smoke 12 - boundary keyword
+        run: |
+          out=$(td eod -f "%H:%M:%S" -t UTC --now "2025-01-01T10:00:00Z")
+          [[ "$out" == "23:59:59" ]]
+
+      - name: Smoke 13 - epoch input
+        run: |
+          out=$(td "@1735689600" -f "%Y-%m-%d" -t UTC)
+          [[ "$out" == "2025-01-01" ]]
+
+      - name: Smoke 14 - no-newline flag
+        run: |
+          out=$(td "2025-01-01" -f "%Y-%m-%d" -t UTC -n | wc -c | tr -d ' ')
+          [[ "$out" == "10" ]]
+
+      - name: Smoke 15 - shell completions
+        run: |
+          td completions bash | grep -q "_td"
