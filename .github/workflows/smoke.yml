@@ -69,28 +69,23 @@ jobs:
           out=$(td info "2025-01-01" --json -t UTC --now "2025-01-01T00:00:00Z")
           echo "$out" | grep -q '"weekday":"Wednesday"'
 
-      - name: Smoke 8 - locale PT
-        run: |
-          out=$(td --locale pt "amanha" -f "%Y-%m-%d" -t UTC --now "2025-01-01T00:00:00Z")
-          [[ "$out" == "2025-01-02" ]]
-
-      - name: Smoke 9 - verbose flag
+      - name: Smoke 8 - verbose flag
         run: |
           td --verbose "tomorrow" --now "2025-01-01T00:00:00Z" -t UTC 2>/tmp/verbose.txt
           grep -q "\[config\]" /tmp/verbose.txt
           grep -q "\[timing\]" /tmp/verbose.txt
 
-      - name: Smoke 10 - batch with skip-errors
+      - name: Smoke 9 - batch with skip-errors
         run: |
           out=$(printf "2025-01-01\n???\n2025-01-02" | td -f "%Y-%m-%d" -t UTC --skip-errors --now "2025-01-01T00:00:00Z" 2>/dev/null)
           echo "$out" | head -1 | grep -q "2025-01-01"
 
-      - name: Smoke 11 - arithmetic
+      - name: Smoke 10 - arithmetic
         run: |
           out=$(td "tomorrow + 3 hours" -f "%Y-%m-%dT%H:%M:%S" -t UTC --now "2025-01-01T00:00:00Z")
           [[ "$out" == "2025-01-02T03:00:00" ]]
 
-      - name: Smoke 12 - range expression
+      - name: Smoke 11 - range expression
         run: |
           out=$(td "2025-01-01..2025-01-03" -f "%Y-%m-%d" -t UTC --now "2025-01-01T00:00:00Z")
           echo "$out" | head -1 | grep -q "2025-01-01"

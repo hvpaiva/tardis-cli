@@ -57,7 +57,6 @@ src/
     grammar.rs  - recursive descent parser
     resolver.rs - AST to jiff::Zoned resolution
     suggest.rs  - "did you mean?" error suggestions
-  locale/       - multi-locale support (EN, PT)
 ```
 
 ## Features
@@ -65,7 +64,6 @@ src/
 TARDIS provides several subcommands and capabilities beyond basic date parsing:
 
 - **Subcommands**: `diff` (date difference), `convert` (format conversion), `tz` (timezone conversion), `info` (date metadata)
-- **Multi-locale**: `--locale` flag supports EN and PT natural-language expressions
 - **Verbose mode**: `--verbose` flag outputs diagnostic information to stderr
 - **Arithmetic**: expressions like `"tomorrow + 3 hours"` or `"next friday - 2 days"`
 - **Ranges**: expressions like `"2025-01-01..2025-01-03"` produce multi-line output
