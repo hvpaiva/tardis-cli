@@ -85,8 +85,8 @@ jobs:
           out=$(td "tomorrow + 3 hours" -f "%Y-%m-%dT%H:%M:%S" -t UTC --now "2025-01-01T00:00:00Z")
           [[ "$out" == "2025-01-02T03:00:00" ]]
 
-      - name: Smoke 11 - range expression
+      - name: Smoke 11 - range subcommand
         run: |
-          out=$(td "2025-01-01..2025-01-03" -f "%Y-%m-%d" -t UTC --now "2025-01-01T00:00:00Z")
-          echo "$out" | head -1 | grep -q "2025-01-01"
-          echo "$out" | tail -1 | grep -q "2025-01-03"
+          out=$(td range "this week" -f "%Y-%m-%d" -t UTC --now "2025-01-01T00:00:00Z")
+          echo "$out" | head -1 | grep -q "2024-12-30"
+          echo "$out" | tail -1 | grep -q "2025-01-05"
