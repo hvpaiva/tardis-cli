@@ -110,6 +110,23 @@ jobs:
             exit 1
           }
 
+  semver:
+    name: Semver checks
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-semver-checks
+        run: cargo install cargo-semver-checks --locked
+
+      - name: Check semver
+        run: cargo semver-checks check-release
+
   msrv:
     name: MSRV (1.85)
     runs-on: ubuntu-latest
