@@ -37,7 +37,7 @@ pub enum EpochPrecision {
     Nanoseconds,
 }
 
-/// TaskWarrior-style boundary keywords.
+/// Boundary keywords for period start/end.
 ///
 /// Current period (so/eo = start-of / end-of),
 /// previous period (sop/eop), and next period (son/eon).

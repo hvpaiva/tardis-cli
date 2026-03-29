@@ -2199,7 +2199,7 @@ fn test_ereyesterday() {
 }
 
 #[test]
-fn test_tw_eod() {
+fn test_boundary_eod() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2218,7 +2218,7 @@ fn test_tw_eod() {
 }
 
 #[test]
-fn test_tw_sod() {
+fn test_boundary_sod() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2237,7 +2237,7 @@ fn test_tw_sod() {
 }
 
 #[test]
-fn test_tw_sow() {
+fn test_boundary_sow() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2256,7 +2256,7 @@ fn test_tw_sow() {
 }
 
 #[test]
-fn test_tw_eow() {
+fn test_boundary_eow() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2275,7 +2275,7 @@ fn test_tw_eow() {
 }
 
 #[test]
-fn test_tw_som() {
+fn test_boundary_som() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2294,7 +2294,7 @@ fn test_tw_som() {
 }
 
 #[test]
-fn test_tw_eom() {
+fn test_boundary_eom() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2313,7 +2313,7 @@ fn test_tw_eom() {
 }
 
 #[test]
-fn test_tw_soy() {
+fn test_boundary_soy() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2332,7 +2332,7 @@ fn test_tw_soy() {
 }
 
 #[test]
-fn test_tw_eoy() {
+fn test_boundary_eoy() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2351,7 +2351,7 @@ fn test_tw_eoy() {
 }
 
 #[test]
-fn test_tw_soww_eoww() {
+fn test_boundary_soww_eoww() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2384,7 +2384,7 @@ fn test_tw_soww_eoww() {
 }
 
 #[test]
-fn test_tw_soq_eoq() {
+fn test_boundary_soq_eoq() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2417,7 +2417,7 @@ fn test_tw_soq_eoq() {
 }
 
 #[test]
-fn test_tw_sopd_eopd() {
+fn test_boundary_sopd_eopd() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2450,7 +2450,7 @@ fn test_tw_sopd_eopd() {
 }
 
 #[test]
-fn test_tw_sond_eond() {
+fn test_boundary_sond_eond() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2483,7 +2483,7 @@ fn test_tw_sond_eond() {
 }
 
 #[test]
-fn test_tw_sopw() {
+fn test_boundary_sopw() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2501,7 +2501,7 @@ fn test_tw_sopw() {
 }
 
 #[test]
-fn test_tw_eopw() {
+fn test_boundary_eopw() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2519,7 +2519,7 @@ fn test_tw_eopw() {
 }
 
 #[test]
-fn test_tw_sopm() {
+fn test_boundary_sopm() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2537,7 +2537,7 @@ fn test_tw_sopm() {
 }
 
 #[test]
-fn test_tw_eopm() {
+fn test_boundary_eopm() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2555,7 +2555,7 @@ fn test_tw_eopm() {
 }
 
 #[test]
-fn test_tw_sopq() {
+fn test_boundary_sopq() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2573,7 +2573,7 @@ fn test_tw_sopq() {
 }
 
 #[test]
-fn test_tw_eopq() {
+fn test_boundary_eopq() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2591,7 +2591,7 @@ fn test_tw_eopq() {
 }
 
 #[test]
-fn test_tw_sopy() {
+fn test_boundary_sopy() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2609,7 +2609,7 @@ fn test_tw_sopy() {
 }
 
 #[test]
-fn test_tw_eopy() {
+fn test_boundary_eopy() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2627,7 +2627,7 @@ fn test_tw_eopy() {
 }
 
 #[test]
-fn test_tw_sonw() {
+fn test_boundary_sonw() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2645,7 +2645,7 @@ fn test_tw_sonw() {
 }
 
 #[test]
-fn test_tw_eonw() {
+fn test_boundary_eonw() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2663,7 +2663,7 @@ fn test_tw_eonw() {
 }
 
 #[test]
-fn test_tw_sonm() {
+fn test_boundary_sonm() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2681,7 +2681,7 @@ fn test_tw_sonm() {
 }
 
 #[test]
-fn test_tw_eonm() {
+fn test_boundary_eonm() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2699,7 +2699,7 @@ fn test_tw_eonm() {
 }
 
 #[test]
-fn test_tw_sonq() {
+fn test_boundary_sonq() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2717,7 +2717,7 @@ fn test_tw_sonq() {
 }
 
 #[test]
-fn test_tw_eonq() {
+fn test_boundary_eonq() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2735,7 +2735,7 @@ fn test_tw_eonq() {
 }
 
 #[test]
-fn test_tw_sony() {
+fn test_boundary_sony() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2753,7 +2753,7 @@ fn test_tw_sony() {
 }
 
 #[test]
-fn test_tw_eony() {
+fn test_boundary_eony() {
     let tmp = TempDir::new().unwrap();
     td_cmd(&tmp)
         .args([
@@ -2771,7 +2771,7 @@ fn test_tw_eony() {
 }
 
 #[test]
-fn test_tw_eod_plus_1h() {
+fn test_boundary_eod_plus_1h() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2790,7 +2790,7 @@ fn test_tw_eod_plus_1h() {
 }
 
 #[test]
-fn test_tw_sow_minus_1d() {
+fn test_boundary_sow_minus_1d() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)
@@ -2809,7 +2809,7 @@ fn test_tw_sow_minus_1d() {
 }
 
 #[test]
-fn test_tw_eom_plus_3d() {
+fn test_boundary_eom_plus_3d() {
     let tmp = TempDir::new().unwrap();
 
     td_cmd(&tmp)

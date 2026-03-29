@@ -331,7 +331,7 @@ start of the previous period (Monday 00:00 for weeks, 1st 00:00 for
 months, Jan 1 00:00 for years) — consistent with `this` and `next`.
 For relative offsets, use `-1w`, `-1mo`, or `1 week ago`.
 
-## Boundary Keywords (TaskWarrior-Style)
+## Boundary Keywords
 
 Shortcuts for the start or end of common periods. Inspired by TaskWarrior
 date expressions.

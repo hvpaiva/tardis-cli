@@ -31,7 +31,7 @@ pub enum DateExpr {
     /// "last week", "this month", "next year", "Q3 2025" -- period expressions
     Range(RangeExpr),
 
-    /// TaskWarrior boundary keyword: `eod`, `sow`, etc.
+    /// Boundary keyword: `eod`, `sow`, etc.
     Boundary(BoundaryKind),
 }
 

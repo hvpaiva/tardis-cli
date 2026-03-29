@@ -372,7 +372,7 @@ fn expand_by_time_granularity(
     }
 }
 
-/// Resolve a TaskWarrior boundary keyword to a concrete datetime.
+/// Resolve a boundary keyword to a concrete datetime.
 ///
 /// Boundaries are instants (specific moments in time):
 /// - Start-of-period: 00:00:00.000000000
