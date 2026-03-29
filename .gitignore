@@ -61,6 +61,7 @@ Desktop.ini
 *.bak
 *.tmp
 
+.env
 .planning/
 .claude/
 CLAUDE.md

@@ -10,7 +10,6 @@ documentation = "https://docs.rs/tardis-cli"
 readme = "README.md"
 keywords = ["cli", "date", "time", "natural-language", "parser"]
 categories = ["command-line-utilities", "date-and-time"]
-exclude = [".github/", "examples/", "scripts/", "assets/tardis.png"]
 include = [
   "src/**",
   "build.rs",
