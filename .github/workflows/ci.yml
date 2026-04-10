@@ -105,10 +105,22 @@ jobs:
 
       - name: Compare with committed snapshots
         run: |
-          diff -r docs/man docs/man-check || {
+          failed=0
+          for src in docs/td*.1.md; do
+            name=$(basename "$src" .md)
+            # Strip pandoc version comment and font preamble (varies across pandoc versions)
+            sed '/^\.\\"/d; /^\.ie/,/^\.\}/d; /^\.el/,/^\.\}/d; /^\.ftr/d' docs/man/"$name" > /tmp/committed
+            sed '/^\.\\"/d; /^\.ie/,/^\.\}/d; /^\.el/,/^\.\}/d; /^\.ftr/d' docs/man-check/"$name" > /tmp/generated
+            if ! diff -q /tmp/committed /tmp/generated >/dev/null 2>&1; then
+              echo "::error::$name content differs from committed snapshot"
+              diff /tmp/committed /tmp/generated || true
+              failed=1
+            fi
+          done
+          if [ "$failed" = "1" ]; then
             echo "::error::Man page snapshots are out of date. Run 'just man' and commit the results."
             exit 1
-          }
+          fi
 
   semver:
     name: Semver checks
