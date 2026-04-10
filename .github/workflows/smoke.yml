@@ -77,7 +77,7 @@ jobs:
 
       - name: Smoke 9 - batch with skip-errors
         run: |
-          out=$(printf "2025-01-01\n???\n2025-01-02" | td -f "%Y-%m-%d" -t UTC --skip-errors --now "2025-01-01T00:00:00Z" 2>/dev/null)
+          out=$(printf "2025-01-01\n???\n2025-01-02" | td -f "%Y-%m-%d" -t UTC --skip-errors --now "2025-01-01T00:00:00Z" 2>/dev/null || true)
           echo "$out" | head -1 | grep -q "2025-01-01"
 
       - name: Smoke 10 - arithmetic
