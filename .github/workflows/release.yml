@@ -74,7 +74,7 @@ jobs:
         if: steps.bump.outputs.global_tag != ''
         run: |
           cargo install cargo-sbom --locked
-          cargo sbom --output-format=cyclonedx-json-1.4 > tardis-cli.cdx.json
+          cargo sbom --output-format=cyclone_dx_json_1_4 > tardis-cli.cdx.json
 
       - name: Create GitHub Release
         if: steps.bump.outputs.global_tag != ''
