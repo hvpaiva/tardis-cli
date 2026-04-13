@@ -4,6 +4,8 @@ All notable changes to **TARDIS** will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+- - -
+
 ## [0.1.0] – 2025-06-25
 ### Added
 - **Natural-language parsing** of date/time expressions via `human-date-parser`
