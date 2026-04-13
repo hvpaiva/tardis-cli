@@ -13,7 +13,7 @@ pre_bump_hooks = [
     "cargo clippy --all-targets --all-features -- -D warnings",
     "cargo test --all-features",
     "sed -i 's/^version = \".*\"/version = \"{{version}}\"/' Cargo.toml",
-    "cargo generate-lockfile",
+    "cargo update --workspace",
 ]
 
 post_bump_hooks = []
