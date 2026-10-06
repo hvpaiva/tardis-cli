@@ -134,15 +134,26 @@ jobs:
   msrv:
     name: MSRV (1.85)
     runs-on: ubuntu-latest
+    # rustup prefers rust-toolchain.toml (stable) over the default the toolchain
+    # action sets, so the job names its toolchain.
+    env:
+      RUSTUP_TOOLCHAIN: "1.85"
     steps:
       - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@1.85
+
+      - uses: dtolnay/rust-toolchain@1.88
 
       - uses: Swatinem/rust-cache@v2
 
       - name: Build
         run: cargo build
 
+      # The crate builds on 1.85, its dev-dependencies do not: criterion declares
+      # 1.86, and ignore (through globwalk) uses let chains, stable from 1.88,
+      # without declaring a rust-version.
       - name: Test
         run: cargo test
+        env:
+          RUSTUP_TOOLCHAIN: "1.88"
