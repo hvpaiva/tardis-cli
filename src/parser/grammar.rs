@@ -347,29 +347,26 @@ impl<'a> Parser<'a> {
     fn try_duration_components(&mut self) -> Option<Vec<DurationComponent>> {
         let mut comps = Vec::new();
 
-        if let Some(comp) = self.try_single_duration() {
-            if comp.unit == TemporalUnit::Hour {
-                let saved_after_hour = self.save();
-                if self.match_token(&Token::Number(0)) {
-                    let minutes = self.last_number();
-                    if !self.peek_is_unit() {
-                        comps.push(comp);
-                        comps.push(DurationComponent {
-                            count: minutes,
-                            unit: TemporalUnit::Minute,
-                        });
-                    } else {
-                        self.restore(saved_after_hour);
-                        comps.push(comp);
-                    }
+        let comp = self.try_single_duration()?;
+        if comp.unit == TemporalUnit::Hour {
+            let saved_after_hour = self.save();
+            if self.match_token(&Token::Number(0)) {
+                let minutes = self.last_number();
+                if !self.peek_is_unit() {
+                    comps.push(comp);
+                    comps.push(DurationComponent {
+                        count: minutes,
+                        unit: TemporalUnit::Minute,
+                    });
                 } else {
+                    self.restore(saved_after_hour);
                     comps.push(comp);
                 }
             } else {
                 comps.push(comp);
             }
         } else {
-            return None;
+            comps.push(comp);
         }
 
         loop {
