@@ -8,6 +8,7 @@
 use std::{
     collections::HashMap,
     env, fs,
+    io::Write,
     path::{Path, PathBuf},
 };
 
@@ -91,11 +92,15 @@ fn create_config_if_missing(path: &Path) -> Result<()> {
         return Ok(());
     }
 
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
+    let dir = path.parent().unwrap_or(Path::new("."));
+    fs::create_dir_all(dir)?;
 
-    fs::write(path, TEMPLATE.trim_start())?;
+    // Another run may find the file between the check above and the write, so
+    // the template is written beside it and renamed into place: readers see no
+    // file or the whole template, never a truncated one.
+    let mut staged = tempfile::NamedTempFile::new_in(dir)?;
+    staged.write_all(TEMPLATE.trim_start().as_bytes())?;
+    staged.persist(path).map_err(|e| e.error)?;
     Ok(())
 }
 
@@ -111,7 +116,7 @@ mod tests {
     use super::*;
     use assert_fs::{TempDir, prelude::*};
     use serial_test::serial;
-    use std::{env, ffi::OsString, fs};
+    use std::{env, ffi::OsString, fs, sync::Barrier, thread};
 
     struct EnvGuard {
         key: &'static str,
@@ -284,5 +289,26 @@ short = "%H:%M"
         super::create_config_if_missing(file.path()).unwrap();
         let after = fs::read_to_string(&file).unwrap();
         assert_eq!(before, after);
+    }
+
+    #[test]
+    fn concurrent_first_runs_never_read_a_partial_config() {
+        const RUNS: usize = 16;
+
+        for _ in 0..20 {
+            let tmp = TempDir::new().unwrap();
+            let path = tmp.path().join("tardis").join("config.toml");
+            let start = Barrier::new(RUNS);
+
+            thread::scope(|s| {
+                for _ in 0..RUNS {
+                    s.spawn(|| {
+                        start.wait();
+                        super::create_config_if_missing(&path).unwrap();
+                        assert_eq!(fs::read_to_string(&path).unwrap(), TEMPLATE.trim_start());
+                    });
+                }
+            });
+        }
     }
 }
