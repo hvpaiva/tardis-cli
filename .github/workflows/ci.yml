@@ -135,9 +135,10 @@ jobs:
     name: MSRV (1.85)
     runs-on: ubuntu-latest
     # rustup prefers rust-toolchain.toml (stable) over the default the toolchain
-    # action sets, so the job names its toolchain.
+    # action sets, so the job names its toolchain, by the full version the
+    # action installs (rustup would install a bare "1.85" a second time).
     env:
-      RUSTUP_TOOLCHAIN: "1.85"
+      RUSTUP_TOOLCHAIN: "1.85.1"
     steps:
       - uses: actions/checkout@v7
 
@@ -156,4 +157,4 @@ jobs:
       - name: Test
         run: cargo test
         env:
-          RUSTUP_TOOLCHAIN: "1.88"
+          RUSTUP_TOOLCHAIN: "1.88.0"
